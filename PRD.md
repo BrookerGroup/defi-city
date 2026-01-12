@@ -323,6 +323,336 @@ Level 5: Unlock Advanced Strategies
 
 ---
 
+## Building Progression (Starting Buildings)
+
+### Initial Buildings by Level
+
+| Level | TVL Required | Unlocked Buildings | Protocol |
+|-------|--------------|-------------------|----------|
+| 1 | $0 | 🏛️ Town Hall (auto) | - |
+| 1 | $0 | 🌾 Yield Farm | Aave (USDC) |
+| 2 | $100 | 🪵 Staking Camp | Lido (ETH) |
+| 3 | $500 | ⛏️ LP Mine | Uniswap V3 |
+| 4 | $2,000 | 🏪 Shop | DEX Aggregator |
+| 5 | $5,000 | 🏰 Castle | Governance Lock |
+
+### Starting State (New Player)
+
+```mermaid
+flowchart TD
+    subgraph START["🎮 New Player Starts"]
+        A[Connect Wallet] --> B[Create Smart Wallet]
+        B --> C[Deposit USDC/ETH]
+    end
+
+    subgraph INITIAL["📦 Initial City - Level 1"]
+        D["🏛️ Town Hall<br/>(Auto-placed, FREE)"]
+        E["🌾 Yield Farm<br/>(Unlocked, 10 USDC min)"]
+    end
+
+    C --> D
+    C --> E
+
+    subgraph PROGRESS["📈 Progression"]
+        F["Deposit $100+ → Level 2<br/>Unlock: 🪵 Staking Camp"]
+        G["Deposit $500+ → Level 3<br/>Unlock: ⛏️ LP Mine"]
+        H["Deposit $2000+ → Level 4<br/>Unlock: 🏪 Shop"]
+        I["Deposit $5000+ → Level 5<br/>Unlock: 🏰 Castle"]
+    end
+
+    E --> F --> G --> H --> I
+```
+
+### Building Limits per Level
+
+```mermaid
+graph LR
+    subgraph L1["Level 1"]
+        A1["🏛️ Town Hall: 1"]
+        A2["🌾 Yield Farm: 3"]
+    end
+
+    subgraph L2["Level 2"]
+        B1["🌾 Yield Farm: 5"]
+        B2["🪵 Staking Camp: 2"]
+    end
+
+    subgraph L3["Level 3"]
+        C1["🌾 Yield Farm: 10"]
+        C2["🪵 Staking Camp: 5"]
+        C3["⛏️ LP Mine: 3"]
+    end
+
+    subgraph L5["Level 5"]
+        D1["All Buildings: Unlimited"]
+        D2["🏰 Castle: 1"]
+    end
+
+    L1 --> L2 --> L3 --> L5
+```
+
+---
+
+## System Diagrams (Mermaid)
+
+### Overall System Architecture
+
+```mermaid
+flowchart TB
+    subgraph Frontend["🖥️ Frontend Layer"]
+        UI["Game UI<br/>(PixiJS)"]
+        Wallet["Wallet UI<br/>(Privy)"]
+        Portfolio["Portfolio View"]
+
+        UI --> App
+        Wallet --> App
+        Portfolio --> App
+        App["Next.js App<br/>(wagmi + viem)"]
+    end
+
+    subgraph Blockchain["⛓️ Blockchain Layer"]
+        Factory["SmartWalletFactory<br/>(Deploy + Registry)"]
+
+        WalletA["Smart Wallet A"]
+        WalletB["Smart Wallet B"]
+        WalletC["Smart Wallet C"]
+
+        Factory --> WalletA
+        Factory --> WalletB
+        Factory --> WalletC
+
+        subgraph Protocols["DeFi Protocols"]
+            Aave["Aave V3"]
+            Lido["Lido"]
+            Uniswap["Uniswap V3"]
+        end
+
+        WalletA --> Protocols
+        WalletB --> Protocols
+        WalletC --> Protocols
+    end
+
+    App --> Factory
+```
+
+### Token Flow Diagram
+
+```mermaid
+flowchart TD
+    subgraph User["👤 User"]
+        EOA["EOA Wallet<br/>(MetaMask)"]
+    end
+
+    subgraph SmartWallet["📱 Smart Wallet"]
+        Balance["Balances:<br/>• USDC: 1000<br/>• ETH: 0.5<br/>• aUSDC: 500<br/>• LP NFT #123"]
+    end
+
+    subgraph DeFi["🏦 DeFi Protocols"]
+        Aave["Aave Pool<br/>USDC → aUSDC<br/>APY: 5%"]
+        Uniswap["Uniswap V3<br/>ETH + USDC → LP NFT<br/>APY: 10-20%"]
+    end
+
+    EOA -->|"① Transfer USDC/ETH"| SmartWallet
+    SmartWallet -->|"② depositToAave()"| Aave
+    SmartWallet -->|"③ addLiquidity()"| Uniswap
+
+    Aave -->|"aUSDC"| SmartWallet
+    Uniswap -->|"LP NFT"| SmartWallet
+
+    SmartWallet -->|"④ Withdraw"| EOA
+```
+
+### Game State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Connect: Open App
+
+    Connect --> CreateWallet: No Wallet
+    Connect --> Loading: Has Wallet
+    CreateWallet --> Loading: Wallet Created
+
+    Loading --> Playing: Balances Loaded
+
+    state Playing {
+        [*] --> Idle
+        Idle --> Building: Select Building
+        Building --> Depositing: Confirm Build
+        Depositing --> Idle: Tx Success
+        Depositing --> Idle: Tx Failed
+
+        Idle --> Withdrawing: Click Withdraw
+        Withdrawing --> Idle: Tx Complete
+    }
+
+    Playing --> Disconnect: Disconnect Wallet
+    Disconnect --> [*]
+```
+
+### Building → Protocol Mapping
+
+```mermaid
+flowchart LR
+    subgraph Game["🎮 GAME WORLD"]
+        TH["🏛️ Town Hall"]
+        YF["🌾 Yield Farm"]
+        SC["🪵 Staking Camp"]
+        LP["⛏️ LP Mine"]
+        CA["🏰 Castle"]
+        SH["🏪 Shop"]
+    end
+
+    subgraph DeFi["💰 DEFI WORLD"]
+        SW["Smart Wallet Balance"]
+        AAVE["Aave V3<br/>USDC Lending<br/>APY: 5%"]
+        LIDO["Lido<br/>ETH Staking<br/>APY: 4%"]
+        UNI["Uniswap V3<br/>LP Position<br/>APY: 10-20%"]
+        GOV["Governance Vault<br/>Lock 90d<br/>Boost: +25%"]
+        DEX["DEX Aggregator<br/>1inch / 0x"]
+    end
+
+    TH -.->|"Portfolio Overview"| SW
+    YF -->|"Supply USDC"| AAVE
+    SC -->|"Stake ETH"| LIDO
+    LP -->|"Add Liquidity"| UNI
+    CA -->|"Lock Tokens"| GOV
+    SH -->|"Swap"| DEX
+```
+
+### Sequence: Build Yield Farm
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant GameUI
+    participant SmartWallet
+    participant Aave
+
+    User->>GameUI: Click "Build Yield Farm"
+    GameUI->>User: Show deposit modal
+    User->>GameUI: Enter 100 USDC
+    GameUI->>SmartWallet: depositToAave(USDC, 100)
+
+    SmartWallet->>Aave: approve(100)
+    SmartWallet->>Aave: supply(USDC, 100)
+    Aave-->>SmartWallet: aUSDC (100)
+
+    SmartWallet-->>GameUI: Tx confirmed
+    GameUI-->>User: 🌾 Farm appears on map!
+```
+
+### Database Schema (Off-chain)
+
+```mermaid
+erDiagram
+    USERS ||--o{ CITIES : owns
+    CITIES ||--o{ BUILDINGS : contains
+    CITIES ||--o{ TRANSACTIONS : has
+
+    USERS {
+        int id PK
+        string wallet_address
+        string smart_wallet
+        datetime created_at
+        datetime last_login
+    }
+
+    CITIES {
+        int id PK
+        int user_id FK
+        string name
+        int level
+        json layout
+        datetime created_at
+    }
+
+    BUILDINGS {
+        int id PK
+        int city_id FK
+        string type
+        int x_pos
+        int y_pos
+        decimal deposited
+        datetime created_at
+    }
+
+    TRANSACTIONS {
+        int id PK
+        int city_id FK
+        string type
+        decimal amount
+        string tx_hash
+        string status
+        datetime created_at
+    }
+```
+
+### Multi-Chain Architecture (Future)
+
+```mermaid
+flowchart TB
+    subgraph Frontend["DeFi City Frontend"]
+        App["Next.js App"]
+    end
+
+    subgraph Chains["Supported Chains"]
+        subgraph Base["Base (Primary)"]
+            B1["• Low gas"]
+            B2["• Fast tx"]
+            B3["• Aave V3"]
+            B4["• Uniswap V3"]
+        end
+
+        subgraph Arbitrum["Arbitrum"]
+            A1["• More DeFi"]
+            A2["• GMX, Camelot"]
+            A3["• Aave V3"]
+        end
+
+        subgraph Ethereum["Ethereum (Premium)"]
+            E1["• Main Aave"]
+            E2["• Main Uniswap"]
+            E3["• Highest TVL"]
+        end
+    end
+
+    subgraph Bridge["Bridge (Future)"]
+        LZ["LayerZero / CCIP"]
+    end
+
+    App --> Base
+    App --> Arbitrum
+    App --> Ethereum
+
+    Base <--> LZ
+    Arbitrum <--> LZ
+    Ethereum <--> LZ
+```
+
+### User Onboarding Flow
+
+```mermaid
+journey
+    title User Onboarding Journey
+    section Connect
+      Open DeFi City: 5: User
+      Click Connect Wallet: 4: User
+      Choose MetaMask/Social: 4: User
+    section Setup
+      Create Smart Wallet: 3: System
+      View Empty City: 4: User
+    section First Deposit
+      Transfer USDC to Wallet: 3: User
+      Build First Yield Farm: 5: User
+      See Farm on Map: 5: User
+    section Earning
+      Watch APY accumulate: 5: User
+      Level up to 2: 5: System
+      Unlock Staking Camp: 5: User
+```
+
+---
+
 ## Technical Architecture
 
 ### 5.1 Smart Contract Stack
