@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DeFi City - Isometric</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://pixijs.download/v8.0.0/pixi.min.js"></script>
+    <style>
+        :root {
+            --pixel-green: #4ade80;
+            --pixel-dark: #166534;
+            --pixel-gold: #fbbf24;
+            --pixel-blue: #60a5fa;
+            --pixel-purple: #a855f7;
+            --pixel-red: #f87171;
+            --ui-bg: rgba(30, 41, 59, 0.95);
+            --ui-card: #334155;
+            --ui-border: #475569;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: #1a1a2e;
+            overflow: hidden;
+            color: white;
+        }
+        #game-container {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+        }
+
+        /* Top HUD */
+        .top-hud {
+            position: fixed;
+            top: 16px; left: 16px; right: 16px;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: none;
+        }
+        .top-hud > * { pointer-events: auto; }
+
+        .resource-bar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .resource-item {
+            background: var(--ui-bg);
+            border: 2px solid var(--ui-border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 10px;
+            backdrop-filter: blur(8px);
+        }
+        .resource-icon {
+            width: 24px; height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        .resource-value { color: var(--pixel-gold); }
+
+        .wallet-area {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+        .wallet-btn {
+            background: linear-gradient(180deg, var(--pixel-green) 0%, var(--pixel-dark) 100%);
+            border: 3px solid #22c55e;
+            border-radius: 8px;
+            padding: 10px 16px;
+            color: white;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 0 #14532d;
+            transition: all 0.1s;
+        }
+        .wallet-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 0 #14532d; }
+        .wallet-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #14532d; }
+
+        .view-toggle {
+            display: flex;
+            background: var(--ui-bg);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid var(--ui-border);
+            backdrop-filter: blur(8px);
+        }
+        .view-btn {
+            padding: 8px 12px;
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .view-btn.active { background: var(--pixel-green); color: white; }
+
+        /* City Stats */
+        .city-stats {
+            position: fixed;
+            top: 80px; left: 16px;
+            background: var(--ui-bg);
+            border: 2px solid var(--ui-border);
+            border-radius: 12px;
+            padding: 16px;
+            z-index: 100;
+            min-width: 180px;
+            backdrop-filter: blur(8px);
+        }
+        .city-stats h3 {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 10px;
+            color: var(--pixel-gold);
+            margin-bottom: 12px;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+        .stat-value { color: var(--pixel-green); font-weight: bold; }
+        .level-badge {
+            background: linear-gradient(180deg, var(--pixel-gold) 0%, #d97706 100%);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            margin-top: 8px;
+            display: inline-block;
+        }
+
+        /* Building Toolbar */
+        .toolbar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--ui-bg);
+            border: 2px solid var(--ui-border);
+            border-radius: 16px;
+            padding: 12px 16px;
+            display: flex;
+            gap: 8px;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+        }
+        .toolbar-item {
+            width: 64px;
+            height: 80px;
+            background: var(--ui-card);
+            border: 2px solid var(--ui-border);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .toolbar-item:hover { transform: translateY(-4px); border-color: var(--pixel-green); }
+        .toolbar-item.selected { border-color: var(--pixel-gold); background: rgba(251, 191, 36, 0.2); }
+        .toolbar-item.locked { opacity: 0.5; cursor: not-allowed; }
+        .toolbar-item .icon { font-size: 24px; margin-bottom: 4px; }
+        .toolbar-item .name { font-size: 8px; font-family: 'Press Start 2P', monospace; text-align: center; }
+        .toolbar-item .cost { font-size: 8px; color: var(--pixel-gold); margin-top: 2px; }
+        .toolbar-item .count {
+            position: absolute;
+            top: -8px; right: -8px;
+            background: var(--pixel-green);
+            color: white;
+            font-size: 10px;
+            font-family: 'Press Start 2P', monospace;
+            width: 20px; height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Controls hint */
+        .controls-hint {
+            position: fixed;
+            bottom: 120px; left: 16px;
+            background: var(--ui-bg);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 10px;
+            color: #94a3b8;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+        }
+        .controls-hint kbd {
+            background: var(--ui-card);
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin: 0 2px;
+        }
+
+        /* Info Panel */
+        .info-panel {
+            position: fixed;
+            top: 50%; right: 20px;
+            transform: translateY(-50%);
+            background: var(--ui-bg);
+            border: 2px solid var(--ui-border);
+            border-radius: 16px;
+            padding: 20px;
+            width: 280px;
+            z-index: 200;
+            display: none;
+            backdrop-filter: blur(8px);
+        }
+        .info-panel.show { display: block; }
+        .info-panel .close-btn {
+            position: absolute;
+            top: 10px; right: 10px;
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        .info-panel h2 {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 12px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        .info-row .label { color: #94a3b8; }
+        .info-row .value { color: var(--pixel-green); font-weight: bold; }
+        .info-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        .info-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .info-btn.primary { background: var(--pixel-green); color: white; }
+        .info-btn.secondary { background: var(--ui-card); color: white; border: 1px solid var(--ui-border); }
+        .info-btn.danger { background: var(--pixel-red); color: white; }
+
+        /* Portfolio View */
+        .portfolio-view {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+            z-index: 300;
+            display: none;
+            overflow-y: auto;
+            padding: 80px 20px 20px;
+        }
+        .portfolio-view.show { display: block; }
+        .portfolio-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .portfolio-header h1 {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+        .portfolio-total {
+            font-size: 14px;
+            color: var(--pixel-green);
+        }
+        .portfolio-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .portfolio-card {
+            background: var(--ui-card);
+            border-radius: 16px;
+            padding: 20px;
+            border: 2px solid var(--ui-border);
+        }
+        .portfolio-card h3 {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 12px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .position-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        .position-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .position-icon { font-size: 24px; }
+        .position-name { font-weight: bold; }
+        .position-strategy { font-size: 11px; color: #94a3b8; }
+        .position-apy { color: var(--pixel-green); font-weight: bold; }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 400;
+        }
+        .modal.show { display: flex; }
+        .modal-content {
+            background: var(--ui-bg);
+            border: 2px solid var(--ui-border);
+            border-radius: 16px;
+            padding: 24px;
+            width: 90%;
+            max-width: 400px;
+        }
+        .modal-content h2 {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 12px;
+            margin-bottom: 20px;
+        }
+        .modal-content .close-btn {
+            position: absolute;
+            top: 10px; right: 10px;
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        .input-group {
+            margin-bottom: 16px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            background: var(--ui-card);
+            border: 2px solid var(--ui-border);
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+        }
+        .input-group .max-btn {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--pixel-green);
+            border: none;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            cursor: pointer;
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 500;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .toast {
+            background: var(--ui-bg);
+            border: 2px solid var(--ui-border);
+            border-radius: 8px;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+
+    <!-- Top HUD -->
+    <div class="top-hud">
+        <div class="resource-bar">
+            <div class="resource-item">
+                <span class="resource-icon">💵</span>
+                <span class="resource-value" id="res-stable">2500</span>
+            </div>
+            <div class="resource-item">
+                <span class="resource-icon">⟠</span>
+                <span class="resource-value" id="res-eth">1.50</span>
+            </div>
+            <div class="resource-item">
+                <span class="resource-icon">💎</span>
+                <span class="resource-value" id="res-lp">500</span>
+            </div>
+        </div>
+        <div class="wallet-area">
+            <button class="wallet-btn" id="wallet-btn" onclick="connectWallet()">
+                <span id="wallet-status">CONNECT</span>
+            </button>
+            <div class="view-toggle">
+                <button class="view-btn active" id="city-view-btn" onclick="showCityView()">🏙️ CITY</button>
+                <button class="view-btn" id="finance-view-btn" onclick="showPortfolio()">📊 PORTFOLIO</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- City Stats -->
+    <div class="city-stats">
+        <h3>⭐ CITY STATS</h3>
+        <div class="stat-row">
+            <span>Total Value</span>
+            <span class="stat-value" id="stat-tvl">$6000</span>
+        </div>
+        <div class="stat-row">
+            <span>Daily Yield</span>
+            <span class="stat-value" id="stat-daily">+$0.00</span>
+        </div>
+        <div class="stat-row">
+            <span>Buildings</span>
+            <span class="stat-value" id="stat-buildings">0</span>
+        </div>
+        <div class="level-badge" id="level-badge">⭐ LEVEL 1</div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-hint">
+        <kbd>WASD</kbd> Move | <kbd>Click</kbd> Select | <kbd>ESC</kbd> Cancel
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar" id="toolbar"></div>
+
+    <!-- Info Panel -->
+    <div class="info-panel" id="info-panel">
+        <button class="close-btn" onclick="closeInfoPanel()">✕</button>
+        <h2 id="info-title">Building</h2>
+        <div class="info-row"><span class="label">Description</span><span class="value" id="info-desc"></span></div>
+        <div class="info-row"><span class="label">Deposited</span><span class="value" id="info-deposited">$0</span></div>
+        <div class="info-row"><span class="label">APY</span><span class="value" id="info-apy">0%</span></div>
+        <div class="info-row"><span class="label">Earned</span><span class="value" id="info-earned">$0</span></div>
+        <div class="info-row"><span class="label">Total</span><span class="value" id="info-total">$0</span></div>
+        <div class="info-actions">
+            <button class="info-btn primary" onclick="harvestBuilding()">🌾 HARVEST</button>
+            <button class="info-btn secondary" onclick="showDepositModal()">➕ ADD</button>
+            <button class="info-btn danger" onclick="demolishBuilding()">🗑️</button>
+        </div>
+    </div>
+
+    <!-- Portfolio View -->
+    <div class="portfolio-view" id="portfolio-view">
+        <div class="portfolio-header">
+            <h1>📊 PORTFOLIO</h1>
+            <div class="portfolio-total" id="portfolio-total">+$0.00 ALL TIME</div>
+        </div>
+        <div class="portfolio-grid">
+            <div class="portfolio-card">
+                <h3>ACTIVE POSITIONS</h3>
+                <div id="positions-list"></div>
+            </div>
+            <div class="portfolio-card">
+                <h3>💰 EARNINGS</h3>
+                <div id="earnings-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deposit Modal -->
+    <div class="modal" id="deposit-modal">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeDepositModal()">✕</button>
+            <h2>💰 DEPOSIT</h2>
+            <div class="input-group">
+                <label>Amount <span id="deposit-max">MAX: 0</span></label>
+                <input type="number" id="deposit-amount" placeholder="0">
+                <span id="deposit-currency">💵 USDC</span>
+            </div>
+            <div class="info-row"><span class="label">Deposit</span><span class="value" id="deposit-preview">$0</span></div>
+            <div class="info-row"><span class="label">APY</span><span class="value" id="deposit-apy">0%</span></div>
+            <div class="info-row"><span class="label">Daily</span><span class="value" id="deposit-daily">+$0</span></div>
+            <button class="info-btn primary" style="width:100%;margin-top:16px" onclick="confirmDeposit()">CONFIRM</button>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script>
+    // ===== ISOMETRIC CONSTANTS =====
+    const TILE_WIDTH = 64;
+    const TILE_HEIGHT = 32;  // 2:1 ratio for isometric
+    const MAP_WIDTH = 50;
+    const MAP_HEIGHT = 40;
+    const STORAGE_KEY = 'deficity_iso_v2';
+
+    // Building definitions with sprite paths
+    const BUILDINGS = {
+        towncenter: { name: 'Town Hall', icon: '🏛️', desc: 'Your HQ', w: 2, h: 2, cost: { type: 'stable', amount: 0 }, apy: 0, strategy: 'Portfolio Hub', max: 1, color: 0xd4a574, height: 80, sprite: 'assets/PNG/buildingTiles_085.png' },
+        farm: { name: 'Yield Farm', icon: '🌾', desc: 'Stable yields', w: 2, h: 2, cost: { type: 'stable', amount: 100 }, apy: 5.2, strategy: 'USDC → Aave', max: 10, color: 0x90EE90, height: 50, sprite: 'assets/PNG/buildingTiles_100.png' },
+        lumber: { name: 'Staking Camp', icon: '🪵', desc: 'ETH staking', w: 2, h: 2, cost: { type: 'eth', amount: 0.05 }, apy: 8.4, strategy: 'ETH → Lido', max: 10, color: 0xDEB887, height: 45, sprite: 'assets/PNG/buildingTiles_009.png' },
+        mine: { name: 'LP Mine', icon: '⛏️', desc: 'Liquidity mining', w: 2, h: 2, cost: { type: 'lp', amount: 50 }, apy: 12.1, strategy: 'Uniswap LP', max: 10, color: 0x8B8B8B, height: 55, sprite: 'assets/PNG/buildingTiles_033.png' },
+        castle: { name: 'Castle', icon: '🏰', desc: 'Governance boost', w: 3, h: 3, cost: { type: 'stable', amount: 1000 }, apy: 0, boost: 25, strategy: 'Lock 90d', max: 1, minLevel: 3, color: 0x606080, height: 100, sprite: 'assets/PNG/buildingTiles_122.png' },
+        shop: { name: 'Shop', icon: '🏪', desc: 'Trading hub', w: 2, h: 2, cost: { type: 'stable', amount: 200 }, apy: 3.5, strategy: 'Swap fees', max: 5, color: 0xFFB6C1, height: 50, sprite: 'assets/PNG/buildingTiles_001.png' }
+    };
+
+    // Preloaded textures
+    const buildingTextures = {};
+
+    // ===== GAME STATE =====
+    let gameState = loadGame();
+    let app, worldContainer, player;
+    let selectedBuilding = null;
+    let placingType = null;
+    let previewSprite = null;
+
+    function defaultState() {
+        return {
+            resources: { stable: 2500, eth: 1.5, lp: 500 },
+            buildings: [],
+            playerTileX: Math.floor(MAP_WIDTH / 2),
+            playerTileY: Math.floor(MAP_HEIGHT / 2),
+            level: 1, totalDeposited: 0, totalEarned: 0,
+            wallet: null, lastUpdate: Date.now()
+        };
+    }
+
+    function loadGame() {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            try {
+                const data = JSON.parse(saved);
+                const hours = (Date.now() - data.lastUpdate) / 3600000;
+                if (hours > 0 && data.buildings) {
+                    data.buildings.forEach(b => {
+                        const def = BUILDINGS[b.type];
+                        if (def && def.apy > 0) {
+                            const rate = def.apy / 100 / 365 / 24;
+                            b.earned = (b.earned || 0) + b.deposited * rate * hours;
+                        }
+                    });
+                }
+                return { ...defaultState(), ...data };
+            } catch(e) { console.error(e); }
+        }
+        return defaultState();
+    }
+
+    function saveGame() {
+        gameState.lastUpdate = Date.now();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
+    }
+
+    // ===== ISOMETRIC HELPERS =====
+    function tileToScreen(tileX, tileY) {
+        const screenX = (tileX - tileY) * (TILE_WIDTH / 2);
+        const screenY = (tileX + tileY) * (TILE_HEIGHT / 2);
+        return { x: screenX, y: screenY };
+    }
+
+    function screenToTile(screenX, screenY) {
+        const tileX = Math.floor((screenX / (TILE_WIDTH / 2) + screenY / (TILE_HEIGHT / 2)) / 2);
+        const tileY = Math.floor((screenY / (TILE_HEIGHT / 2) - screenX / (TILE_WIDTH / 2)) / 2);
+        return { x: tileX, y: tileY };
+    }
+
+    function darken(color, amount) {
+        const r = Math.max(0, ((color >> 16) & 0xFF) * (1 - amount));
+        const g = Math.max(0, ((color >> 8) & 0xFF) * (1 - amount));
+        const b = Math.max(0, (color & 0xFF) * (1 - amount));
+        return (Math.floor(r) << 16) | (Math.floor(g) << 8) | Math.floor(b);
+    }
+
+    function lighten(color, amount) {
+        const r = Math.min(255, ((color >> 16) & 0xFF) + 255 * amount);
+        const g = Math.min(255, ((color >> 8) & 0xFF) + 255 * amount);
+        const b = Math.min(255, (color & 0xFF) + 255 * amount);
+        return (Math.floor(r) << 16) | (Math.floor(g) << 8) | Math.floor(b);
+    }
+
+    // ===== PIXI SETUP =====
+    async function loadBuildingTextures() {
+        const loadPromises = [];
+        for (const [type, def] of Object.entries(BUILDINGS)) {
+            if (def.sprite) {
+                loadPromises.push(
+                    PIXI.Assets.load(def.sprite).then(texture => {
+                        buildingTextures[type] = texture;
+                    }).catch(err => {
+                        console.warn(`Failed to load texture for ${type}:`, err);
+                    })
+                );
+            }
+        }
+        await Promise.all(loadPromises);
+    }
+
+    async function initGame() {
+        app = new PIXI.Application();
+        await app.init({
+            background: 0x87CEEB,  // Sky blue
+            resizeTo: window,
+            antialias: true,
+            resolution: 1,
+            preference: 'webgl'
+        });
+        document.getElementById('game-container').appendChild(app.canvas);
+
+        // Load building textures
+        await loadBuildingTextures();
+
+        worldContainer = new PIXI.Container();
+        app.stage.addChild(worldContainer);
+
+        // Draw world
+        drawIsometricMap();
+        drawBuildings();
+        createPlayer();
+
+        centerCamera();
+        setupInput();
+
+        app.ticker.add(gameLoop);
+        updateToolbar();
+        updateUI();
+    }
+
+    function drawIsometricMap() {
+        const mapContainer = new PIXI.Container();
+        mapContainer.isMap = true;
+
+        // Calculate center offset
+        const centerX = MAP_WIDTH * TILE_WIDTH / 2;
+
+        for (let y = 0; y < MAP_HEIGHT; y++) {
+            for (let x = 0; x < MAP_WIDTH; x++) {
+                const screen = tileToScreen(x, y);
+                const g = new PIXI.Graphics();
+
+                // Determine tile type
+                const pathY = Math.floor(MAP_HEIGHT / 2);
+                const pathX = Math.floor(MAP_WIDTH / 2);
+                const isPath = (y === pathY || x === pathX) && x > 2 && x < MAP_WIDTH - 3 && y > 2 && y < MAP_HEIGHT - 3;
+
+                let topColor, leftColor, rightColor;
+                if (isPath) {
+                    topColor = 0xC4A76C;
+                    leftColor = darken(topColor, 0.2);
+                    rightColor = darken(topColor, 0.3);
+                } else {
+                    const variant = (x + y) % 3;
+                    topColor = variant === 0 ? 0x5A9F4E : variant === 1 ? 0x4A8F3E : 0x4A9544;
+                    leftColor = darken(topColor, 0.15);
+                    rightColor = darken(topColor, 0.25);
+                }
+
+                // Draw isometric tile (diamond shape with depth)
+                // Top face
+                g.poly([
+                    screen.x + centerX, screen.y,
+                    screen.x + centerX + TILE_WIDTH/2, screen.y + TILE_HEIGHT/2,
+                    screen.x + centerX, screen.y + TILE_HEIGHT,
+                    screen.x + centerX - TILE_WIDTH/2, screen.y + TILE_HEIGHT/2
+                ]);
+                g.fill(topColor);
+                g.stroke({ width: 1, color: darken(topColor, 0.3), alpha: 0.5 });
+
+                mapContainer.addChild(g);
+
+                // Add grass details for non-path tiles
+                if (!isPath && Math.random() > 0.85) {
+                    const detail = new PIXI.Graphics();
+                    const dx = (Math.random() - 0.5) * TILE_WIDTH * 0.4;
+                    const dy = (Math.random() - 0.5) * TILE_HEIGHT * 0.4;
+                    detail.circle(screen.x + centerX + dx, screen.y + TILE_HEIGHT/2 + dy, 2);
+                    detail.fill(darken(topColor, 0.2));
+                    mapContainer.addChild(detail);
+                }
+            }
+        }
+
+        // Add trees around edges
+        for (let i = 0; i < 40; i++) {
+            let tx, ty;
+            do {
+                tx = Math.floor(Math.random() * MAP_WIDTH);
+                ty = Math.floor(Math.random() * MAP_HEIGHT);
+            } while (
+                (tx > 6 && tx < MAP_WIDTH - 6 && ty > 6 && ty < MAP_HEIGHT - 6) ||
+                ty === Math.floor(MAP_HEIGHT / 2) || tx === Math.floor(MAP_WIDTH / 2)
+            );
+            const screen = tileToScreen(tx, ty);
+            drawIsometricTree(mapContainer, screen.x + centerX, screen.y + TILE_HEIGHT/2);
+        }
+
+        worldContainer.addChild(mapContainer);
+    }
+
+    function drawIsometricTree(container, x, y) {
+        const tree = new PIXI.Graphics();
+
+        // Shadow
+        tree.ellipse(x, y + 5, 15, 8);
+        tree.fill({ color: 0x000000, alpha: 0.2 });
+
+        // Trunk
+        tree.rect(x - 4, y - 35, 8, 40);
+        tree.fill(0x8B4513);
+
+        // Foliage layers (isometric cone shape)
+        tree.poly([x, y - 70, x - 20, y - 30, x + 20, y - 30]);
+        tree.fill(0x228B22);
+        tree.poly([x, y - 55, x - 18, y - 20, x + 18, y - 20]);
+        tree.fill(0x2E8B2E);
+        tree.poly([x, y - 40, x - 15, y - 10, x + 15, y - 10]);
+        tree.fill(0x32CD32);
+
+        container.addChild(tree);
+    }
+
+    function drawBuildings() {
+        // Remove existing buildings
+        worldContainer.children.filter(c => c.isBuilding).forEach(c => worldContainer.removeChild(c));
+
+        const centerX = MAP_WIDTH * TILE_WIDTH / 2;
+
+        gameState.buildings.forEach((b, idx) => {
+            const def = BUILDINGS[b.type];
+            if (!def) return;
+
+            const container = new PIXI.Container();
+            container.isBuilding = true;
+            container.buildingIdx = idx;
+
+            const screen = tileToScreen(b.x, b.y);
+            container.x = screen.x + centerX;
+            container.y = screen.y;
+
+            // Use sprite if texture is loaded, otherwise fallback to procedural
+            const texture = buildingTextures[b.type];
+            if (texture) {
+                const sprite = new PIXI.Sprite(texture);
+
+                // Scale sprite to fit tile size (sprites are 133x127 base)
+                const targetWidth = def.w * TILE_WIDTH;
+                const scale = targetWidth / sprite.texture.width * 1.0;
+                sprite.scale.set(scale);
+
+                // Position sprite - anchor at bottom center for isometric alignment
+                sprite.anchor.set(0.5, 1);
+                sprite.x = (def.w * TILE_WIDTH) / 2;
+                sprite.y = def.h * TILE_HEIGHT + 10;
+
+                container.addChild(sprite);
+            } else {
+                // Fallback to procedural graphics if texture not loaded
+                const g = new PIXI.Graphics();
+                const bw = def.w * TILE_WIDTH;
+                const bh = def.h * TILE_HEIGHT;
+                const height = def.height;
+
+                // Shadow
+                g.ellipse(bw/4, bh/2 + 10, bw/3, bh/4);
+                g.fill({ color: 0x000000, alpha: 0.25 });
+
+                // Left face
+                g.poly([0, bh/2, 0, bh/2 - height, bw/2, bh - height, bw/2, bh]);
+                g.fill(darken(def.color, 0.3));
+
+                // Right face
+                g.poly([bw/2, bh, bw/2, bh - height, bw, bh/2 - height, bw, bh/2]);
+                g.fill(darken(def.color, 0.15));
+
+                // Top face
+                g.poly([bw/2, 0 - height + bh/2, bw, bh/2 - height, bw/2, bh - height, 0, bh/2 - height]);
+                g.fill(def.color);
+
+                container.addChild(g);
+            }
+
+            // Production indicator (green dot when earning)
+            if (def.apy > 0 && b.deposited > 0) {
+                const indicator = new PIXI.Graphics();
+                indicator.circle(def.w * TILE_WIDTH - 10, -40, 8);
+                indicator.fill(0x4ade80);
+                container.addChild(indicator);
+            }
+
+            // Sort by Y for proper depth
+            container.zIndex = b.y * 100 + b.x;
+
+            worldContainer.addChild(container);
+        });
+
+        worldContainer.sortChildren();
+    }
+
+    function createPlayer() {
+        player = new PIXI.Container();
+
+        const centerX = MAP_WIDTH * TILE_WIDTH / 2;
+        const screen = tileToScreen(gameState.playerTileX, gameState.playerTileY);
+        player.x = screen.x + centerX;
+        player.y = screen.y + TILE_HEIGHT / 2;
+
+        const g = new PIXI.Graphics();
+
+        // Shadow
+        g.ellipse(0, 10, 12, 6);
+        g.fill({ color: 0x000000, alpha: 0.3 });
+
+        // Body (isometric character)
+        g.ellipse(0, -10, 10, 15);
+        g.fill(0x4A90D9);
+
+        // Head
+        g.circle(0, -30, 10);
+        g.fill(0xFFDBAC);
+
+        // Eyes
+        g.circle(-3, -32, 2);
+        g.fill(0x333333);
+        g.circle(3, -32, 2);
+        g.fill(0x333333);
+
+        player.addChild(g);
+        player.zIndex = 10000;
+        worldContainer.addChild(player);
+    }
+
+    function centerCamera() {
+        const mapW = MAP_WIDTH * TILE_WIDTH;
+        const mapH = MAP_HEIGHT * TILE_HEIGHT + MAP_HEIGHT * TILE_HEIGHT / 2;
+
+        let camX = app.screen.width / 2 - player.x;
+        let camY = app.screen.height / 2 - player.y;
+
+        // Clamp camera
+        const minX = app.screen.width - mapW - 200;
+        const maxX = 200;
+        const minY = app.screen.height - mapH - 100;
+        const maxY = 100;
+
+        camX = Math.max(minX, Math.min(maxX, camX));
+        camY = Math.max(minY, Math.min(maxY, camY));
+
+        worldContainer.x = camX;
+        worldContainer.y = camY;
+    }
+
+    // ===== INPUT =====
+    const keys = {};
+
+    function setupInput() {
+        window.addEventListener('keydown', e => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key === 'Escape') {
+                cancelPlacing();
+                closeInfoPanel();
+            }
+        });
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+        app.canvas.addEventListener('click', e => {
+            const rect = app.canvas.getBoundingClientRect();
+            const worldX = e.clientX - rect.left - worldContainer.x;
+            const worldY = e.clientY - rect.top - worldContainer.y;
+
+            const centerX = MAP_WIDTH * TILE_WIDTH / 2;
+            const tile = screenToTile(worldX - centerX, worldY);
+
+            if (placingType) {
+                placeBuilding(tile.x, tile.y);
+            } else {
+                // Check for building click
+                const building = gameState.buildings.find(b => {
+                    const def = BUILDINGS[b.type];
+                    return tile.x >= b.x && tile.x < b.x + def.w &&
+                           tile.y >= b.y && tile.y < b.y + def.h;
+                });
+                if (building) {
+                    selectBuilding(building);
+                }
+            }
+        });
+
+        app.canvas.addEventListener('mousemove', e => {
+            if (placingType) {
+                const rect = app.canvas.getBoundingClientRect();
+                const worldX = e.clientX - rect.left - worldContainer.x;
+                const worldY = e.clientY - rect.top - worldContainer.y;
+                const centerX = MAP_WIDTH * TILE_WIDTH / 2;
+                const tile = screenToTile(worldX - centerX, worldY);
+                showPreview(tile.x, tile.y);
+            }
+        });
+    }
+
+    function gameLoop() {
+        // Player movement
+        const speed = 3;
+        let dx = 0, dy = 0;
+
+        if (keys['w'] || keys['arrowup']) dy = -speed;
+        if (keys['s'] || keys['arrowdown']) dy = speed;
+        if (keys['a'] || keys['arrowleft']) dx = -speed;
+        if (keys['d'] || keys['arrowright']) dx = speed;
+
+        if (dx !== 0 || dy !== 0) {
+            // Convert screen movement to isometric
+            const newX = player.x + dx;
+            const newY = player.y + dy;
+
+            // Get tile position
+            const centerX = MAP_WIDTH * TILE_WIDTH / 2;
+            const tile = screenToTile(newX - centerX, newY);
+
+            // Check bounds
+            if (tile.x >= 1 && tile.x < MAP_WIDTH - 1 && tile.y >= 1 && tile.y < MAP_HEIGHT - 1) {
+                player.x = newX;
+                player.y = newY;
+                gameState.playerTileX = tile.x;
+                gameState.playerTileY = tile.y;
+                centerCamera();
+            }
+        }
+
+        // Update earnings
+        gameState.buildings.forEach(b => {
+            const def = BUILDINGS[b.type];
+            if (def && def.apy > 0 && b.deposited > 0) {
+                const rate = def.apy / 100 / 365 / 24 / 3600;
+                b.earned = (b.earned || 0) + b.deposited * rate * (1/60);
+            }
+        });
+    }
+
+    // ===== BUILDING PLACEMENT =====
+    function startPlacing(type) {
+        const def = BUILDINGS[type];
+        if (!def) return;
+
+        // Check resources
+        const cost = def.cost;
+        if (cost.type === 'stable' && gameState.resources.stable < cost.amount) {
+            showToast('Not enough USDC!', 'error');
+            return;
+        }
+        if (cost.type === 'eth' && gameState.resources.eth < cost.amount) {
+            showToast('Not enough ETH!', 'error');
+            return;
+        }
+        if (cost.type === 'lp' && gameState.resources.lp < cost.amount) {
+            showToast('Not enough LP!', 'error');
+            return;
+        }
+
+        // Check max
+        const count = gameState.buildings.filter(b => b.type === type).length;
+        if (count >= def.max) {
+            showToast(`Max ${def.max} ${def.name}!`, 'error');
+            return;
+        }
+
+        // Check level
+        if (def.minLevel && gameState.level < def.minLevel) {
+            showToast(`Need level ${def.minLevel}!`, 'error');
+            return;
+        }
+
+        placingType = type;
+        updateToolbar();
+        showToast(`Click to place ${def.name}`, 'info');
+    }
+
+    function canPlace(x, y) {
+        const def = BUILDINGS[placingType];
+        if (!def) return false;
+
+        // Check bounds
+        if (x < 0 || y < 0 || x + def.w > MAP_WIDTH || y + def.h > MAP_HEIGHT) return false;
+
+        // Check path
+        const pathY = Math.floor(MAP_HEIGHT / 2);
+        const pathX = Math.floor(MAP_WIDTH / 2);
+        for (let dy = 0; dy < def.h; dy++) {
+            for (let dx = 0; dx < def.w; dx++) {
+                if (y + dy === pathY || x + dx === pathX) return false;
+            }
+        }
+
+        // Check overlap
+        for (const b of gameState.buildings) {
+            const bDef = BUILDINGS[b.type];
+            if (x < b.x + bDef.w && x + def.w > b.x &&
+                y < b.y + bDef.h && y + def.h > b.y) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    function showPreview(tileX, tileY) {
+        if (previewSprite) worldContainer.removeChild(previewSprite);
+
+        const def = BUILDINGS[placingType];
+        if (!def) return;
+
+        previewSprite = new PIXI.Graphics();
+        const centerX = MAP_WIDTH * TILE_WIDTH / 2;
+        const screen = tileToScreen(tileX, tileY);
+
+        const bw = def.w * TILE_WIDTH;
+        const bh = def.h * TILE_HEIGHT;
+        const valid = canPlace(tileX, tileY);
+
+        // Draw preview tile
+        previewSprite.poly([
+            screen.x + centerX + bw/2, screen.y,
+            screen.x + centerX + bw, screen.y + bh/2,
+            screen.x + centerX + bw/2, screen.y + bh,
+            screen.x + centerX, screen.y + bh/2
+        ]);
+        previewSprite.fill({ color: valid ? 0x4ade80 : 0xef4444, alpha: 0.4 });
+        previewSprite.stroke({ width: 2, color: valid ? 0x22c55e : 0xdc2626 });
+
+        previewSprite.zIndex = 9999;
+        worldContainer.addChild(previewSprite);
+        worldContainer.sortChildren();
+    }
+
+    function placeBuilding(tileX, tileY) {
+        if (!canPlace(tileX, tileY)) {
+            showToast('Cannot place here!', 'error');
+            return;
+        }
+
+        const def = BUILDINGS[placingType];
+
+        // Deduct cost
+        if (def.cost.type === 'stable') gameState.resources.stable -= def.cost.amount;
+        if (def.cost.type === 'eth') gameState.resources.eth -= def.cost.amount;
+        if (def.cost.type === 'lp') gameState.resources.lp -= def.cost.amount;
+
+        // Add building
+        gameState.buildings.push({
+            type: placingType,
+            x: tileX,
+            y: tileY,
+            deposited: 0,
+            earned: 0,
+            createdAt: Date.now()
+        });
+
+        // Update level
+        gameState.level = Math.floor(gameState.buildings.length / 3) + 1;
+
+        cancelPlacing();
+        drawBuildings();
+        saveGame();
+        updateUI();
+        showToast(`${def.name} built!`, 'success');
+    }
+
+    function cancelPlacing() {
+        placingType = null;
+        if (previewSprite) {
+            worldContainer.removeChild(previewSprite);
+            previewSprite = null;
+        }
+        updateToolbar();
+    }
+
+    // ===== UI FUNCTIONS =====
+    function updateUI() {
+        document.getElementById('res-stable').textContent = Math.floor(gameState.resources.stable);
+        document.getElementById('res-eth').textContent = gameState.resources.eth.toFixed(2);
+        document.getElementById('res-lp').textContent = Math.floor(gameState.resources.lp);
+
+        const tvl = 6000 + gameState.buildings.reduce((sum, b) => sum + (b.deposited || 0), 0);
+        document.getElementById('stat-tvl').textContent = '$' + tvl.toLocaleString();
+
+        const daily = gameState.buildings.reduce((sum, b) => {
+            const def = BUILDINGS[b.type];
+            return sum + (def?.apy || 0) / 100 / 365 * (b.deposited || 0);
+        }, 0);
+        document.getElementById('stat-daily').textContent = '+$' + daily.toFixed(2);
+
+        document.getElementById('stat-buildings').textContent = gameState.buildings.length;
+        document.getElementById('level-badge').textContent = '⭐ LEVEL ' + gameState.level;
+
+        if (gameState.wallet) {
+            document.getElementById('wallet-status').textContent = gameState.wallet.slice(0, 6) + '..';
+        }
+    }
+
+    function updateToolbar() {
+        const toolbar = document.getElementById('toolbar');
+        toolbar.innerHTML = '';
+
+        Object.entries(BUILDINGS).forEach(([type, def]) => {
+            const count = gameState.buildings.filter(b => b.type === type).length;
+            const locked = def.minLevel && gameState.level < def.minLevel;
+            const maxed = count >= def.max;
+
+            const item = document.createElement('div');
+            item.className = 'toolbar-item' + (placingType === type ? ' selected' : '') + (locked ? ' locked' : '');
+
+            let costText = def.cost.amount === 0 ? 'FREE' :
+                          def.cost.type === 'eth' ? def.cost.amount : def.cost.amount;
+
+            item.innerHTML = `
+                ${count > 0 ? `<span class="count">${count}</span>` : ''}
+                <span class="icon">${locked ? '🔒' : def.icon}</span>
+                <span class="name">${def.name}</span>
+                <span class="cost">${locked ? 'LV' + def.minLevel : costText}</span>
+            `;
+
+            if (!locked && !maxed) {
+                item.onclick = () => startPlacing(type);
+            }
+
+            toolbar.appendChild(item);
+        });
+    }
+
+    function selectBuilding(building) {
+        selectedBuilding = building;
+        const def = BUILDINGS[building.type];
+
+        document.getElementById('info-title').innerHTML = def.icon + ' ' + def.name;
+        document.getElementById('info-desc').textContent = def.desc;
+        document.getElementById('info-deposited').textContent = '$' + (building.deposited || 0).toFixed(2);
+        document.getElementById('info-apy').textContent = def.apy + '%';
+        document.getElementById('info-earned').textContent = '$' + (building.earned || 0).toFixed(2);
+        document.getElementById('info-total').textContent = '$' + ((building.deposited || 0) + (building.earned || 0)).toFixed(2);
+
+        document.getElementById('info-panel').classList.add('show');
+    }
+
+    function closeInfoPanel() {
+        document.getElementById('info-panel').classList.remove('show');
+        selectedBuilding = null;
+    }
+
+    function harvestBuilding() {
+        if (!selectedBuilding) return;
+        const earned = selectedBuilding.earned || 0;
+        if (earned <= 0) {
+            showToast('Nothing to harvest!', 'error');
+            return;
+        }
+
+        gameState.resources.stable += earned;
+        gameState.totalEarned += earned;
+        selectedBuilding.earned = 0;
+
+        saveGame();
+        updateUI();
+        selectBuilding(selectedBuilding);
+        showToast(`Harvested $${earned.toFixed(2)}!`, 'success');
+    }
+
+    function demolishBuilding() {
+        if (!selectedBuilding) return;
+        if (selectedBuilding.type === 'towncenter') {
+            showToast('Cannot demolish Town Hall!', 'error');
+            return;
+        }
+
+        const def = BUILDINGS[selectedBuilding.type];
+        const refund = def.cost.amount * 0.5;
+
+        if (def.cost.type === 'stable') gameState.resources.stable += refund;
+        if (def.cost.type === 'eth') gameState.resources.eth += refund;
+        if (def.cost.type === 'lp') gameState.resources.lp += refund;
+
+        gameState.resources.stable += selectedBuilding.deposited || 0;
+
+        const idx = gameState.buildings.indexOf(selectedBuilding);
+        gameState.buildings.splice(idx, 1);
+
+        closeInfoPanel();
+        drawBuildings();
+        saveGame();
+        updateUI();
+        updateToolbar();
+        showToast(`${def.name} demolished!`, 'info');
+    }
+
+    function showDepositModal() {
+        if (!selectedBuilding) return;
+        const def = BUILDINGS[selectedBuilding.type];
+        if (def.apy === 0) {
+            showToast('This building cannot accept deposits', 'error');
+            return;
+        }
+
+        const max = def.cost.type === 'stable' ? gameState.resources.stable :
+                   def.cost.type === 'eth' ? gameState.resources.eth : gameState.resources.lp;
+
+        document.getElementById('deposit-max').textContent = 'MAX: ' + max.toFixed(2);
+        document.getElementById('deposit-apy').textContent = def.apy + '%';
+        document.getElementById('deposit-amount').value = '';
+        document.getElementById('deposit-preview').textContent = '$0';
+        document.getElementById('deposit-daily').textContent = '+$0';
+        document.getElementById('deposit-modal').classList.add('show');
+
+        document.getElementById('deposit-amount').oninput = (e) => {
+            const val = parseFloat(e.target.value) || 0;
+            document.getElementById('deposit-preview').textContent = '$' + val.toFixed(2);
+            document.getElementById('deposit-daily').textContent = '+$' + (val * def.apy / 100 / 365).toFixed(4);
+        };
+    }
+
+    function closeDepositModal() {
+        document.getElementById('deposit-modal').classList.remove('show');
+    }
+
+    function confirmDeposit() {
+        if (!selectedBuilding) return;
+        const def = BUILDINGS[selectedBuilding.type];
+        const amount = parseFloat(document.getElementById('deposit-amount').value) || 0;
+
+        if (amount <= 0) {
+            showToast('Enter amount!', 'error');
+            return;
+        }
+
+        if (def.cost.type === 'stable' && amount > gameState.resources.stable) {
+            showToast('Not enough USDC!', 'error');
+            return;
+        }
+
+        if (def.cost.type === 'stable') gameState.resources.stable -= amount;
+        selectedBuilding.deposited = (selectedBuilding.deposited || 0) + amount;
+        gameState.totalDeposited += amount;
+
+        closeDepositModal();
+        drawBuildings();
+        saveGame();
+        updateUI();
+        selectBuilding(selectedBuilding);
+        showToast(`Deposited $${amount.toFixed(2)}!`, 'success');
+    }
+
+    function showPortfolio() {
+        document.getElementById('city-view-btn').classList.remove('active');
+        document.getElementById('finance-view-btn').classList.add('active');
+        document.getElementById('portfolio-view').classList.add('show');
+
+        document.getElementById('portfolio-total').textContent = '+$' + gameState.totalEarned.toFixed(2) + ' ALL TIME';
+
+        const positions = document.getElementById('positions-list');
+        positions.innerHTML = '';
+
+        const grouped = {};
+        gameState.buildings.forEach(b => {
+            const def = BUILDINGS[b.type];
+            if (!grouped[b.type]) grouped[b.type] = { count: 0, deposited: 0, earned: 0, def };
+            grouped[b.type].count++;
+            grouped[b.type].deposited += b.deposited || 0;
+            grouped[b.type].earned += b.earned || 0;
+        });
+
+        Object.entries(grouped).forEach(([type, data]) => {
+            const item = document.createElement('div');
+            item.className = 'position-item';
+            item.innerHTML = `
+                <div class="position-info">
+                    <span class="position-icon">${data.def.icon}</span>
+                    <div>
+                        <div class="position-name">${data.def.name} x${data.count}</div>
+                        <div class="position-strategy">${data.def.strategy}</div>
+                    </div>
+                </div>
+                <div class="position-apy">+${data.def.apy}% APY</div>
+            `;
+            positions.appendChild(item);
+        });
+
+        if (Object.keys(grouped).length === 0) {
+            positions.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:20px">Build buildings to start earning!</div>';
+        }
+    }
+
+    function showCityView() {
+        document.getElementById('finance-view-btn').classList.remove('active');
+        document.getElementById('city-view-btn').classList.add('active');
+        document.getElementById('portfolio-view').classList.remove('show');
+    }
+
+    function connectWallet() {
+        const addr = '0x' + Math.random().toString(16).slice(2, 8);
+        gameState.wallet = addr;
+        document.getElementById('wallet-status').textContent = addr;
+        saveGame();
+        showToast('Wallet connected!', 'success');
+    }
+
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.innerHTML = `
+            <span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+            <span>${message}</span>
+        `;
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    // ===== INIT =====
+    async function init() {
+        await initGame();
+
+        // Create initial Town Hall
+        if (gameState.buildings.length === 0) {
+            gameState.buildings.push({
+                type: 'towncenter',
+                x: Math.floor(MAP_WIDTH / 2) + 2,
+                y: Math.floor(MAP_HEIGHT / 2) + 2,
+                deposited: 0, earned: 0, createdAt: Date.now()
+            });
+            saveGame();
+            drawBuildings();
+        }
+
+        showToast('Welcome to DeFi City!', 'info');
+    }
+
+    init();
+    </script>
+</body>
+</html>
