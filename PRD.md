@@ -23,6 +23,178 @@
 
 ---
 
+## User Flow
+
+### Step 1: Connect Wallet
+```
+┌─────────────────────────────────────────────────────────┐
+│                    🎮 DeFi City                         │
+│                                                         │
+│              Welcome to DeFi City!                      │
+│                                                         │
+│         ┌─────────────────────────────┐                │
+│         │   🦊 Connect with MetaMask  │                │
+│         └─────────────────────────────┘                │
+│         ┌─────────────────────────────┐                │
+│         │   📧 Connect with Email     │                │
+│         └─────────────────────────────┘                │
+│         ┌─────────────────────────────┐                │
+│         │   🔑 Connect with Google    │                │
+│         └─────────────────────────────┘                │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Technical:**
+- ใช้ Privy/Dynamic SDK สำหรับ authentication
+- รองรับ EOA (MetaMask) และ Social Login
+- เก็บ session ใน localStorage
+
+### Step 2: Create Smart Wallet (ถ้ายังไม่มี)
+```
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│         🏗️ Creating Your Smart Wallet...               │
+│                                                         │
+│         ┌─────────────────────────────┐                │
+│         │  ████████████░░░░  75%      │                │
+│         └─────────────────────────────┘                │
+│                                                         │
+│         ✅ Deploying wallet contract                   │
+│         ✅ Setting up permissions                       │
+│         ⏳ Finalizing...                               │
+│                                                         │
+│         Your wallet: 0x1234...5678                     │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Technical:**
+```javascript
+// Check if user has Smart Wallet
+const existingWallet = await factory.getWallet(userAddress);
+
+if (existingWallet === ADDRESS_ZERO) {
+    // Create new Smart Wallet
+    const tx = await factory.createWallet(userAddress);
+    await tx.wait();
+
+    // Get new wallet address
+    const newWallet = await factory.getWallet(userAddress);
+    console.log("Smart Wallet created:", newWallet);
+}
+```
+
+**Flow:**
+```
+User connects EOA (MetaMask/Social)
+         │
+         ▼
+Check SmartWalletFactory.getWallet(user)
+         │
+         ├── Wallet exists? → Go to Step 3
+         │
+         └── No wallet? → Deploy new SmartWallet
+                              │
+                              ▼
+                         Save to localStorage
+                              │
+                              ▼
+                         Go to Step 3
+```
+
+### Step 3: Start Playing DeFi (Game HTML)
+```
+┌─────────────────────────────────────────────────────────┐
+│  💰 2500    ◇ 1.50    💎 500           🔗 Connected    │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│     ⬆️                        🌲         🌲            │
+│   ⬅️ 🧍 ➡️         🏛️                                  │
+│     ⬇️          Town Hall      🌲     🌲               │
+│                                                         │
+│        🌾              ⛏️                               │
+│    Yield Farm       LP Mine          🌲                │
+│                                                         │
+├─────────────────────────────────────────────────────────┤
+│  [🏛️ Town Hall] [🌾 Farm] [⛏️ Mine] [🏪 Shop] [🏰]    │
+└─────────────────────────────────────────────────────────┘
+```
+
+**User Actions in Game:**
+
+| Game Action | Smart Contract Call | Result |
+|-------------|---------------------|--------|
+| สร้าง Yield Farm | `wallet.depositToAave(USDC, 100)` | ได้ aUSDC |
+| สร้าง LP Mine | `wallet.addLiquidity(ETH, USDC, ...)` | ได้ LP NFT |
+| เก็บ Yield | `wallet.withdrawFromAave(USDC, amount)` | ได้ USDC + interest |
+| Collect Fees | `wallet.collectFees(tokenId)` | ได้ trading fees |
+
+**Complete User Journey:**
+```
+┌────────────────────────────────────────────────────────────────┐
+│                                                                │
+│   ┌──────────┐    ┌──────────────┐    ┌──────────────────┐   │
+│   │  Step 1  │    │    Step 2    │    │      Step 3      │   │
+│   │ Connect  │───▶│ Create Smart │───▶│   Play Game      │   │
+│   │ Wallet   │    │   Wallet     │    │   (DeFi)         │   │
+│   └──────────┘    └──────────────┘    └──────────────────┘   │
+│        │                 │                     │              │
+│        ▼                 ▼                     ▼              │
+│   ┌──────────┐    ┌──────────────┐    ┌──────────────────┐   │
+│   │ MetaMask │    │SmartWallet   │    │ • Build farms    │   │
+│   │ or       │    │Factory       │    │ • Deposit crypto │   │
+│   │ Social   │    │.createWallet()│   │ • Earn yields    │   │
+│   │ Login    │    │              │    │ • Withdraw profit│   │
+│   └──────────┘    └──────────────┘    └──────────────────┘   │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### Deposit & Withdraw Flow
+
+**Deposit (เติมเงินเข้าเกม):**
+```
+User's MetaMask/CEX
+        │
+        │ Transfer USDC/ETH
+        ▼
+┌─────────────────┐
+│  Smart Wallet   │  ← User's game wallet
+│  (0x1234...)    │
+└────────┬────────┘
+         │
+         │ สร้างอาคาร = Deposit to Protocol
+         ▼
+┌─────────────────┐
+│  Aave/Uniswap   │
+│  (get aUSDC/LP) │
+└─────────────────┘
+```
+
+**Withdraw (ถอนเงินออก):**
+```
+Game: Click "Withdraw" on building
+        │
+        ▼
+SmartWallet.withdrawFromAave() / removeLiquidity()
+        │
+        ▼
+┌─────────────────┐
+│  Smart Wallet   │  ← USDC/ETH returned here
+│  (0x1234...)    │
+└────────┬────────┘
+         │
+         │ User clicks "Send to MetaMask"
+         ▼
+┌─────────────────┐
+│  User's EOA     │
+│  or CEX address │
+└─────────────────┘
+```
+
+---
+
 ## Core Features
 
 ### 1. Smart Wallet System
@@ -156,107 +328,171 @@ Level 5: Unlock Advanced Strategies
 ### 5.1 Smart Contract Stack
 
 ```
-┌─────────────────────────────────────────────┐
-│              DeFiCity Protocol              │
-├─────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐           │
-│  │ Smart Wallet│  │   Vault     │           │
-│  │  (ERC-4337) │  │  Manager    │           │
-│  └──────┬──────┘  └──────┬──────┘           │
-│         │                │                  │
-│  ┌──────▼────────────────▼──────┐           │
-│  │      Strategy Router          │           │
-│  └──────────────┬───────────────┘           │
-│                 │                           │
-│  ┌──────────────▼───────────────┐           │
-│  │       Strategy Adapters       │           │
-│  │  ┌─────┐ ┌─────┐ ┌─────────┐ │           │
-│  │  │Aave │ │Lido │ │Uniswap  │ │           │
-│  │  └─────┘ └─────┘ └─────────┘ │           │
-│  └──────────────────────────────┘           │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                     DeFi City Protocol                   │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│   User A              User B              User C         │
+│      │                   │                   │           │
+│      ▼                   ▼                   ▼           │
+│  ┌────────┐         ┌────────┐         ┌────────┐       │
+│  │ Smart  │         │ Smart  │         │ Smart  │       │
+│  │Wallet A│         │Wallet B│         │Wallet C│       │
+│  ├────────┤         ├────────┤         ├────────┤       │
+│  │• aUSDC │         │• aUSDC │         │• stETH │       │
+│  │• stETH │         │• LP NFT│         │• aUSDC │       │
+│  │• USDC  │         │• ETH   │         │• LP NFT│       │
+│  └────┬───┘         └────┬───┘         └────┬───┘       │
+│       │                  │                  │            │
+│       └──────────────────┼──────────────────┘            │
+│                          ▼                               │
+│  ┌───────────────────────────────────────────────┐      │
+│  │           SmartWalletFactory                   │      │
+│  │  (Deploy Smart Wallets + Registry)             │      │
+│  └───────────────────────────────────────────────┘      │
+│                          │                               │
+│       ┌──────────────────┼──────────────────┐           │
+│       ▼                  ▼                  ▼           │
+│  ┌─────────┐       ┌──────────┐       ┌─────────┐      │
+│  │  Aave   │       │ Uniswap  │       │  Lido   │      │
+│  │  Pool   │       │   V3     │       │         │      │
+│  └─────────┘       └──────────┘       └─────────┘      │
+└──────────────────────────────────────────────────────────┘
 ```
 
+**Key Points:**
+- แต่ละ User มี Smart Wallet ของตัวเอง
+- Assets (aUSDC, stETH, LP NFT) เก็บใน Smart Wallet โดยตรง
+- ไม่มี VaultManager - User เป็นเจ้าของ 100%
+- SmartWalletFactory ใช้ deploy wallet ใหม่เท่านั้น
+
 ### 5.2 Key Contracts
+
+#### SmartWalletFactory.sol
+```solidity
+contract SmartWalletFactory {
+    mapping(address => address) public wallets; // owner => wallet
+
+    event WalletCreated(address indexed owner, address indexed wallet);
+
+    function createWallet(address owner) external returns (address) {
+        SmartWallet wallet = new SmartWallet(owner, entryPoint);
+        wallets[owner] = address(wallet);
+        emit WalletCreated(owner, address(wallet));
+        return address(wallet);
+    }
+
+    function getWallet(address owner) external view returns (address) {
+        return wallets[owner];
+    }
+}
+```
 
 #### SmartWallet.sol
 ```solidity
 contract SmartWallet is ERC4337Account {
     address public owner;
+    IPool public constant AAVE_POOL = IPool(0x...);
+    ISwapRouter public constant UNISWAP_ROUTER = ISwapRouter(0x...);
 
-    function execute(
-        address target,
-        uint256 value,
-        bytes calldata data
-    ) external onlyOwner returns (bytes memory);
+    // ============ Aave Functions ============
 
-    function executeBatch(
-        address[] calldata targets,
-        uint256[] calldata values,
-        bytes[] calldata datas
-    ) external onlyOwner;
-}
-```
-
-#### VaultManager.sol
-```solidity
-contract VaultManager {
-    mapping(address => mapping(bytes32 => uint256)) public positions;
-
-    function deposit(
-        bytes32 strategyId,
-        address token,
-        uint256 amount
-    ) external;
-
-    function withdraw(
-        bytes32 strategyId,
-        uint256 shares
-    ) external;
-
-    function harvest(bytes32 strategyId) external;
-}
-```
-
-#### AaveStrategy.sol
-```solidity
-contract AaveStrategy is IStrategy {
-    IPool public aavePool;
-
-    function deposit(address token, uint256 amount) external override {
-        IERC20(token).approve(address(aavePool), amount);
-        aavePool.supply(token, amount, address(this), 0);
+    function depositToAave(address token, uint256 amount) external onlyOwner {
+        IERC20(token).approve(address(AAVE_POOL), amount);
+        AAVE_POOL.supply(token, amount, address(this), 0);
+        // aToken is sent directly to this wallet
     }
 
-    function withdraw(address token, uint256 amount) external override {
-        aavePool.withdraw(token, amount, msg.sender);
+    function withdrawFromAave(address token, uint256 amount) external onlyOwner {
+        AAVE_POOL.withdraw(token, amount, address(this));
     }
 
-    function getAPY() external view override returns (uint256) {
-        // Get current supply APY from Aave
+    function getAaveBalance(address aToken) external view returns (uint256) {
+        return IERC20(aToken).balanceOf(address(this));
     }
-}
-```
 
-#### UniswapStrategy.sol
-```solidity
-contract UniswapStrategy is IStrategy {
-    INonfungiblePositionManager public positionManager;
+    // ============ Uniswap Functions ============
 
-    function deposit(
+    function addLiquidity(
         address token0,
         address token1,
         uint256 amount0,
         uint256 amount1,
         int24 tickLower,
         int24 tickUpper
-    ) external returns (uint256 tokenId);
+    ) external onlyOwner returns (uint256 tokenId) {
+        // Approve tokens
+        IERC20(token0).approve(address(positionManager), amount0);
+        IERC20(token1).approve(address(positionManager), amount1);
 
-    function withdraw(uint256 tokenId) external;
+        // Mint LP position - NFT sent to this wallet
+        (tokenId,,,) = positionManager.mint(MintParams({
+            token0: token0,
+            token1: token1,
+            fee: 3000,
+            tickLower: tickLower,
+            tickUpper: tickUpper,
+            amount0Desired: amount0,
+            amount1Desired: amount1,
+            amount0Min: 0,
+            amount1Min: 0,
+            recipient: address(this),
+            deadline: block.timestamp
+        }));
+    }
 
-    function collectFees(uint256 tokenId) external;
+    function removeLiquidity(uint256 tokenId) external onlyOwner {
+        // Decrease liquidity and collect tokens back to wallet
+        positionManager.decreaseLiquidity(...);
+        positionManager.collect(...);
+    }
+
+    function collectFees(uint256 tokenId) external onlyOwner {
+        positionManager.collect(CollectParams({
+            tokenId: tokenId,
+            recipient: address(this),
+            amount0Max: type(uint128).max,
+            amount1Max: type(uint128).max
+        }));
+    }
+
+    // ============ Generic Execute ============
+
+    function execute(
+        address target,
+        uint256 value,
+        bytes calldata data
+    ) external onlyOwner returns (bytes memory) {
+        (bool success, bytes memory result) = target.call{value: value}(data);
+        require(success, "Execution failed");
+        return result;
+    }
 }
 ```
+
+#### GameRegistry.sol (Optional - for leaderboards/social)
+```solidity
+contract GameRegistry {
+    struct CityStats {
+        uint256 level;
+        uint256 totalDeposited;
+        uint256 buildingCount;
+        uint256 lastUpdate;
+    }
+
+    mapping(address => CityStats) public cities;
+
+    // Called by frontend to update stats (optional, for social features)
+    function updateStats(address wallet, CityStats calldata stats) external {
+        // Verify caller owns the wallet
+        require(SmartWallet(wallet).owner() == msg.sender, "Not owner");
+        cities[wallet] = stats;
+    }
+
+    function getLeaderboard() external view returns (address[] memory, uint256[] memory) {
+        // Return top cities by TVL
+    }
+}
 
 ### 5.3 Frontend Stack
 
