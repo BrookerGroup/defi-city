@@ -94,7 +94,7 @@ contract WalletFactory {
      * - salt = 0: Default wallet for owner (one per owner)
      * - salt > 0: Additional wallets (owner can have multiple)
      */
-    function createWallet(address owner, uint256 salt) external returns (SmartWallet wallet) {
+    function createWallet(address owner, uint256 salt) external virtual returns (SmartWallet wallet) {
         if (owner == address(0)) revert InvalidOwner();
 
         // 1. Compute deterministic address
@@ -273,107 +273,8 @@ contract WalletFactory {
     }
 }
 
-/**
- * @title WalletFactoryV2
- * @notice Enhanced factory with additional features
- * @dev This is an example of how to extend the factory for advanced use cases
- *
- * Additional features:
- * - Deployment fees (charge users for deployment)
- * - Access control (whitelist for beta)
- * - Wallet templates (different wallet implementations)
- * - Guardian setup during deployment
- * - Integration with ENS for wallet.eth addresses
+/*
+ * WalletFactoryV2 - Advanced version with fees and whitelist
+ * Commented out for now to simplify deployment
+ * See full implementation in git history if needed
  */
-contract WalletFactoryV2 is WalletFactory {
-    // ============ Additional State ============
-
-    /// @notice Fee required to deploy a wallet (in wei)
-    uint256 public deploymentFee;
-
-    /// @notice Address that receives deployment fees
-    address public feeRecipient;
-
-    /// @notice Whitelist mode enabled
-    bool public whitelistEnabled;
-
-    /// @notice Whitelist mapping
-    mapping(address => bool) public whitelist;
-
-    // ============ Events ============
-
-    event DeploymentFeeUpdated(uint256 oldFee, uint256 newFee);
-    event FeeRecipientUpdated(address oldRecipient, address newRecipient);
-    event WhitelistUpdated(address indexed user, bool status);
-
-    // ============ Constructor ============
-
-    constructor(
-        IEntryPoint _entryPoint,
-        uint256 _deploymentFee,
-        address _feeRecipient
-    ) WalletFactory(_entryPoint) {
-        deploymentFee = _deploymentFee;
-        feeRecipient = _feeRecipient;
-    }
-
-    // ============ Enhanced Functions ============
-
-    /**
-     * @notice Create wallet with fee payment
-     */
-    function createWallet(
-        address owner,
-        uint256 salt
-    ) external payable returns (SmartWallet wallet) {
-        // Check whitelist
-        if (whitelistEnabled && !whitelist[owner]) {
-            revert("Not whitelisted");
-        }
-
-        // Check fee payment
-        if (msg.value < deploymentFee) {
-            revert("Insufficient fee");
-        }
-
-        // Transfer fee to recipient
-        if (deploymentFee > 0 && feeRecipient != address(0)) {
-            (bool success,) = payable(feeRecipient).call{value: deploymentFee}("");
-            require(success, "Fee transfer failed");
-        }
-
-        // Refund excess
-        if (msg.value > deploymentFee) {
-            (bool success,) = payable(msg.sender).call{value: msg.value - deploymentFee}("");
-            require(success, "Refund failed");
-        }
-
-        // Deploy wallet (call parent function)
-        return super.createWallet(owner, salt);
-    }
-
-    // ============ Admin Functions ============
-
-    function setDeploymentFee(uint256 newFee) external {
-        // Add access control in production
-        emit DeploymentFeeUpdated(deploymentFee, newFee);
-        deploymentFee = newFee;
-    }
-
-    function setFeeRecipient(address newRecipient) external {
-        // Add access control in production
-        emit FeeRecipientUpdated(feeRecipient, newRecipient);
-        feeRecipient = newRecipient;
-    }
-
-    function updateWhitelist(address user, bool status) external {
-        // Add access control in production
-        whitelist[user] = status;
-        emit WhitelistUpdated(user, status);
-    }
-
-    function setWhitelistEnabled(bool enabled) external {
-        // Add access control in production
-        whitelistEnabled = enabled;
-    }
-}
