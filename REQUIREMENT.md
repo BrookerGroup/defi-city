@@ -44,17 +44,19 @@ Rent/Income = Yield from Protocols
 
 ### Value Proposition
 
-- **For Users:** Make DeFi investing simple, visual, and fun while earning real yield
-- **For Protocol:** Attract mainstream users to DeFi through gamification
-- **For DeFi Ecosystem:** Drive liquidity to battle-tested protocols (Aave, Aerodrome)
+- **For Users:** Make DeFi investing simple, visual, and fun while earning real yield from multiple assets (USDC, USDT, ETH, BTC)
+- **For Protocol:** Attract mainstream users to DeFi through gamification and entertainment (including lottery)
+- **For DeFi Ecosystem:** Drive liquidity to battle-tested protocols (Aave, Aerodrome) across multiple asset types
 
 ### Key Differentiators
 
-1. **Gamified DeFi** - First city builder with real DeFi integrations
-2. **Gasless Gameplay** - Users play without paying transaction fees
-3. **Simple Onboarding** - Email/social login via smart wallets (no crypto experience needed)
-4. **Real Yield** - Backed by established DeFi protocols, not speculative tokens
-5. **Transparent Fees** - Only 0.05% on building creation, zero fees on harvesting/withdrawing
+1. **Gamified DeFi** - First city builder with real DeFi integrations plus entertainment (lottery)
+2. **Multi-Asset Support** - Deposit and invest with USDC, USDT, ETH, or BTC
+3. **Gasless Gameplay** - Users play without paying transaction fees
+4. **Simple Onboarding** - Email/social login via smart wallets (no crypto experience needed)
+5. **Flexible Strategies** - Supply-only, borrow, LP, or play lottery - choose your risk
+6. **No Unlock Requirements** - All buildings available from day one
+7. **Transparent Fees** - Only 0.05% on building creation, zero fees on harvesting/withdrawing
 
 ---
 
@@ -162,13 +164,13 @@ Rent/Income = Yield from Protocols
 
 ### Core Gameplay Loop
 
-1. **Create Smart Wallet** - One-time setup with email/social login
-2. **Deposit Funds** - Add USDC to wallet
-3. **Build City** - Place buildings that invest in DeFi protocols
+1. **Create Smart Wallet** - One-time setup with email/social login (optional: Place Town Hall)
+2. **Deposit Funds** - Add any asset (USDC, USDT, ETH, BTC) to wallet
+3. **Build City** - Place buildings that invest in DeFi protocols (any building, no unlock requirements)
 4. **Earn Yield** - Buildings generate real yield from protocols
 5. **Harvest** - Collect earnings anytime
 6. **Expand** - Add more buildings or upgrade existing ones
-7. **Withdraw** - Remove funds anytime (demolish buildings)
+7. **Withdraw** - Remove funds in any asset anytime (demolish buildings)
 
 ### Game Mechanics
 
@@ -184,9 +186,11 @@ Rent/Income = Yield from Protocols
 - Users can upgrade buildings for better rates
 
 **Progression System**
-- Start with Town Hall (free, no DeFi)
-- Unlock Yield Farm (Aave) at Level 1
-- Unlock LP Mine (Aerodrome) at Level 2
+- No unlock requirements - Build any building from the start
+- Town Hall (optional) - Creates your smart wallet with visual representation
+- Bank - Supply assets as collateral, borrow other assets (Aave)
+- Shop - Provide liquidity to earn trading fees (Aerodrome)
+- Government Lottery Office - Purchase lottery tickets, wait for draw
 - Future: More building types from different protocols
 
 ### Visual Design
@@ -244,30 +248,42 @@ Rent/Income = Yield from Protocols
 ### FR-002: Fund Management
 
 **FR-002.1 Deposit Funds**
-- **Description:** User adds USDC to their smart wallet
+- **Description:** User adds assets to their smart wallet
+- **Supported Assets:**
+  - USDC (USD Coin)
+  - USDT (Tether)
+  - ETH (Ethereum)
+  - BTC (Wrapped Bitcoin - WBTC)
+  - Future: More assets based on demand
 - **Methods:**
-  - Transfer from external wallet (MetaMask, etc.)
+  - Transfer from external wallet (MetaMask, Coinbase Wallet, etc.)
   - Buy with credit card (via Ramp/MoonPay) - Future
   - Bridge from other chains - Future
 - **Requirements:**
-  - Minimum deposit: $10
+  - Minimum deposit: $10 USD equivalent
   - User pays gas for deposit transaction
-  - Real-time balance update
+  - Real-time balance update for all assets
+  - Multi-asset portfolio display
 - **Acceptance Criteria:**
   - Deposit reflects in wallet within 1 block (~2 seconds)
-  - Transaction receipt displayed
-  - Balance shown in both USDC and USD
+  - Transaction receipt displayed with asset type
+  - Balance shown for each asset separately
+  - Total portfolio value in USD displayed
 
 **FR-002.2 Withdraw Funds**
-- **Description:** User withdraws USDC from smart wallet to external wallet
+- **Description:** User withdraws any asset from smart wallet to external wallet
+- **Supported Assets:** All deposited assets (USDC, USDT, ETH, BTC)
 - **Requirements:**
-  - Must demolish buildings first (or withdraw remaining balance)
+  - Must demolish buildings first (or withdraw available balance)
   - User pays gas for withdrawal
-  - Minimum withdrawal: $1
+  - Minimum withdrawal: $1 USD equivalent
+  - Can withdraw in different asset than deposited (auto-swap available)
 - **Acceptance Criteria:**
-  - Funds sent to specified address
+  - Funds sent to specified address in requested asset
   - Transaction completes within 1 minute
   - Clear fee disclosure before confirmation
+  - Asset balance updated correctly
+  - Multi-asset withdrawal support (withdraw multiple assets at once)
 
 ### FR-003: Building Management
 
@@ -468,68 +484,148 @@ Rent/Income = Yield from Protocols
 
 ### FR-006: Building Types
 
-**FR-006.1 Town Hall (Required)**
-- **Type:** Headquarters building (no DeFi strategy)
+**FR-006.1 Town Hall (Optional)**
+- **Type:** Smart Wallet Creation Building (no DeFi strategy)
 - **Requirements:**
-  - Must be placed first
+  - Optional - not required to start playing
   - Only 1 per user
   - No deposit required (free)
-  - Cannot be demolished
+  - Cannot be demolished (represents your wallet)
 - **Purpose:**
-  - Unlock game features
-  - Provide bonuses to nearby buildings
-  - Act as city center
+  - Visual representation of your smart wallet on the map
+  - Creates your ERC-4337 smart wallet
+  - Act as city center/identity
 - **Benefits:**
-  - Adjacent buildings get +0.5% APY boost
-  - Required to unlock other building types
+  - Visual placeholder for your wallet address
+  - Optional aesthetic element
+  - May provide future bonuses (community governance, etc.)
 - **Acceptance Criteria:**
-  - Automatically suggested for new users
-  - Placed for free
-  - Cannot be removed
+  - Can be placed for free
+  - Creates smart wallet if not already created
+  - Displays wallet address
+  - Cannot be removed (wallet is permanent)
+- **Note:** Users can skip Town Hall entirely and start with other buildings directly
 
-**FR-006.2 Yield Farm (Bank)**
-- **Type:** Stablecoin lending via Aave
-- **Strategy:** AaveStrategy
-- **Asset:** USDC
-- **Minimum Deposit:** $100
-- **Expected APY:** ~5.2% (variable)
-- **Risk:** Low
+**FR-006.2 Bank (Supply & Borrow)**
+- **Type:** Lending and borrowing platform via Aave
+- **Strategy:** AaveStrategy (Supply AND Borrow)
+- **Supported Assets:** USDC, USDT, ETH, BTC (any supported asset)
+- **Minimum Deposit:** $100 USD equivalent
+- **Expected APY:** Variable (supply: ~3-5%, borrow cost: ~5-8%)
+- **Risk:** Medium (liquidation risk if borrowing)
 - **Maximum per User:** 10 buildings
 - **How it Works:**
-  - User deposits USDC
-  - Strategy supplies to Aave V3 pool
-  - Receives aUSDC (interest-bearing token)
-  - aUSDC value increases over time
-  - User can harvest yield anytime
+  - **Supply Mode:**
+    - User deposits any asset (USDC, USDT, ETH, BTC)
+    - Strategy supplies to Aave V3 pool
+    - Receives aTokens (aUSDC, aETH, etc.)
+    - Earns supply APY
+    - Assets act as collateral
+  - **Borrow Mode:**
+    - User can borrow other assets against their collateral
+    - Must maintain healthy collateralization ratio (e.g., >150%)
+    - Pays borrow APY
+    - Can borrow up to 75% of collateral value (depends on asset)
+  - **Combined Strategy:**
+    - Supply ETH, borrow USDC → Use USDC for other investments
+    - Supply USDC, borrow USDT → Arbitrage opportunities
+    - Multi-asset supply for diversification
+- **Risk Warnings:**
+  - Liquidation if collateral value drops below threshold
+  - Borrow rate can increase if utilization is high
+  - User must monitor health factor
 - **Acceptance Criteria:**
-  - Correct APY displayed (fetched from Aave)
-  - Deposits and withdrawals work correctly
-  - Yield calculated accurately
-  - No impermanent loss (single asset)
+  - Supply APY displayed correctly for each asset
+  - Borrow APY displayed correctly for each asset
+  - Health factor displayed (if borrowing)
+  - Liquidation warnings when health factor < 1.5
+  - Supports multiple assets simultaneously
+  - Auto-calculations for max borrow amount
 
-**FR-006.3 LP Mine (Shop)**
+**FR-006.3 Shop (Liquidity Providing)**
 - **Type:** Liquidity providing via Aerodrome
 - **Strategy:** AerodromeStrategy
-- **Asset:** USDC + ETH (50/50)
-- **Minimum Deposit:** $500 USDC equivalent
-- **Expected APY:** ~8-15% (variable, trading fees)
-- **Risk:** High (impermanent loss)
+- **Supported Pairs:**
+  - USDC/ETH
+  - USDT/USDC
+  - ETH/BTC
+  - Future: More pairs based on demand
+- **Minimum Deposit:** $500 USD equivalent
+- **Expected APY:** ~8-15% (variable, from trading fees + incentives)
+- **Risk:** High (impermanent loss risk)
 - **Maximum per User:** 5 buildings
 - **How it Works:**
-  - User deposits USDC (auto-converts 50% to ETH)
+  - User selects trading pair (e.g., USDC/ETH)
+  - User deposits one or both assets
+  - If depositing single asset, auto-converts 50% to pair asset
   - Strategy adds liquidity to Aerodrome pool
-  - Receives LP position (NFT)
-  - Earns trading fees from swaps
-  - Position value fluctuates with price ratio
-- **Warnings:**
-  - Clear explanation of impermanent loss
-  - Risk disclaimer shown before placement
-  - Example calculation displayed
+  - Receives LP position (NFT for V3 or LP tokens for V2)
+  - Earns trading fees from every swap in that pool
+  - Earns AERO token incentives (if pool is incentivized)
+  - Position value fluctuates with price ratio between assets
+- **Risk Warnings:**
+  - Clear explanation of impermanent loss with examples
+  - IL calculator shown before placement
+  - Price divergence warning (if assets move >20%)
+  - Risk disclaimer must be accepted
 - **Acceptance Criteria:**
-  - USDC to ETH swap works correctly
+  - Multiple pair selection available
+  - Single or dual asset deposit supported
+  - Auto-swap works correctly (if needed)
   - LP position created successfully
-  - Fees accumulated correctly
-  - Impermanent loss calculator shown
+  - Trading fees accumulated and displayed
+  - AERO rewards tracked
+  - Impermanent loss calculator shown with live data
+  - Current IL displayed as percentage
+
+**FR-006.4 Government Lottery Office (Lottery)**
+- **Type:** On-chain lottery/game of chance
+- **Strategy:** LotteryStrategy (Chainlink VRF for randomness)
+- **Supported Assets:** Any asset (USDC, USDT, ETH, BTC)
+- **Minimum Purchase:** $10 USD equivalent per ticket
+- **Expected Return:** Variable (jackpot pool / tickets sold)
+- **Risk:** Very High (gambling, expected value < 100%)
+- **Maximum per User:** Unlimited tickets
+- **How it Works:**
+  - **Ticket Purchase:**
+    - User selects asset to pay with (USDC, USDT, ETH, BTC)
+    - User selects number of tickets
+    - User chooses numbers or uses quick pick (random)
+    - Funds locked until draw
+  - **Lottery Mechanics:**
+    - Daily or weekly draws (configurable)
+    - Chainlink VRF ensures provably fair randomness
+    - Prize pool = 70% of ticket sales (30% to treasury/operating costs)
+    - Multiple prize tiers (jackpot, second prize, third prize, etc.)
+    - Jackpot rolls over if no winner
+  - **Prize Distribution:**
+    - Jackpot: Match all numbers (50% of pool)
+    - Second Prize: Match 5/6 numbers (20% of pool)
+    - Third Prize: Match 4/6 numbers (15% of pool)
+    - Fourth Prize: Match 3/6 numbers (15% of pool)
+    - Prizes paid in same asset as ticket purchase
+  - **Building Representation:**
+    - Building shows active tickets
+    - Countdown to next draw
+    - Winning tickets highlighted
+    - Prize claim interface
+- **Risk Warnings:**
+  - **This is gambling** - Expected value is negative
+  - Warning: "Lottery is entertainment, not investment"
+  - Display odds clearly (e.g., 1 in 13,983,816 for jackpot)
+  - Responsible gaming message
+  - Maximum spend warnings (optional limit: $100/day)
+- **Acceptance Criteria:**
+  - Ticket purchase works for all assets
+  - Random number generation is provably fair (Chainlink VRF)
+  - Draw results are transparent and verifiable on-chain
+  - Prize distribution automatic
+  - Winners notified
+  - Unclaimed prizes return to pool after 90 days
+  - Display current jackpot size
+  - Display odds of winning for each tier
+  - Responsible gaming warnings displayed prominently
+- **Note:** This building type is for entertainment and adds gamification, but users should understand it's -EV (negative expected value) unlike other buildings
 
 ---
 
@@ -537,65 +633,126 @@ Rent/Income = Yield from Protocols
 
 ### Building Type Summary
 
-| Building | Strategy | Asset | Min Deposit | APY | Risk | Max/User | Can Demolish |
-|----------|----------|-------|-------------|-----|------|----------|--------------|
+| Building | Strategy | Asset | Min Deposit | APY/Return | Risk | Max/User | Can Demolish |
+|----------|----------|-------|-------------|------------|------|----------|--------------|
 | Town Hall | None | - | $0 | 0% | None | 1 | No |
-| Yield Farm | Aave USDC | USDC | $100 | ~5.2% | Low | 10 | Yes |
-| LP Mine | Aerodrome LP | USDC+ETH | $500 | 8-15% | High | 5 | Yes |
+| Bank | Aave Supply/Borrow | USDC, USDT, ETH, BTC | $100 | 3-8% (variable) | Medium | 10 | Yes |
+| Shop | Aerodrome LP | USDC/ETH, USDT/USDC, etc. | $500 | 8-15% | High | 5 | Yes |
+| Gov. Lottery | On-chain Lottery | Any asset | $10/ticket | Variable (Jackpot) | Very High | Unlimited | No* |
+
+*Note: Lottery tickets cannot be "demolished" but prizes can be claimed after draw
 
 ### Strategy Details
 
-**Aave Strategy**
+**Aave Strategy (Bank Building)**
 - **Protocol:** Aave V3 on Base
-- **Mechanism:** Supply USDC to lending pool
-- **Yield Source:** Borrowing interest
-- **Token:** aUSDC (ERC-20)
+- **Mechanisms:**
+  - **Supply:** Deposit assets to earn interest
+  - **Borrow:** Take loans against deposited collateral
+- **Supported Assets:** USDC, USDT, ETH, WBTC (and more)
+- **Yield Sources:**
+  - Supply APY: Interest from borrowers
+  - Borrow Cost: Interest paid on loans
+  - Net yield: Supply APY - Borrow APY (if borrowing)
+- **Tokens:** aTokens (aUSDC, aETH, etc.) - ERC-20
 - **Compound:** Auto-compounds every block
-- **Withdrawal:** Instant (no lock period)
+- **Withdrawal:** Instant (if not used as collateral)
+- **Collateralization:**
+  - Each asset has Loan-to-Value (LTV) ratio
+  - E.g., ETH: 80% LTV → Can borrow up to 80% of ETH value
+  - Must maintain health factor > 1.0 to avoid liquidation
+  - Recommended: Keep health factor > 1.5
 - **Risks:**
   - Smart contract risk (Aave)
-  - USDC depeg risk (very low)
+  - Asset depeg risk (for stablecoins)
+  - Liquidation risk (if borrowing and collateral value drops)
   - Protocol insolvency (very low, over-collateralized)
-- **Why Safe:**
+- **Why Popular:**
   - Battle-tested protocol ($10B+ TVL)
   - Audited multiple times
-  - Single asset (no IL)
-  - Instant liquidity
+  - Multi-asset support
+  - Flexible (supply only or supply + borrow)
+  - Instant liquidity (if not used as collateral)
 
-**Aerodrome Strategy**
+**Aerodrome Strategy (Shop Building)**
 - **Protocol:** Aerodrome (Velodrome fork) on Base
-- **Mechanism:** Provide liquidity to USDC/ETH pool
-- **Yield Source:** Trading fees + AERO rewards
-- **Token:** LP NFT (Uniswap V3 style)
-- **Compound:** Rewards claimed periodically
+- **Mechanism:** Provide liquidity to trading pairs
+- **Supported Pairs:**
+  - Stablecoin pairs: USDC/USDT (low IL risk)
+  - Volatile pairs: USDC/ETH, ETH/BTC (higher IL risk)
+  - Correlated assets: Minimize IL
+- **Yield Sources:**
+  - Trading fees: Earned from every swap (0.05% - 1% depending on pool)
+  - AERO incentives: Weekly token rewards from protocol
+  - Bribes: Additional incentives from external projects
+- **Token:** LP tokens (V2 pools) or LP NFT (V3 concentrated liquidity)
+- **Compound:** Rewards claimed and auto-compounded (optional)
 - **Withdrawal:** Instant (no lock period)
 - **Risks:**
-  - Impermanent loss (if ETH price changes significantly)
+  - Impermanent loss (if asset prices diverge)
   - Smart contract risk (Aerodrome)
-  - Low liquidity risk (on smaller pools)
+  - Low liquidity risk (if pool is small)
   - AERO token volatility
 - **Why Higher APY:**
-  - Trading fees from swaps
-  - AERO token incentives
-  - Concentrated liquidity boosts fees
-- **Impermanent Loss Example:**
-  - Deposit: $500 USDC + $500 ETH = $1,000
-  - If ETH doubles in price: LP value = ~$1,414 vs $1,500 if held
-  - IL = ~5.7% (offset by trading fees)
+  - Trading fees from high-volume pairs
+  - AERO token incentives (often 10-30% APY)
+  - Concentrated liquidity amplifies fees (V3)
+  - Multiple revenue streams
+- **Impermanent Loss Examples:**
+  - **Low IL (Stablecoin pair):**
+    - USDC/USDT: Minimal IL (<0.1%)
+    - Safe for risk-averse users
+  - **High IL (Volatile pair):**
+    - Deposit: $500 USDC + $500 ETH = $1,000
+    - If ETH doubles: LP value = ~$1,414 vs $1,500 if held
+    - IL = ~5.7% (often offset by fees)
+    - If ETH 3x: IL = ~13.4%
+
+**Lottery Strategy (Government Lottery Office)**
+- **Protocol:** Custom on-chain lottery (DefiCity)
+- **Mechanism:** Ticket-based lottery with provably fair draws
+- **Randomness:** Chainlink VRF (Verifiable Random Function)
+- **Ticket Pricing:** $10-100 per ticket (flexible)
+- **Draw Frequency:** Daily or weekly (configurable)
+- **Prize Pool:** 70% of ticket sales
+- **Prize Distribution:**
+  - Jackpot (match all): 50% of pool
+  - 2nd Prize (5/6): 20% of pool
+  - 3rd Prize (4/6): 15% of pool
+  - 4th Prize (3/6): 15% of pool
+- **Jackpot Rollover:** If no winner, jackpot adds to next draw
+- **Expected Value:** ~70% (negative EV)
+- **Risks:**
+  - Very high risk (gambling)
+  - Expected value < 100% (house edge 30%)
+  - Can lose entire ticket cost
+  - Addictive potential
+- **Why Include:**
+  - Entertainment value
+  - Gamification element
+  - Additional revenue stream (30% to treasury)
+  - Community engagement (big jackpots create buzz)
+- **Responsible Gaming:**
+  - Clear odds displayed (e.g., 1 in 13.9M for jackpot)
+  - "This is entertainment, not investment" warning
+  - Optional spending limits
+  - Self-exclusion features (future)
 
 ### Building Synergies (Future Feature)
 
 **Adjacency Bonuses**
-- Town Hall + Any Building (adjacent) → +0.5% APY
-- Yield Farm + Yield Farm (cluster) → +0.2% APY
-- LP Mine + LP Mine (cluster) → +0.5% APY
-- Mixed cluster → +0.3% APY
+- Town Hall + Any Building (adjacent) → +0.5% APY boost
+- Bank + Bank (cluster) → +0.2% APY boost
+- Shop + Shop (cluster) → +0.5% APY boost
+- Bank + Shop (adjacent) → +0.3% combined boost
+- Lottery Office → No synergies (entertainment only)
 
 **City Level Benefits**
-- Level 1 (1 building) → Unlock Yield Farm
-- Level 2 (3 buildings) → Unlock LP Mine
+- No unlock requirements - all buildings available from start
+- Level 1 (1 building) → Basic gameplay
 - Level 3 (5 buildings) → 10% fee discount
-- Level 5 (10 buildings) → Exclusive building types
+- Level 5 (10 buildings) → Exclusive building skins/designs
+- Level 10 (20 buildings) → VIP perks (early access to new buildings)
 
 ---
 
@@ -1347,42 +1504,56 @@ Traditional DeFi uses UUPS or Transparent Proxy for upgradeability:
 
 **Step 4: Initial Deposit**
 - User sees dashboard with $0 balance
-- Prompted: "Deposit USDC to start building"
+- Prompted: "Deposit assets to start building"
 - User options:
   - Transfer from external wallet (MetaMask, Coinbase Wallet)
   - Buy with card (via Ramp/MoonPay) - Future
 - User selects "Transfer from Coinbase Wallet"
+- User chooses asset: USDC, USDT, ETH, or BTC
+- User selects USDC (for simplicity)
 - User approves transaction ($0.30 gas)
 - 500 USDC deposited
-- Balance shows: $500
+- Balance shows: $500 USDC
+- Note: Multi-asset balance supported (can deposit multiple assets)
 - **Time:** 1-2 minutes
 
 **Step 5: Tutorial (Optional)**
 - System offers tutorial: "New to DefiCity? Take 2-minute tour"
 - User accepts
 - Tutorial shows:
-  - How to place buildings
-  - Different building types
-  - How to harvest
+  - How to place buildings (any building, no requirements)
+  - Different building types (Bank, Shop, Lottery, Town Hall)
+  - Multi-asset support (can use USDC, USDT, ETH, BTC)
+  - How to harvest (for Bank and Shop)
+  - How to claim prizes (for Lottery)
   - How to withdraw
 - User can skip anytime
 - **Time:** 2 minutes (optional)
 
 **Step 6: First Building**
 - User clicks empty tile
-- System suggests: "Start with Yield Farm (Low Risk, 5.2% APY)"
-- User selects "Yield Farm"
+- System shows all available buildings (no unlock requirements):
+  - Town Hall (Free, creates wallet visual)
+  - Bank (Supply/Borrow, Medium risk, $100 min)
+  - Shop (LP, High risk, $500 min)
+  - Lottery (Entertainment, Very High risk, $10 min)
+- System recommends: "Start with Bank for steady returns"
+- User selects "Bank"
 - Modal shows:
+  - Type: Supply & Borrow (Aave)
+  - Supported assets: USDC, USDT, ETH, BTC
   - Minimum: $100
-  - APY: ~5.2%
-  - Risk: Low
+  - Supply APY: ~4% (for USDC)
+  - Risk: Medium
   - Fee: 0.05%
   - Recommended: $200-500
+- User selects USDC (already has it)
 - User enters: 200 USDC
+- User chooses: "Supply only" (no borrowing for now)
 - System shows:
   - Building fee: $0.10
   - Net to Aave: $199.90
-  - Expected yearly: $10.40
+  - Expected yearly: ~$8.00
 - User confirms
 - System creates session key (one-time approval)
 - Building placed (gasless, ~10 seconds)
@@ -1401,15 +1572,21 @@ Traditional DeFi uses UUPS or Transparent Proxy for upgradeability:
 - **Time:** 30 seconds
 
 **Step 8: Expansion**
-- User places 2 more Yield Farms (500 USDC total)
-- User learns about LP Mine (higher risk/reward)
-- User places 1 LP Mine (500 USDC)
+- User explores other building types
+- User places Town Hall (free) - Visual representation of wallet
+- User deposits 100 USDT to try different asset
+- User places Bank with USDT (supply mode)
+- User feels adventurous, deposits 500 USDC
+- User places Shop (USDC/ETH LP) for higher returns
+- User buys 2 lottery tickets ($20) for fun
 - User now has:
-  - 3 Yield Farms (~5% APY each)
-  - 1 LP Mine (~10% APY)
-  - Total invested: 1,200 USDC
-  - Expected yearly: ~$74
-- **Time:** 5 minutes
+  - 1 Town Hall (wallet representation)
+  - 2 Banks: 200 USDC + 100 USDT (~4% APY)
+  - 1 Shop: 500 USDC (~12% APY with fees)
+  - 2 Lottery tickets (waiting for draw)
+  - Total invested: ~$820 (excluding lottery)
+  - Expected yearly: ~$64 (excluding lottery)
+- **Time:** 5-10 minutes
 
 **Total Onboarding Time:** 10-15 minutes from discovery to multiple buildings
 
@@ -1549,13 +1726,14 @@ Traditional DeFi uses UUPS or Transparent Proxy for upgradeability:
 ### Product Metrics
 
 **PM-001: Buildings Created**
-- Target: 30,000 buildings in 6 months
+- Target: 35,000 buildings in 6 months
 - KPI: Total buildings placed
 - Measure: BuildingPlaced events
 - Breakdown by type:
-  - Town Hall: 10,000 (1 per user)
-  - Yield Farm: 20,000 (2 per user avg)
-  - LP Mine: 3,000 (0.3 per user avg)
+  - Town Hall: 5,000 (0.5 per user - optional)
+  - Bank: 20,000 (2 per user avg)
+  - Shop: 3,000 (0.3 per user avg)
+  - Lottery: 12,000 tickets (1.2 per user avg - entertainment)
 
 **PM-002: Harvest Frequency**
 - Target: 1 harvest per user per 3 days
@@ -1567,21 +1745,23 @@ Traditional DeFi uses UUPS or Transparent Proxy for upgradeability:
   - Monthly users: 1 harvest/month
 
 **PM-003: Strategy Distribution**
-- Target: 70% Aave, 30% Aerodrome
-- KPI: TVL by strategy
+- Target: 60% Bank (Aave), 25% Shop (Aerodrome), 15% Lottery
+- KPI: TVL by strategy (excluding lottery tickets)
 - Measure: (Strategy TVL / Total TVL) * 100
 - Reasoning:
-  - Aave is safer, attracts more users
-  - Aerodrome for experienced users
+  - Bank is versatile (supply + borrow), attracts most users
+  - Shop for experienced users seeking higher yields
+  - Lottery for entertainment (generates revenue but not TVL)
 
 **PM-004: Average APY Earned**
-- Target: 5.5% blended APY
-- KPI: Weighted avg APY across all buildings
-- Measure: (Aave APY * Aave TVL + Aero APY * Aero TVL) / Total TVL
+- Target: 6.5% blended APY
+- KPI: Weighted avg APY across all buildings (excluding lottery)
+- Measure: (Bank APY * Bank TVL + Shop APY * Shop TVL) / Total TVL
 - Components:
-  - Aave: ~5.2% APY (70% of TVL)
-  - Aerodrome: ~10% APY (30% of TVL)
-  - Blended: ~6.4% APY
+  - Bank: ~4% APY (supply only) or variable (with borrowing) - 60% of TVL
+  - Shop: ~12% APY (LP + AERO rewards) - 25% of TVL
+  - Lottery: -30% EV (entertainment only) - 15% of spending
+  - Blended: ~6.5% APY (DeFi only)
 
 ### Technical Metrics
 
