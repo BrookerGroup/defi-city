@@ -210,13 +210,13 @@ This document describes the use cases and user stories for DefiCity, a gamified 
 - System shows impermanent loss calculator
 - Requires risk disclaimer acceptance
 
-**Government Lottery Office:**
-- User selects asset to pay (any asset)
+**Government Lottery Office (Megapot Integration):**
+- User selects USDC to pay (Megapot requirement)
 - User selects number of tickets
-- User chooses numbers or quick pick
-- Funds locked until draw
-- Shows current jackpot size
-- Shows odds of winning
+- Ticket price fetched dynamically from Megapot
+- Funds sent to Megapot contract on user's behalf
+- Shows current $1M+ jackpot (from Megapot)
+- DefiCity earns referral fees
 - Requires responsible gaming warning acceptance
 
 ---
@@ -255,7 +255,7 @@ This document describes the use cases and user stories for DefiCity, a gamified 
 - Session key expired → User approves new key
 - Transaction fails → User retries
 
-**Note:** Lottery building cannot be "harvested" - prizes are claimed after draw
+**Note:** Lottery building cannot be "harvested" - prizes are claimed via Megapot after draw
 
 ---
 
@@ -292,7 +292,7 @@ This document describes the use cases and user stories for DefiCity, a gamified 
 **Special Cases:**
 - **Bank:** Can increase supply to borrow more
 - **Shop:** Increases LP position size
-- **Lottery:** Cannot deposit more - must buy new tickets
+- **Lottery:** Cannot deposit more - must buy new tickets via Megapot
 
 ---
 
@@ -333,7 +333,7 @@ This document describes the use cases and user stories for DefiCity, a gamified 
 **Special Cases:**
 - **Bank (Borrow Mode):** User must repay borrowed amount first
 - **Shop:** User receives both assets (not necessarily 50/50 due to IL)
-- **Lottery:** Cannot demolish - must claim prizes after draw
+- **Lottery:** Cannot demolish - un-spent USDC returned; active tickets remain on Megapot
 
 ---
 
@@ -503,97 +503,95 @@ This document describes the use cases and user stories for DefiCity, a gamified 
 
 ---
 
-### UC-009: Government Lottery Office
+### UC-009: Government Lottery Office (Megapot Integration)
 **Actor:** User seeking entertainment
-**Goal:** Purchase lottery tickets and potentially win prizes
+**Goal:** Purchase Megapot lottery tickets and potentially win $1M+ jackpot
 
-#### UC-009a: Buy Lottery Tickets
+#### UC-009a: Buy Megapot Lottery Tickets
 **Main Flow:**
 1. User places Government Lottery Office building (or buys tickets)
 2. User clicks "Buy Tickets"
-3. System shows:
-   - Current jackpot size
-   - Next draw date/time
-   - Ticket price ($10-100 per ticket)
-   - Odds of winning each tier
+3. System fetches live data from Megapot contract:
+   - Current jackpot: $1M+ USD (real-time from Megapot)
+   - Next draw: Time remaining (from Megapot)
+   - Ticket price: Dynamic (fetched via getTicketPrice())
+   - Odds: As defined by Megapot
+4. System shows:
+   - Megapot details
    - Responsible gaming warning
-4. User selects asset to pay (USDC, USDT, ETH, BTC)
-5. User selects number of tickets
-6. User chooses numbers (or quick pick for random)
+   - DefiCity earns referral fee disclosure
+5. User selects USDC amount (Megapot requires USDC)
+6. System calculates: Number of tickets = USDC amount / ticket price
 7. System shows:
-   - Total cost
-   - Expected value: ~70% (negative EV)
+   - Total cost in USDC
+   - Number of tickets to be purchased
    - Warning: "This is entertainment, not investment"
+   - Note: "Tickets purchased on Megapot.io on your behalf"
 8. User accepts disclaimer
 9. User confirms
-10. Funds locked until draw
-11. Tickets stored and displayed in building
+10. System executes:
+    - Transfers USDC from user's wallet
+    - Calls Megapot.purchaseTickets(referrer=DefiCity, value=amount, recipient=user)
+    - DefiCity earns referral fee from Megapot
+11. Tickets are owned by user on Megapot contract
+12. Building shows ticket count and jackpot info
 
 **Postconditions:**
-- Tickets purchased
-- Funds locked
-- User awaits draw
+- Tickets purchased on Megapot
+- User is participant in Megapot lottery
+- DefiCity earned referral fee
+- User awaits Megapot draw
 
 **Responsible Gaming:**
-- Clear odds displayed (e.g., 1 in 13.9M for jackpot)
-- Warning: "Lottery is entertainment, not investment"
-- Optional spending limits ($100/day)
-- Expected value shown (~70%)
+- Clear warning: "Lottery is entertainment, not investment"
+- Jackpot size shown (inspires dream, but realistic odds disclosed)
+- Optional spending limits (frontend feature)
+- Link to Megapot.io for full details
 
-#### UC-009b: Lottery Draw
-**Automated Process (Chainlink VRF):**
-1. Draw time reached (daily or weekly)
-2. System triggers Chainlink VRF
+#### UC-009b: Lottery Draw (Managed by Megapot)
+**Automated Process (Megapot + Chainlink VRF):**
+1. Draw time reached (Megapot schedule)
+2. Megapot contract triggers Chainlink VRF
 3. VRF generates provably fair random numbers
-4. System compares all tickets to winning numbers
-5. Winners determined:
-   - Jackpot: Match all 6 numbers
-   - 2nd Prize: Match 5/6
-   - 3rd Prize: Match 4/6
-   - 4th Prize: Match 3/6
-6. Prize pool distributed:
-   - Jackpot: 50% of pool
-   - 2nd: 20% of pool
-   - 3rd: 15% of pool
-   - 4th: 15% of pool
-   - Treasury: 30% of ticket sales
-7. Winners notified
-8. If no jackpot winner → Rolls over to next draw
+4. Megapot determines winners
+5. Prizes distributed by Megapot protocol
+6. DefiCity building updates to show:
+   - Last draw results (via getLastJackpotResults())
+   - User's winnings (via winningsClaimable(user))
+   - Next draw countdown
 
-**Prize Distribution Example:**
-```
-Ticket sales: 10,000 tickets × $10 = $100,000
-Prize pool: 70% = $70,000
-Treasury: 30% = $30,000
+**Note:** All lottery mechanics are handled by Megapot. DefiCity simply displays the information.
 
-Prizes:
-- Jackpot (6/6): $35,000 (50%)
-- 2nd Prize (5/6): $14,000 (20%)
-- 3rd Prize (4/6): $10,500 (15%)
-- 4th Prize (3/6): $10,500 (15%)
-```
-
-#### UC-009c: Claim Prize
+#### UC-009c: Check Winnings & Claim Prize
 **Main Flow:**
-1. Draw completed
-2. Winning tickets highlighted in building
-3. User clicks "Claim Prize"
-4. System shows:
-   - Prize tier
-   - Prize amount (in asset used to buy ticket)
-5. User confirms
-6. Prize transferred to wallet
-7. Ticket marked as claimed
+1. Draw completed by Megapot
+2. DefiCity building fetches user's winnings:
+   - Calls Megapot.winningsClaimable(user)
+3. If winnings > 0:
+   - Building highlights "You Won!"
+   - Shows claimable amount
+4. User clicks "Check Winnings on Megapot"
+5. System shows:
+   - Claimable winnings (in USDC)
+   - Link to Megapot.io to claim
+   - Note: "Claims are processed on Megapot.io"
+6. User visits Megapot.io to claim (external to DefiCity)
+7. Prize transferred by Megapot contract
 
 **Postconditions:**
-- Prize claimed
-- Funds in wallet
-- Ticket no longer active
+- User aware of winnings
+- User directed to Megapot for claiming
+- DefiCity building shows updated status
 
 **Alternative Flows:**
 - No winning tickets → Building shows "No wins this draw"
-- Unclaimed prizes → Return to pool after 90 days
-- User buys tickets for next draw
+- User buys more tickets for next draw
+- User checks past results via Megapot.io
+
+**Why External Claiming:**
+- Megapot handles all prize distribution
+- Security: Users claim directly from audited Megapot contract
+- DefiCity focuses on UI/visualization
 
 ---
 
@@ -658,7 +656,7 @@ Prizes:
    - Bank #2: +5 USDT (supply APY)
    - Bank #3: +3 USDC (net: supply - borrow)
    - Shop: +8 USDC (fees) + 10 AERO (rewards)
-   - Lottery: Awaiting draw
+   - Lottery: Check winnings on Megapot (external)
 
 **Benefits:**
 - Diversification across assets
@@ -1020,19 +1018,21 @@ Acceptance Criteria:
 - AERO rewards tracked
 ```
 
-### Feature: Government Lottery Office
+### Feature: Government Lottery Office (Megapot Integration)
 ```
 As a user seeking entertainment
-I want to play an on-chain lottery
-So that I can have fun and potentially win prizes
+I want to play Megapot's $1M+ lottery
+So that I can have fun and potentially win big prizes
 
 Acceptance Criteria:
-- Can buy tickets with any asset
-- Numbers selected or quick pick
-- Provably fair randomness (Chainlink VRF)
-- Odds clearly displayed
+- Can buy tickets with USDC (Megapot requirement)
+- Ticket price fetched dynamically from Megapot
+- Purchases made on user's behalf to Megapot contract
+- Shows $1M+ jackpot size in real-time
+- Provably fair randomness (Megapot uses Chainlink VRF)
 - Responsible gaming warnings shown
-- Prize claims automated
+- Winnings checkable via Megapot contract
+- DefiCity earns referral fees
 ```
 
 ### Feature: Gasless Gameplay
@@ -1186,64 +1186,100 @@ Acceptance Criteria:
 [End] → Lisa has leveraged strategy earning extra yield
 ```
 
-### Flow 3: Lottery Experience (Mike's Entertainment)
+### Flow 3: Megapot Lottery Experience (Mike's Entertainment)
 ```
 [Start] → Mike's city with 5 buildings
    ↓
-[Sees "New: Government Lottery Office!"]
+[Sees "New: Government Lottery Office! $1M+ Jackpot via Megapot"]
    ↓
 [Curious] → Clicks to learn more
    ↓
 [Info modal] →
-   - Current jackpot: $50,000
-   - Next draw: Tomorrow 8PM
-   - Tickets: $10 each
-   - Odds: 1 in 13.9M (jackpot)
+   - Powered by: Megapot.io
+   - Current jackpot: $1,200,000 (live from Megapot)
+   - Next draw: 2 days 5 hours
+   - Ticket price: $5 USDC (dynamic)
+   - Note: "DefiCity purchases tickets on your behalf"
    ↓
-[Thinks] → "Worth $20 for fun"
+[Thinks] → "Worth $20 for a shot at $1M!"
    ↓
-[Place building] → Selects Lottery
+[Place building] → Selects Government Lottery Office
    ↓
 [Buy tickets] →
-   - Selects 2 tickets ($20 total)
-   - Chooses asset: ETH (0.01 ETH)
-   - Numbers: Quick pick (random)
+   - Enters: 20 USDC
+   - System calculates: 20 / 5 = 4 tickets
+   - Shows: "You'll get 4 tickets on Megapot"
    ↓
 [Warnings shown] →
    - "This is entertainment, not investment"
-   - "Expected value: ~70% (you'll likely lose)"
-   - "Odds of jackpot: 1 in 13,983,816"
+   - "Jackpot managed by Megapot.io (audited)"
+   - "DefiCity earns referral fee"
    ↓
-[Mike accepts] → "Just for fun!"
+[Mike accepts] → "Let's go!"
    ↓
 [Confirm] → Gasless transaction
    ↓
-[Tickets purchased] → Shows:
-   - Ticket #1: 05-12-23-34-42-48
-   - Ticket #2: 07-19-28-31-39-45
-   - Draw: Tomorrow 8PM
+[System executes] →
+   - Transfers 20 USDC from Mike's wallet
+   - Calls Megapot.purchaseTickets(referrer=DefiCity, 20 USDC, Mike)
+   - DefiCity earns ~$1 referral fee
    ↓
-[Next day] → Draw occurs (Chainlink VRF)
+[Tickets purchased] → Building shows:
+   - 4 tickets purchased on Megapot
+   - Current jackpot: $1.2M
+   - Next draw: 2 days 5 hours
+   - View on Megapot.io →
    ↓
-[Results] →
-   - Winning numbers: 05-12-23-34-42-49
-   - Mike's ticket #1: 5/6 match! (Second prize)
-   - Mike's ticket #2: 2/6 match (no prize)
+[Next 2 days] → Mike checks building daily
    ↓
-[Notification] → "You won $10,000! (Second prize)"
+[Draw occurs] → Megapot executes draw (Chainlink VRF)
    ↓
-[Claim prize] →
-   - Click "Claim Prize"
-   - $10,000 transferred to wallet (in ETH)
-   - Ticket marked as claimed
+[DefiCity building updates] →
+   - Fetches: Megapot.winningsClaimable(Mike)
+   - Result: 0 USDC (no win this time)
+   ↓
+[Building shows] →
+   - "No wins this draw"
+   - Last jackpot: Won by 0x7a3b... ($1.2M)
+   - Next jackpot: $50,000 (reset)
+   - Buy more tickets? →
+   ↓
+[Mike's reaction] → "Didn't win, but fun to dream!"
+   ↓
+[Mike buys again] →
+   - Next jackpot growing: Now $80,000
+   - Buys 10 more tickets ($50 USDC)
+   - "Maybe next time!"
+   ↓
+[End] → Mike had fun, supports Megapot ecosystem, tries again
+```
+
+**Alternative Outcome (If Mike Won):**
+```
+[Draw occurs] → Megapot executes draw
+   ↓
+[DefiCity building updates] →
+   - Fetches: Megapot.winningsClaimable(Mike)
+   - Result: $15,000 USDC (prize tier win!)
+   ↓
+[Notification] → "You won $15,000 on Megapot! 🎉"
+   ↓
+[Building shows] →
+   - Claimable: $15,000 USDC
+   - "Claim on Megapot.io" (external link)
+   ↓
+[Mike visits Megapot.io] →
+   - Connects wallet
+   - Claims $15,000 USDC
+   - Funds sent to wallet by Megapot contract
    ↓
 [Mike's reaction] → "Wow! That's incredible!"
    ↓
 [Mike shares] → Posts on Twitter, friends excited
    ↓
-[Mike reinvests] → Uses winnings to place 2 more Banks
+[Mike reinvests] → Uses winnings to place 3 more Banks in DefiCity
    ↓
-[End] → Mike had fun, won big, and reinvested
+[End] → Mike won big, reinvested, loves DefiCity + Megapot
 ```
 
 ---
@@ -1338,18 +1374,26 @@ Acceptance Criteria:
 - Demolish and hold assets separately
 - Rebalance to stablecoin pair (lower IL)
 
-### Edge Case 6: Lottery Jackpot Rollover
-**Scenario:** No jackpot winner for 5 consecutive draws
+### Edge Case 6: Megapot Jackpot Growth & Reset
+**Scenario:** Megapot jackpot grows over multiple draws, then wins
 
 **Flow:**
-1. **Draw 1:** Jackpot $50,000 → No winner → Rolls over
-2. **Draw 2:** Jackpot $85,000 → No winner → Rolls over
-3. **Draw 3:** Jackpot $120,000 → No winner → Rolls over
-4. **Draw 4:** Jackpot $155,000 → No winner → Rolls over
-5. **Draw 5:** Jackpot $190,000 → Winner! (Mike matches all 6)
-6. **Mike wins $190,000!**
-7. **Community excitement:** Massive jackpot draws more players
-8. **Next draw:** Reset to base jackpot ($20,000)
+1. **Week 1:** Megapot jackpot: $1.2M (no DefiCity users win)
+2. **Week 2:** Megapot jackpot: $1.5M (growing, no DefiCity users win)
+3. **Week 3:** Megapot jackpot: $1.8M (growing, no DefiCity users win)
+4. **Week 4:** Megapot jackpot: $2.1M → Someone wins on Megapot!
+5. **DefiCity building updates:**
+   - Shows last winner (external address)
+   - Shows prize amount: $2.1M
+   - Next jackpot: Reset to base ($50k)
+6. **Community excitement:** DefiCity users see massive win, buy more tickets
+7. **Next draws:** Jackpot grows again from $50k base
+
+**DefiCity User Experience:**
+- Building always shows current Megapot jackpot (live data)
+- Users notified of major wins (even if not theirs)
+- Encourages participation when jackpot is high
+- Clear that jackpot is managed by Megapot (not DefiCity)
 
 ---
 

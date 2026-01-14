@@ -933,45 +933,40 @@
 
 ### Smart Contract Tasks
 
-#### SC-016: Implement Lottery Strategy (Gov. Lottery Office)
+#### SC-016: Implement Megapot Integration Strategy (Gov. Lottery Office)
 - **Status:** 🔵 TODO
 - **Assignee:** FS1
-- **Priority:** P0 (Critical)
-- **Estimated:** 7 days
+- **Priority:** P1 (High)
+- **Estimated:** 2 days
 - **Dependencies:** SC-007
 - **Description:**
-  - Implement LotteryStrategy.sol
-    - Support multi-asset ticket purchases (USDC, USDT, ETH, WBTC)
-    - buyTicket() - purchase lottery ticket with chosen asset
-    - User selects numbers or quick pick (random)
-    - Tickets stored per user
-    - Draw mechanism:
-      - Use Chainlink VRF for provably fair randomness
-      - Daily or weekly draws (configurable)
-      - Prize pool = 70% of ticket sales
-      - 30% to treasury
-    - Prize distribution:
-      - Jackpot: Match all numbers (50% of pool)
-      - 2nd Prize: Match 5/6 (20%)
-      - 3rd Prize: Match 4/6 (15%)
-      - 4th Prize: Match 3/6 (15%)
-    - claimPrize() - claim winnings (paid in same asset as ticket)
-    - Jackpot rollover if no winner
-    - getActiveTickets() - view user's active tickets
-    - getPrizePool() - view current jackpot
-    - Unclaimed prizes return to pool after 90 days
-  - Events: TicketPurchased, DrawExecuted, PrizeWon, PrizeClaimed
-  - Integrate with Chainlink VRF on Base
+  - Implement MegapotStrategy.sol (integrates with Megapot.io)
+    - Support USDC only (Megapot requirement)
+    - buyTicket() - purchase tickets on Megapot on user's behalf
+      - Fetch ticket price: Megapot.getTicketPrice()
+      - Calculate tickets: amount / ticketPrice
+      - Call Megapot.purchaseTickets(referrer=DefiCity, value, recipient=user)
+      - DefiCity earns referral fees from Megapot
+    - View functions:
+      - getJackpot() - fetch from Megapot.getJackpotAmount()
+      - getUserWinnings() - fetch from Megapot.winningsClaimable(user)
+      - getTimeRemaining() - fetch from Megapot.getTimeRemaining()
+      - getLastWinner() - fetch from Megapot.getLastJackpotResults()
+    - Create IMegapotJackpot interface
+      - purchaseTickets(), winningsClaimable(), getTicketPrice()
+      - getJackpotAmount(), getTimeRemaining(), getUsersInfo()
+      - getLastJackpotResults()
+  - Megapot contract: 0xbEDd4F2beBE9E3E636161E644759f3cbe3d51B95 (Base Mainnet)
+  - USDC token: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+  - Events: TicketsPurchased (DefiCity side only)
 - **Acceptance Criteria:**
-  - [ ] Can buy tickets with all 4 assets
-  - [ ] VRF randomness provably fair
-  - [ ] Draw executes correctly
-  - [ ] Prize distribution accurate (70/30 split)
-  - [ ] Prizes claimable in original asset
-  - [ ] Jackpot rolls over
-  - [ ] Unclaimed prizes return to pool
+  - [ ] Can purchase tickets via Megapot successfully
+  - [ ] Ticket price fetched dynamically from Megapot
+  - [ ] Referral fees work (DefiCity earns fees)
+  - [ ] Jackpot amount fetches correctly
+  - [ ] User winnings fetch correctly
   - [ ] Unit tests pass (90%+ coverage)
-  - [ ] Integration tests with Chainlink VRF pass
+  - [ ] Integration tests with Megapot contract pass
 
 #### SC-017: Deploy DefiCity Smart Wallet (ERC-4337)
 - **Status:** 🔵 TODO
@@ -1158,43 +1153,47 @@
   - [ ] Errors handled gracefully
   - [ ] Fallback to regular tx works
 
-#### FE-013: Create Lottery Building UI
+#### FE-013: Create Megapot Lottery Building UI
 - **Status:** 🔵 TODO
 - **Assignee:** FS2
-- **Priority:** P0 (Critical)
-- **Estimated:** 5 days
-- **Dependencies:** FE-012, SC-021
+- **Priority:** P1 (High)
+- **Estimated:** 3 days
+- **Dependencies:** FE-012, SC-016
 - **Description:**
   - **Placement:**
-    - Asset selection (USDC, USDT, ETH, WBTC)
-    - Number of tickets input
-    - Number selection or quick pick
-    - Price per ticket ($10 min)
+    - USDC input field (Megapot requirement - USDC only)
+    - Fetch dynamic ticket price from Megapot.getTicketPrice()
+    - Auto-calculate ticket count: amount / ticketPrice
+    - Show: "Tickets will be purchased on Megapot.io on your behalf"
+    - Disclosure: "DefiCity earns referral fee"
+    - Responsible gaming warning
     - Confirm purchase (gasless)
   - **Info Panel:**
-    - Active tickets (with chosen numbers)
-    - Next draw countdown
-    - Current jackpot size
-    - Odds of winning (each tier)
-    - Prize breakdown
+    - $1M+ jackpot display (fetched from Megapot.getJackpotAmount())
+    - User's ticket count (fetched from Megapot.getUsersInfo())
+    - Next draw countdown (from Megapot.getTimeRemaining())
+    - Last winner info (from Megapot.getLastJackpotResults())
+    - "View on Megapot.io" link
+    - Megapot branding (powered-by badge)
     - Responsible gaming warnings
-  - **After Draw:**
-    - Winning tickets highlighted
-    - Prize amount shown
-    - Claim prize button
-  - **Claim Prize:**
-    - Confirm prize claim
-    - Receive asset (same as ticket purchase)
-    - Success notification
+  - **Check Winnings:**
+    - Fetch Megapot.winningsClaimable(user)
+    - If winnings > 0: Display "You Won!" with amount
+    - "Claim on Megapot.io" button (external link)
+    - Note: "Claims are processed on Megapot.io"
+  - **Megapot Integration:**
+    - Display Megapot branding tastefully
+    - Link to Megapot.io for full details
+    - Clear disclosure of external integration
 - **Acceptance Criteria:**
-  - [ ] Can buy tickets with all assets
-  - [ ] Number selection works
-  - [ ] Quick pick generates random numbers
-  - [ ] Active tickets displayed
+  - [ ] Can buy tickets with USDC via Megapot
+  - [ ] Ticket price updates dynamically from Megapot
+  - [ ] Ticket count calculated correctly
+  - [ ] Jackpot amount shows real-time from Megapot
   - [ ] Countdown to draw accurate
-  - [ ] Winning tickets highlighted
-  - [ ] Can claim prizes
-  - [ ] Prizes received in correct asset
+  - [ ] Winnings check works
+  - [ ] Link to Megapot.io functions
+  - [ ] Megapot branding displayed
   - [ ] Responsible gaming warnings displayed
 
 #### FE-014: Update Dashboard for AA
@@ -1242,34 +1241,36 @@
 
 ### UX/UI Tasks
 
-#### UI-006: Design Lottery Building & UI
+#### UI-006: Design Megapot Lottery Building & UI
 - **Status:** 🔵 TODO
 - **Assignee:** UI
-- **Priority:** P0 (Critical)
-- **Estimated:** 4 days
+- **Priority:** P1 (High)
+- **Estimated:** 2 days
 - **Dependencies:** UI-004
 - **Description:**
-  - Design lottery building sprite (government-style)
+  - Design lottery building sprite (government-style with Megapot branding)
   - Design ticket purchase modal:
-    - Asset selection
-    - Number selection grid (1-49 or similar)
-    - Quick pick button
-    - Price calculation
+    - USDC input field
+    - Dynamic ticket price display (from Megapot)
+    - Auto-calculated ticket count
+    - Note: "Powered by Megapot.io"
     - Responsible gaming warning
+    - Referral fee disclosure
   - Design lottery info panel:
-    - Active tickets display (card format)
-    - Countdown timer
-    - Jackpot amount (big and prominent)
-    - Odds display
-    - Prize breakdown table
-  - Design winning ticket notification (big celebration!)
-  - Design claim prize flow
+    - $1M+ jackpot display (prominent, live from Megapot)
+    - User's ticket count
+    - Countdown timer to next draw
+    - Last winner info (address + prize amount)
+    - "View on Megapot.io" link
+  - Design check winnings flow:
+    - Claimable amount display
+    - "Claim on Megapot.io" button
+  - Design Megapot branding integration (powered-by badge)
 - **Acceptance Criteria:**
   - [ ] Lottery building sprite distinctive
-  - [ ] Ticket purchase UX clear
-  - [ ] Number selection intuitive
-  - [ ] Info panel informative
-  - [ ] Winning notification exciting
+  - [ ] Megapot branding integrated tastefully
+  - [ ] Ticket purchase UX clear (USDC-only)
+  - [ ] Jackpot prominently displayed
   - [ ] Responsible gaming warnings prominent
 
 #### UI-007: Design Account Abstraction UI
@@ -1358,41 +1359,39 @@
   - [ ] Regular txs work
   - [ ] All bugs filed and resolved
 
-#### QA-007: Test Lottery Functionality
+#### QA-007: Test Megapot Integration Functionality
 - **Status:** 🔵 TODO
 - **Assignee:** QA1
-- **Priority:** P0 (Critical)
-- **Estimated:** 4 days
-- **Dependencies:** FE-013, SC-021
+- **Priority:** P1 (High)
+- **Estimated:** 2 days
+- **Dependencies:** FE-013, SC-016
 - **Description:**
-  - **Test Ticket Purchase:**
-    - Buy ticket with USDC
-    - Buy ticket with USDT
-    - Buy ticket with ETH
-    - Buy ticket with WBTC
-    - Select numbers manually
-    - Use quick pick
-    - Buy multiple tickets
-  - **Test Draw Execution:**
-    - Wait for draw (or trigger manually on testnet)
-    - Verify randomness via Chainlink VRF
-    - Check winning numbers announced
-    - Verify prize pool calculation (70% of sales)
-  - **Test Prize Distribution:**
-    - Match all numbers (jackpot)
-    - Match 5/6 (2nd prize)
-    - Match 4/6 (3rd prize)
-    - Match 3/6 (4th prize)
-    - No winner (jackpot rollover)
-  - **Test Prize Claim:**
-    - Claim prize in USDC
-    - Claim prize in ETH
-    - Verify correct amount received
+  - **Test Megapot Ticket Purchase:**
+    - Buy tickets with USDC (only supported asset)
+    - Verify ticket price fetched dynamically from Megapot
+    - Verify ticket count calculated correctly
+    - Verify Megapot.purchaseTickets() called with correct params
+    - Verify DefiCity earns referral fee
+  - **Test Data Fetching:**
+    - Jackpot amount updates from Megapot contract
+    - Time remaining updates from Megapot
+    - User's ticket count fetches correctly
+    - Last winner info displays correctly
+  - **Test Winnings Check:**
+    - Fetch winningsClaimable(user) from Megapot
+    - Display claimable amount correctly
+    - Link to Megapot.io works
   - **Test Edge Cases:**
-    - Unclaimed prize after 90 days
-    - Multiple winners splitting prize
-    - Zero tickets sold (no draw)
-  - Test responsible gaming warnings displayed
+    - Buy ticket with insufficient USDC → Error
+    - Buy ticket with non-USDC asset → Error
+    - Megapot contract paused → Handle gracefully
+  - **Test UI/UX:**
+    - Responsible gaming warnings shown
+    - Megapot branding displayed
+    - Referral fee disclosure visible
+  - **Integration Testing:**
+    - End-to-end flow: Buy ticket → Wait for draw → Check winnings
+    - Verify integration with real Megapot contract on Base
 - **Acceptance Criteria:**
   - [ ] Ticket purchase works for all assets
   - [ ] Draw execution fair (VRF verified)

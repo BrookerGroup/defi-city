@@ -65,12 +65,12 @@ DefiCity is a gamified DeFi portfolio management platform built on Base (Ethereu
                  │
 ┌────────────────▼────────────────────────────────────────────┐
 │              DeFi Strategy Layer                            │
-│  Aave (Bank) + Aerodrome (Shop) + Lottery (VRF)           │
+│  Aave (Bank) + Aerodrome (Shop) + Megapot (Lottery)       │
 └────────────────┬────────────────────────────────────────────┘
                  │
 ┌────────────────▼────────────────────────────────────────────┐
 │              External Protocols (Base)                      │
-│  Aave V3 + Aerodrome + Chainlink VRF + Price Feeds        │
+│  Aave V3 + Aerodrome + Megapot + Chainlink Price Feeds    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -257,11 +257,11 @@ Strategies (Versioned)
 │  ├─ harvest() - claim fees + rewards
 │  └─ getImpermanentLoss()
 │
-└─ LotteryStrategy
-   ├─ buyTicket() - purchase ticket
-   ├─ executeDraw() - trigger VRF
-   ├─ claimPrize() - claim winnings
-   └─ getJackpot()
+└─ MegapotStrategy (External Integration)
+   ├─ buyTicket() - purchase via Megapot
+   ├─ claimPrize() - check winnings
+   ├─ getJackpot() - fetch from Megapot
+   └─ getUserInfo() - user stats
 ```
 
 ### 3.2 DefiCityCore Contract
@@ -1073,60 +1073,36 @@ interface IAerodromeStrategy is IStrategy {
 
 /**
  * @title ILotteryStrategy
- * @notice Interface for lottery strategy
+ * @notice Interface for lottery strategy (Megapot integration)
  */
 interface ILotteryStrategy {
     /**
-     * @notice Buy lottery ticket
-     * @param user User address
-     * @param asset Asset to pay with
-     * @param amount Ticket price
-     * @param numbers Selected numbers (or empty for quick pick)
-     * @return ticketId Ticket ID
+     * @notice Buy lottery tickets
+     * @param user User address (recipient)
+     * @param asset Asset to pay with (USDC only for Megapot)
+     * @param amount Total amount to spend
+     * @param data Additional data (unused for Megapot)
+     * @return ticketCount Number of tickets purchased
      */
     function buyTicket(
         address user,
         address asset,
         uint256 amount,
-        uint8[] calldata numbers
-    ) external returns (uint256 ticketId);
+        uint8[] calldata data
+    ) external returns (uint256 ticketCount);
 
     /**
-     * @notice Execute lottery draw (Chainlink VRF)
-     * @return requestId VRF request ID
-     */
-    function executeDraw() external returns (uint256 requestId);
-
-    /**
-     * @notice Claim prize (called by winner)
-     * @param ticketId Ticket ID
+     * @notice Claim prize (checks Megapot for winnings)
+     * @param ticketId Unused (for interface compatibility)
      * @return prizeAmount Prize amount
      */
     function claimPrize(uint256 ticketId) external returns (uint256 prizeAmount);
 
     /**
-     * @notice Get current jackpot
-     * @return jackpot Jackpot amount
+     * @notice Get current jackpot from Megapot
+     * @return jackpot Jackpot amount in USDC
      */
     function getJackpot() external view returns (uint256 jackpot);
-
-    /**
-     * @notice Get ticket details
-     * @param ticketId Ticket ID
-     * @return owner Owner address
-     * @return numbers Selected numbers
-     * @return drawId Draw ID
-     * @return claimed Whether prize claimed
-     */
-    function getTicket(uint256 ticketId)
-        external
-        view
-        returns (
-            address owner,
-            uint8[] memory numbers,
-            uint256 drawId,
-            bool claimed
-        );
 }
 ```
 
@@ -2126,397 +2102,288 @@ contract AerodromeStrategy is IAerodromeStrategy {
 }
 ```
 
-### 5.3 Lottery Strategy (Chainlink VRF)
+### 5.3 Lottery Strategy (Megapot Integration)
 
-**Purpose:** On-chain lottery with provably fair randomness
+**Purpose:** Integrate with Megapot - A $1M+ USD jackpot on Base
+
+**Why Megapot:**
+- Production-ready lottery with $1M+ jackpot
+- Provably fair (Chainlink VRF)
+- Already audited and battle-tested
+- No need to build/maintain our own lottery
+- Earn referral fees for bringing users
+
+**Megapot Details:**
+- Contract: `0xbEDd4F2beBE9E3E636161E644759f3cbe3d51B95` (Base Mainnet)
+- Token: USDC (`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`)
+- Ticket Price: Dynamic (fetched via `getTicketPrice()`)
+- Jackpot: $1M+ USD (grows over time)
+- Draws: Regular intervals (check `getTimeRemaining()`)
 
 ```solidity
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
-import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
-
 /**
- * @title LotteryStrategy
- * @notice On-chain lottery using Chainlink VRF for randomness
+ * @title MegapotStrategy
+ * @notice Integration with Megapot jackpot (https://megapot.io)
+ * @dev Wrapper around Megapot contract for DefiCity buildings
  */
-contract LotteryStrategy is VRFConsumerBaseV2, ILotteryStrategy {
+contract MegapotStrategy is ILotteryStrategy {
     // ============ State Variables ============
 
-    VRFCoordinatorV2Interface public immutable vrfCoordinator;
-    uint64 public immutable subscriptionId;
-    bytes32 public immutable keyHash;
-    uint32 public constant CALLBACK_GAS_LIMIT = 500_000;
-    uint16 public constant REQUEST_CONFIRMATIONS = 3;
-    uint32 public constant NUM_WORDS = 6; // 6 winning numbers
+    /// @notice Megapot jackpot contract on Base
+    IMegapotJackpot public immutable megapot;
 
-    uint256 public constant TICKET_PRICE = 10e18; // $10 USD
-    uint256 public constant NUMBERS_PER_TICKET = 6;
-    uint256 public constant MAX_NUMBER = 49;
+    /// @notice USDC token (used for ticket purchases)
+    IERC20 public immutable usdc;
 
-    // Prize distribution (% of prize pool)
-    uint256 public constant JACKPOT_PERCENT = 50; // 50%
-    uint256 public constant SECOND_PERCENT = 20;  // 20%
-    uint256 public constant THIRD_PERCENT = 15;   // 15%
-    uint256 public constant FOURTH_PERCENT = 15;  // 15%
+    /// @notice Referrer address (DefiCity earns fees)
+    address public immutable referrer;
 
-    uint256 public constant PRIZE_POOL_PERCENT = 70; // 70% to prizes
-    uint256 public constant TREASURY_PERCENT = 30;   // 30% to treasury
+    /// @notice Track user's ticket purchases
+    /// User => Total USDC spent on tickets
+    mapping(address => uint256) public userTotalSpent;
 
-    // Draw schedule
-    uint256 public drawInterval = 7 days; // Weekly draws
-    uint256 public nextDrawTime;
-
-    // Current draw
-    uint256 public currentDrawId;
-    uint256 public jackpotAmount;
-
-    // Ticket structure
-    struct Ticket {
-        uint256 ticketId;
-        address owner;
-        address asset;
-        uint8[6] numbers;
-        uint256 drawId;
-        bool claimed;
-        uint8 matches; // Set after draw
-    }
-
-    mapping(uint256 => Ticket) public tickets;
-    mapping(uint256 => uint256[]) public drawTickets; // drawId => ticketIds
-    mapping(uint256 => uint8[6]) public drawWinningNumbers; // drawId => numbers
-    mapping(uint256 => uint256) public drawRequestId; // drawId => VRF requestId
-
-    uint256 public nextTicketId = 1;
-
-    address public treasury;
+    /// @notice Track user's winnings
+    /// User => Total USDC won
+    mapping(address => uint256) public userTotalWon;
 
     // ============ Events ============
 
-    event TicketPurchased(
-        uint256 indexed ticketId,
+    event TicketsPurchased(
         address indexed user,
-        address asset,
-        uint8[6] numbers,
-        uint256 drawId
+        uint256 ticketCount,
+        uint256 totalCost,
+        uint256 timestamp
     );
-    event DrawRequested(uint256 indexed drawId, uint256 requestId);
-    event DrawCompleted(uint256 indexed drawId, uint8[6] winningNumbers);
-    event PrizeClaimed(
-        uint256 indexed ticketId,
+    event WinningsClaimed(
         address indexed user,
-        uint256 prize,
-        uint8 matches
+        uint256 amount,
+        uint256 timestamp
     );
-    event JackpotRollover(uint256 indexed drawId, uint256 amount);
 
     // ============ Constructor ============
 
     constructor(
-        address _vrfCoordinator,
-        uint64 _subscriptionId,
-        bytes32 _keyHash,
-        address _treasury
-    ) VRFConsumerBaseV2(_vrfCoordinator) {
-        vrfCoordinator = VRFCoordinatorV2Interface(_vrfCoordinator);
-        subscriptionId = _subscriptionId;
-        keyHash = _keyHash;
-        treasury = _treasury;
-
-        nextDrawTime = block.timestamp + drawInterval;
-        currentDrawId = 1;
+        address _megapot,
+        address _usdc,
+        address _referrer
+    ) {
+        megapot = IMegapotJackpot(_megapot);
+        usdc = IERC20(_usdc);
+        referrer = _referrer; // DefiCity receives referral fees
     }
 
     // ============ Ticket Functions ============
 
     /**
-     * @notice Buy lottery ticket
-     * @param user User address
-     * @param asset Asset to pay with (USDC, USDT, ETH, WBTC)
-     * @param amount Ticket price
-     * @param numbers Selected numbers (6 numbers, 1-49), empty for quick pick
+     * @notice Buy lottery tickets (via Megapot)
+     * @param user User address (recipient)
+     * @param asset Asset to pay with (must be USDC)
+     * @param amount Total USDC to spend on tickets
+     * @param data Unused (Megapot doesn't allow number selection)
+     * @return ticketCount Number of tickets purchased
      */
     function buyTicket(
         address user,
         address asset,
         uint256 amount,
-        uint8[] calldata numbers
-    ) external override returns (uint256 ticketId) {
-        require(amount >= TICKET_PRICE, "Insufficient payment");
-        require(block.timestamp < nextDrawTime, "Draw in progress");
+        uint8[] calldata data
+    ) external override returns (uint256 ticketCount) {
+        require(asset == address(usdc), "Only USDC supported");
+        require(amount > 0, "Amount must be > 0");
 
-        // Validate or generate numbers
-        uint8[6] memory ticketNumbers;
-        if (numbers.length == 0) {
-            // Quick pick (pseudo-random for now, not for prize)
-            ticketNumbers = _generateQuickPick();
-        } else {
-            require(numbers.length == 6, "Must select 6 numbers");
-            for (uint256 i = 0; i < 6; i++) {
-                require(numbers[i] >= 1 && numbers[i] <= MAX_NUMBER, "Invalid number");
-                ticketNumbers[i] = numbers[i];
-            }
-        }
+        // Get ticket price from Megapot
+        uint256 ticketPrice = megapot.getTicketPrice();
+        require(amount >= ticketPrice, "Insufficient for 1 ticket");
 
-        // Create ticket
-        ticketId = nextTicketId++;
-        tickets[ticketId] = Ticket({
-            ticketId: ticketId,
-            owner: user,
-            asset: asset,
-            numbers: ticketNumbers,
-            drawId: currentDrawId,
-            claimed: false,
-            matches: 0
-        });
+        // Calculate number of tickets
+        ticketCount = amount / ticketPrice;
+        uint256 totalCost = ticketCount * ticketPrice;
 
-        drawTickets[currentDrawId].push(ticketId);
+        // Transfer USDC from Core contract
+        usdc.transferFrom(msg.sender, address(this), totalCost);
 
-        // Transfer payment from Core
-        IERC20(asset).transferFrom(msg.sender, address(this), amount);
+        // Approve Megapot to spend USDC
+        usdc.approve(address(megapot), totalCost);
 
-        emit TicketPurchased(ticketId, user, asset, ticketNumbers, currentDrawId);
+        // Purchase tickets on Megapot (recipient = user)
+        // Referrer = DefiCity (we earn fees!)
+        megapot.purchaseTickets(referrer, totalCost, user);
 
-        return ticketId;
-    }
+        // Track user's spending
+        userTotalSpent[user] += totalCost;
 
-    // ============ Draw Functions ============
+        emit TicketsPurchased(user, ticketCount, totalCost, block.timestamp);
 
-    /**
-     * @notice Execute lottery draw (anyone can call when time reached)
-     */
-    function executeDraw() external override returns (uint256 requestId) {
-        require(block.timestamp >= nextDrawTime, "Draw time not reached");
-        require(drawRequestId[currentDrawId] == 0, "Draw already requested");
-
-        // Request random numbers from Chainlink VRF
-        requestId = vrfCoordinator.requestRandomWords(
-            keyHash,
-            subscriptionId,
-            REQUEST_CONFIRMATIONS,
-            CALLBACK_GAS_LIMIT,
-            NUM_WORDS
-        );
-
-        drawRequestId[currentDrawId] = requestId;
-
-        emit DrawRequested(currentDrawId, requestId);
-
-        return requestId;
-    }
-
-    /**
-     * @notice Callback from Chainlink VRF (called automatically)
-     */
-    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords)
-        internal
-        override
-    {
-        // Find draw ID for this request
-        uint256 drawId = _getDrawIdForRequest(requestId);
-        require(drawId > 0, "Invalid request");
-
-        // Generate winning numbers from random words
-        uint8[6] memory winningNumbers;
-        for (uint256 i = 0; i < 6; i++) {
-            winningNumbers[i] = uint8((randomWords[i] % MAX_NUMBER) + 1);
-        }
-
-        drawWinningNumbers[drawId] = winningNumbers;
-
-        // Check all tickets for matches
-        _checkTickets(drawId, winningNumbers);
-
-        // Distribute prizes
-        _distributePrizes(drawId);
-
-        // Start next draw
-        currentDrawId++;
-        nextDrawTime = block.timestamp + drawInterval;
-
-        emit DrawCompleted(drawId, winningNumbers);
+        return ticketCount;
     }
 
     // ============ Prize Functions ============
 
     /**
-     * @notice Claim prize for winning ticket
+     * @notice Claim winnings from Megapot
+     * @dev User claims directly, not via this contract
      */
     function claimPrize(uint256 ticketId)
         external
         override
         returns (uint256 prizeAmount)
     {
-        Ticket storage ticket = tickets[ticketId];
-        require(ticket.owner == msg.sender, "Not ticket owner");
-        require(!ticket.claimed, "Prize already claimed");
-        require(ticket.matches > 0, "No prize");
+        // Get claimable winnings from Megapot
+        prizeAmount = megapot.winningsClaimable(msg.sender);
+        require(prizeAmount > 0, "No winnings to claim");
 
-        // Calculate prize based on matches
-        prizeAmount = _calculatePrize(ticket.drawId, ticket.matches);
+        // Note: User must claim directly from Megapot contract
+        // This is just for tracking/display purposes
+        userTotalWon[msg.sender] += prizeAmount;
 
-        require(prizeAmount > 0, "No prize");
-
-        // Mark as claimed
-        ticket.claimed = true;
-
-        // Transfer prize in original asset
-        IERC20(ticket.asset).transfer(msg.sender, prizeAmount);
-
-        emit PrizeClaimed(ticketId, msg.sender, prizeAmount, ticket.matches);
+        emit WinningsClaimed(msg.sender, prizeAmount, block.timestamp);
 
         return prizeAmount;
     }
 
-    // ============ Internal Functions ============
-
-    function _checkTickets(uint256 drawId, uint8[6] memory winningNumbers) internal {
-        uint256[] memory ticketIds = drawTickets[drawId];
-
-        for (uint256 i = 0; i < ticketIds.length; i++) {
-            Ticket storage ticket = tickets[ticketIds[i]];
-            uint8 matches = _countMatches(ticket.numbers, winningNumbers);
-            ticket.matches = matches;
-        }
-    }
-
-    function _countMatches(uint8[6] memory numbers, uint8[6] memory winning)
-        internal
-        pure
-        returns (uint8 matches)
-    {
-        for (uint256 i = 0; i < 6; i++) {
-            for (uint256 j = 0; j < 6; j++) {
-                if (numbers[i] == winning[j]) {
-                    matches++;
-                    break;
-                }
-            }
-        }
-        return matches;
-    }
-
-    function _distributePrizes(uint256 drawId) internal {
-        uint256[] memory ticketIds = drawTickets[drawId];
-
-        // Calculate total sales
-        uint256 totalSales = ticketIds.length * TICKET_PRICE;
-        uint256 prizePool = (totalSales * PRIZE_POOL_PERCENT) / 100;
-        uint256 treasuryAmount = (totalSales * TREASURY_PERCENT) / 100;
-
-        // Transfer to treasury
-        // Note: Simplified - actual implementation would handle multiple assets
-        // IERC20(asset).transfer(treasury, treasuryAmount);
-
-        // Count winners by tier
-        uint256 jackpotWinners = 0;
-        uint256 secondWinners = 0;
-        uint256 thirdWinners = 0;
-        uint256 fourthWinners = 0;
-
-        for (uint256 i = 0; i < ticketIds.length; i++) {
-            uint8 matches = tickets[ticketIds[i]].matches;
-            if (matches == 6) jackpotWinners++;
-            else if (matches == 5) secondWinners++;
-            else if (matches == 4) thirdWinners++;
-            else if (matches == 3) fourthWinners++;
-        }
-
-        // If no jackpot winner, roll over
-        if (jackpotWinners == 0) {
-            uint256 rolloverAmount = (prizePool * JACKPOT_PERCENT) / 100;
-            jackpotAmount += rolloverAmount;
-            emit JackpotRollover(drawId, rolloverAmount);
-        } else {
-            // Reset jackpot (will be claimed by winners)
-            jackpotAmount = 0;
-        }
-    }
-
-    function _calculatePrize(uint256 drawId, uint8 matches)
-        internal
-        view
-        returns (uint256)
-    {
-        uint256[] memory ticketIds = drawTickets[drawId];
-        uint256 totalSales = ticketIds.length * TICKET_PRICE;
-        uint256 prizePool = (totalSales * PRIZE_POOL_PERCENT) / 100;
-
-        // Count winners for this tier
-        uint256 winnersInTier = 0;
-        for (uint256 i = 0; i < ticketIds.length; i++) {
-            if (tickets[ticketIds[i]].matches == matches) {
-                winnersInTier++;
-            }
-        }
-
-        if (winnersInTier == 0) return 0;
-
-        // Calculate prize based on tier
-        uint256 tierPool;
-        if (matches == 6) {
-            tierPool = jackpotAmount + (prizePool * JACKPOT_PERCENT) / 100;
-        } else if (matches == 5) {
-            tierPool = (prizePool * SECOND_PERCENT) / 100;
-        } else if (matches == 4) {
-            tierPool = (prizePool * THIRD_PERCENT) / 100;
-        } else if (matches == 3) {
-            tierPool = (prizePool * FOURTH_PERCENT) / 100;
-        }
-
-        return tierPool / winnersInTier;
-    }
-
-    function _generateQuickPick() internal view returns (uint8[6] memory) {
-        // Pseudo-random for user convenience only (not for prize draw)
-        uint8[6] memory numbers;
-        for (uint256 i = 0; i < 6; i++) {
-            numbers[i] = uint8(
-                (uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender, i))) %
-                    MAX_NUMBER) + 1
-            );
-        }
-        return numbers;
-    }
-
-    function _getDrawIdForRequest(uint256 requestId)
-        internal
-        view
-        returns (uint256)
-    {
-        for (uint256 i = 1; i <= currentDrawId; i++) {
-            if (drawRequestId[i] == requestId) {
-                return i;
-            }
-        }
-        return 0;
-    }
-
     // ============ View Functions ============
 
+    /**
+     * @notice Get current jackpot amount from Megapot
+     */
     function getJackpot() external view override returns (uint256) {
-        return jackpotAmount;
+        return megapot.getJackpotAmount();
     }
 
-    function getTicket(uint256 ticketId)
+    /**
+     * @notice Get user's info from Megapot
+     */
+    function getUserInfo(address user)
         external
         view
-        override
         returns (
-            address owner,
-            uint8[] memory numbers,
-            uint256 drawId,
-            bool claimed
+            uint256 ticketsPurchasedTotalBps,
+            uint256 winningsClaimable,
+            bool isActive
         )
     {
-        Ticket memory ticket = tickets[ticketId];
-        uint8[] memory nums = new uint8[](6);
-        for (uint256 i = 0; i < 6; i++) {
-            nums[i] = ticket.numbers[i];
-        }
-        return (ticket.owner, nums, ticket.drawId, ticket.claimed);
+        return megapot.getUsersInfo(user);
     }
+
+    /**
+     * @notice Get ticket price from Megapot
+     */
+    function getTicketPrice() external view returns (uint256) {
+        return megapot.getTicketPrice();
+    }
+
+    /**
+     * @notice Get time remaining until next draw
+     */
+    function getTimeRemaining() external view returns (uint256) {
+        return megapot.getTimeRemaining();
+    }
+
+    /**
+     * @notice Get user's total spending on tickets
+     */
+    function getUserTotalSpent(address user) external view returns (uint256) {
+        return userTotalSpent[user];
+    }
+
+    /**
+     * @notice Get user's total winnings
+     */
+    function getUserTotalWon(address user) external view returns (uint256) {
+        return userTotalWon[user];
+    }
+
+    /**
+     * @notice Get last jackpot results from Megapot
+     */
+    function getLastJackpotResults()
+        external
+        view
+        returns (
+            uint256 time,
+            address winner,
+            uint256 winningTicket,
+            uint256 winAmount,
+            uint256 totalTickets
+        )
+    {
+        return megapot.getLastJackpotResults();
+    }
+}
+
+/**
+ * @title IMegapotJackpot
+ * @notice Interface for Megapot jackpot contract
+ */
+interface IMegapotJackpot {
+    /**
+     * @notice Purchase tickets
+     * @param referrer Referrer address (earns fees)
+     * @param value Total USDC to spend
+     * @param recipient Ticket recipient address
+     */
+    function purchaseTickets(
+        address referrer,
+        uint256 value,
+        address recipient
+    ) external;
+
+    /**
+     * @notice Get claimable winnings for user
+     */
+    function winningsClaimable(address user) external view returns (uint256);
+
+    /**
+     * @notice Get current ticket price
+     */
+    function getTicketPrice() external view returns (uint256);
+
+    /**
+     * @notice Get current jackpot amount
+     */
+    function getJackpotAmount() external view returns (uint256);
+
+    /**
+     * @notice Get time remaining until next draw
+     */
+    function getTimeRemaining() external view returns (uint256);
+
+    /**
+     * @notice Get user's info
+     */
+    function getUsersInfo(address user)
+        external
+        view
+        returns (
+            uint256 ticketsPurchasedTotalBps,
+            uint256 winningsClaimable,
+            bool isActive
+        );
+
+    /**
+     * @notice Get ticket count for this round
+     */
+    function getTicketCountForRound(address user)
+        external
+        view
+        returns (uint256);
+
+    /**
+     * @notice Get last jackpot results
+     */
+    function getLastJackpotResults()
+        external
+        view
+        returns (
+            uint256 time,
+            address winner,
+            uint256 winningTicket,
+            uint256 winAmount,
+            uint256 totalTickets
+        );
 }
 ```
 
@@ -2826,16 +2693,18 @@ export interface AerodromeStrategyData {
 }
 
 export interface LotteryStrategyData {
-  type: 'lottery';
-  tickets: Array<{
-    ticketId: bigint;
-    numbers: number[];
-    drawId: bigint;
-    matches?: number;
-    prize?: bigint;
-  }>;
-  nextDraw: number;
-  jackpot: bigint;
+  type: 'megapot';
+  jackpot: bigint; // Current Megapot jackpot
+  ticketPrice: bigint; // Current ticket price
+  timeRemaining: number; // Seconds until next draw
+  userTicketCount: number; // User's ticket count this round
+  userTotalSpent: bigint; // Total USDC spent on tickets
+  userWinningsClaimable: bigint; // Claimable winnings
+  lastWinner?: {
+    address: string;
+    amount: bigint;
+    timestamp: number;
+  };
 }
 ```
 

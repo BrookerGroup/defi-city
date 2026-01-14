@@ -578,54 +578,58 @@ Rent/Income = Yield from Protocols
   - Impermanent loss calculator shown with live data
   - Current IL displayed as percentage
 
-**FR-006.4 Government Lottery Office (Lottery)**
-- **Type:** On-chain lottery/game of chance
-- **Strategy:** LotteryStrategy (Chainlink VRF for randomness)
-- **Supported Assets:** Any asset (USDC, USDT, ETH, BTC)
-- **Minimum Purchase:** $10 USD equivalent per ticket
-- **Expected Return:** Variable (jackpot pool / tickets sold)
-- **Risk:** Very High (gambling, expected value < 100%)
+**FR-006.4 Government Lottery Office (Megapot Integration)**
+- **Type:** Jackpot lottery integration with Megapot
+- **Strategy:** MegapotStrategy (integrates with Megapot.io)
+- **Supported Assets:** USDC only (Megapot requirement)
+- **Minimum Purchase:** Dynamic (fetched from Megapot contract)
+- **Jackpot:** $1M+ USD (managed by Megapot)
+- **Risk:** Very High (gambling, entertainment only)
 - **Maximum per User:** Unlimited tickets
 - **How it Works:**
   - **Ticket Purchase:**
-    - User selects asset to pay with (USDC, USDT, ETH, BTC)
-    - User selects number of tickets
-    - User chooses numbers or uses quick pick (random)
-    - Funds locked until draw
+    - User deposits USDC to building
+    - System fetches current ticket price from Megapot
+    - Purchases tickets on user's behalf
+    - DefiCity earns referral fees for bringing users
   - **Lottery Mechanics:**
-    - Daily or weekly draws (configurable)
-    - Chainlink VRF ensures provably fair randomness
-    - Prize pool = 70% of ticket sales (30% to treasury/operating costs)
-    - Multiple prize tiers (jackpot, second prize, third prize, etc.)
-    - Jackpot rolls over if no winner
+    - Managed entirely by Megapot (https://megapot.io)
+    - Provably fair randomness (Chainlink VRF)
+    - Regular draws (schedule managed by Megapot)
+    - Multi-million dollar jackpot
+    - Already audited and battle-tested
   - **Prize Distribution:**
-    - Jackpot: Match all numbers (50% of pool)
-    - Second Prize: Match 5/6 numbers (20% of pool)
-    - Third Prize: Match 4/6 numbers (15% of pool)
-    - Fourth Prize: Match 3/6 numbers (15% of pool)
-    - Prizes paid in same asset as ticket purchase
+    - Handled automatically by Megapot
+    - Users can check winnings via building interface
+    - Prizes claimable in USDC
+    - Winners notified automatically
   - **Building Representation:**
-    - Building shows active tickets
-    - Countdown to next draw
-    - Winning tickets highlighted
-    - Prize claim interface
+    - Shows tickets purchased this round
+    - Displays current jackpot amount (live from Megapot)
+    - Shows countdown to next draw
+    - Displays user's claimable winnings
+    - Shows recent winners and prizes
 - **Risk Warnings:**
-  - **This is gambling** - Expected value is negative
+  - **This is gambling** - For entertainment only
   - Warning: "Lottery is entertainment, not investment"
-  - Display odds clearly (e.g., 1 in 13,983,816 for jackpot)
+  - Display jackpot odds prominently
   - Responsible gaming message
-  - Maximum spend warnings (optional limit: $100/day)
+  - Links to responsible gaming resources
+- **Why Megapot Integration:**
+  - $1M+ jackpot (much larger than we could offer)
+  - Production-ready, audited, and secure
+  - No need to build/maintain lottery infrastructure
+  - DefiCity earns referral fees
+  - Users benefit from established, trusted lottery
 - **Acceptance Criteria:**
-  - Ticket purchase works for all assets
-  - Random number generation is provably fair (Chainlink VRF)
-  - Draw results are transparent and verifiable on-chain
-  - Prize distribution automatic
-  - Winners notified
-  - Unclaimed prizes return to pool after 90 days
-  - Display current jackpot size
-  - Display odds of winning for each tier
+  - USDC ticket purchase works seamlessly
+  - Real-time jackpot amount displayed
+  - Countdown to draw shown accurately
+  - Winnings check works correctly
+  - Referral attribution to DefiCity
   - Responsible gaming warnings displayed prominently
-- **Note:** This building type is for entertainment and adds gamification, but users should understand it's -EV (negative expected value) unlike other buildings
+  - Link to Megapot for full lottery details
+- **Note:** This building integrates with external Megapot protocol. DefiCity acts as gateway, earning referral fees while providing users access to a massive jackpot
 
 ---
 
@@ -638,9 +642,9 @@ Rent/Income = Yield from Protocols
 | Town Hall | None | - | $0 | 0% | None | 1 | No |
 | Bank | Aave Supply/Borrow | USDC, USDT, ETH, BTC | $100 | 3-8% (variable) | Medium | 10 | Yes |
 | Shop | Aerodrome LP | USDC/ETH, USDT/USDC, etc. | $500 | 8-15% | High | 5 | Yes |
-| Gov. Lottery | On-chain Lottery | Any asset | $10/ticket | Variable (Jackpot) | Very High | Unlimited | No* |
+| Gov. Lottery | Megapot Integration | USDC only | Dynamic | $1M+ Jackpot | Very High | Unlimited | Yes* |
 
-*Note: Lottery tickets cannot be "demolished" but prizes can be claimed after draw
+*Note: Demolishing withdraws un-spent USDC; active tickets remain on Megapot
 
 ### Strategy Details
 
