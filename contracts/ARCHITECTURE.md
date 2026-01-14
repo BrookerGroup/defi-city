@@ -770,14 +770,14 @@ AaveStrategyNext newStrategy = new AaveStrategyNext(...);
 registry.registerStrategy(
     address(newStrategy),
     "Aave Strategy",
-    "v2.0.0"
+    "2.0.0"
 );
 
 // 3. Activate for building type
 registry.setStrategy(1, address(newStrategy)); // buildingType = 1 (Bank)
 
-// ✅ Building ใหม่จะใช้ V2 ทันที
-// ⚠️ Building เก่ายังใช้ V1 (ต้อง migrate manual)
+// ✅ Building ใหม่จะใช้ strategy ใหม่ทันที
+// ⚠️ Building เก่ายังใช้ strategy เก่า (ต้อง migrate manual)
 ```
 
 ### Scenario 2: Update Building Logic (ปานกลาง ⭐⭐)
@@ -814,8 +814,8 @@ core.updateFeeManager(address(newFeeManager));
 หาก Core มี critical bug ต้อง deploy ใหม่:
 
 ```solidity
-// 1. Deploy CoreV2_1
-DefiCityCore_1 newCore = new DefiCityCore_1(...);
+// 1. Deploy CoreNext
+DefiCityCoreNext newCore = new DefiCityCoreNext(...);
 
 // 2. Pause old core
 oldCore.pause();

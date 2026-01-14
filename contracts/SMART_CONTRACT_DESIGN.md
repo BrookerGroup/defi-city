@@ -269,15 +269,15 @@ mapping(address => StrategyInfo) private _strategyInfo;         // Strategy meta
 **Usage Example:**
 ```solidity
 // Deploy new strategy
-AaveStrategyV2 newStrategy = new AaveStrategyV2(...);
+AaveStrategyNext newStrategy = new AaveStrategyNext(...);
 
 // Register
-registry.registerStrategy(address(newStrategy), "Aave V2", "v2.0.0");
+registry.registerStrategy(address(newStrategy), "Aave Updated", "2.0.0");
 
 // Activate for Bank building (type 1)
 registry.setStrategy(1, address(newStrategy));
 
-// ✅ All new Bank buildings use V2 strategy
+// ✅ All new Bank buildings use new version strategy
 // ⚠️ Old buildings still use V1 (require manual migration)
 ```
 
@@ -506,12 +506,12 @@ User
 ```
 Owner
   │
-  │ 1. Deploy AaveStrategyV2
-  └──────────▶ AaveStrategyV2.sol deployed
+  │ 1. Deploy AaveStrategyNext
+  └──────────▶ AaveStrategyNext.sol deployed
                │
   │ 2. Register strategy
   └──────────▶ StrategyRegistry
-               │  registerStrategy(v2Addr, "Aave V2", "v2.0.0")
+               │  registerStrategy(v2Addr, "Aave Updated", "2.0.0")
                │
   │ 3. Activate for building type 1
   └──────────▶ StrategyRegistry
@@ -521,7 +521,7 @@ Owner
                ├─▶ Add to history
                └─▶ Emit StrategyActivated
 
-// ✅ New buildings use V2
+// ✅ New buildings use new version
 // ⚠️ Old buildings still use V1
 
 User (optional migration)
@@ -530,7 +530,7 @@ User (optional migration)
   └──────────▶ Core.demolish(0)  // Uses V1 strategy
                │
   │ 5. Place new building
-  └──────────▶ Core.placeBuilding(1, amount)  // Uses V2 strategy
+  └──────────▶ Core.placeBuilding(1, amount)  // Uses new version strategy
 ```
 
 ### 3. Emergency Pause & Withdraw
@@ -658,23 +658,23 @@ All state-changing functions use `nonReentrant`:
 
 ```bash
 # 1. Deploy new strategy
-forge create AaveStrategyV2 --constructor-args ...
+forge create AaveStrategyNext --constructor-args ...
 
 # 2. Register in registry
 cast send $REGISTRY "registerStrategy(address,string,string)" \
-  $NEW_STRATEGY "Aave V2" "v2.0.0"
+  $NEW_STRATEGY "Aave Updated" "2.0.0"
 
 # 3. Activate
 cast send $REGISTRY "setStrategy(uint256,address)" 1 $NEW_STRATEGY
 
-# ✅ Done - new buildings use V2
+# ✅ Done - new buildings use new version
 ```
 
 #### Upgrade BuildingManager (Medium ⭐⭐)
 
 ```bash
 # 1. Deploy new manager
-forge create BuildingManagerV2 --constructor-args $CORE $REGISTRY $FEE_MGR
+forge create BuildingManagerNext --constructor-args $CORE $REGISTRY $FEE_MGR
 
 # 2. Update in Core
 cast send $CORE "updateBuildingManager(address)" $NEW_MANAGER
@@ -770,10 +770,10 @@ forge test --fork-url $BASE_RPC_URL -vvv
 
 ```solidity
 function testUpgradeStrategy() public {
-    // 1. Place building with V1
-    // 2. Deploy V2
+    // 1. Place building with old strategy
+    // 2. Deploy new strategy
     // 3. Update registry
-    // 4. Place new building with V2
+    // 4. Place new building with new strategy
     // 5. Verify both work correctly
 }
 
