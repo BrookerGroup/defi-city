@@ -1,9 +1,3 @@
-# 📚 คู่มือสอนโปรเจค DeFi City (ฉบับภาษาไทย)
-
-คู่มือฉบับนี้จะอธิบายทุกอย่างตั้งแต่เริ่มต้น เหมาะสำหรับผู้ที่เพิ่งเริ่มต้นเรียนรู้
-
----
-
 ## 📋 สารบัญ
 
 1. [โปรเจคนี้คืออะไร](#1-โปรเจคนี้คืออะไร)
@@ -24,12 +18,14 @@
 **DeFi City** คือโปรเจคที่รวมเกม City Builder กับระบบการเงินแบบ DeFi (Decentralized Finance) เข้าด้วยกัน
 
 ### สิ่งที่โปรเจคนี้ทำ:
+
 - ให้ผู้เล่นสร้าง "Smart Wallet" (กระเป๋าเงินอัจฉริยะ) ของตัวเอง
 - ฝากเงิน (ETH, USDC) เข้าสู่ Smart Wallet
 - ใช้เงินในกระเป๋าสร้างอาคารต่างๆ ในเกม (เช่น Yield Farm ที่สร้างดอกเบี้ย)
 - ถอนเงินกลับไปยังกระเป๋าตังค์หลัก (MetaMask) ได้ทุกเมื่อ
 
 ### ความพิเศษ:
+
 - เงินในเกมเป็นเงินจริงบน Blockchain
 - ผู้เล่นสามารถเอาเงินออกไปใช้จริงได้
 - เล่นเกมไปด้วย ลงทุน DeFi ไปด้วย
@@ -39,14 +35,17 @@
 ## 2. แนวคิดและเป้าหมาย
 
 ### ปัญหาที่ต้องการแก้:
+
 1. **DeFi ยากเกินไปสำหรับคนทั่วไป** - มีคำศัพท์เยอะ UI ซับซ้อน
 2. **การลงทุนน่าเบื่อ** - ดูแค่ตัวเลขไปมา ไม่มีอะไรให้ทำ
 
 ### โซลูชัน:
+
 - **เปลี่ยน DeFi ให้เป็นเกม** - แทนที่จะกด "Deposit" ให้กลายเป็นการ "สร้างอาคาร"
 - **ทำให้สนุก** - ได้เล่นเกม + ได้ดอกเบี้ยจริงๆ
 
 ### ตัวอย่าง:
+
 ```
 แบบเดิม (DeFi):
 "Deposit 100 USDC to Aave Pool, APY 5.2%"
@@ -64,13 +63,16 @@
 ก่อนเริ่มต้น มาทำความเข้าใจคำศัพท์สำคัญกันก่อน:
 
 ### Blockchain & Crypto
+
 - **Blockchain** = ฐานข้อมูลแบบกระจายอำนาจ เหมือนสมุดบัญชีที่ทุกคนเห็นเหมือนกัน
 - **Smart Contract** = โปรแกรมที่รันบน Blockchain ทำงานอัตโนมัติ ไม่มีใครแก้ไขได้
 - **ETH** = เหรียญ Ethereum (ใช้จ่ายค่า Gas ในการทำธุรกรรม)
 - **USDC** = Stablecoin (เหรียญที่มีมูลค่า 1 USDC = 1 USD เสมอ)
 
 ### Wallet (กระเป๋าเงิน)
+
 - **EOA (Externally Owned Account)** = กระเป๋าตังค์ปกติ เช่น MetaMask
+
   - ควบคุมด้วย Private Key (รหัสลับ)
   - คุณต้องจ่ายค่า Gas เองทุกครั้ง
 
@@ -80,12 +82,14 @@
   - สามารถตั้งกฎได้ (เช่น ถอนได้วันละไม่เกิน X บาท)
 
 ### DeFi Protocols
+
 - **Aave** = แพลตฟอร์มให้ยืม-ฝากเงิน (ฝากแล้วได้ดอกเบี้ย)
 - **Uniswap** = ตลาดแลกเปลี่ยนเหรียญ (คุณสามารถเป็นผู้ให้สภาพคล่องได้รับค่าธรรมเนียม)
 - **LP (Liquidity Provider)** = ผู้ให้สภาพคล่อง (ฝากคู่เหรียญเข้า Pool)
 - **Yield Farm** = การฝากเงินเพื่อรับดอกเบี้ย
 
 ### Gas
+
 - **Gas** = ค่าธรรมเนียมในการทำธุรกรรมบน Blockchain
 - เหมือนค่าไฟฟ้าที่ต้องจ่ายเพื่อให้ Smart Contract ทำงาน
 - ยิ่งทำอะไรซับซ้อน ยิ่งเสีย Gas เยอะ
@@ -101,6 +105,7 @@
 **หน้าที่:** เก็บเงินของผู้เล่นแต่ละคน
 
 **ความสามารถ:**
+
 ```solidity
 ✅ ฝากเงิน ETH (รับ ETH เข้ากระเป๋า)
 ✅ ฝากเงิน ERC20 (รับ USDC, USDT, เหรียญอื่นๆ)
@@ -111,12 +116,14 @@
 ```
 
 **กลไกความปลอดภัย:**
+
 - มี `owner` (เจ้าของ) เพียงคนเดียว
 - **เฉพาะเจ้าของ** ถอนเงินได้
 - ตรวจสอบ address ที่เป็น zero address (ป้องกันส่งเงินหาย)
 - ใช้ Custom Errors (ประหยัด Gas)
 
 **ตัวอย่างโค้ดสำคัญ:**
+
 ```solidity
 // เจ้าของ wallet
 address public owner;
@@ -143,6 +150,7 @@ function withdrawETH(address payable to, uint256 amount) public onlyOwner {
 **หน้าที่:** สร้าง Smart Wallet ให้กับผู้เล่นแต่ละคน
 
 **ความสามารถ:**
+
 ```solidity
 ✅ สร้าง wallet ใหม่ให้ผู้เล่น
 ✅ เช็คว่าผู้เล่นคนนี้มี wallet แล้วหรือยัง
@@ -151,11 +159,13 @@ function withdrawETH(address payable to, uint256 amount) public onlyOwner {
 ```
 
 **กลไกทำงาน:**
+
 - เก็บ mapping ระหว่าง `owner address` → `wallet address`
 - ผู้เล่น 1 คน มีได้ **1 wallet เท่านั้น**
 - ถ้าสร้างซ้ำจะ revert (ห้ามสร้างซ้ำ)
 
 **ตัวอย่างโค้ดสำคัญ:**
+
 ```solidity
 // เก็บข้อมูลว่าใครมี wallet อะไร
 mapping(address => address) public wallets;
@@ -217,6 +227,7 @@ function getWallet(address owner) external view returns (address) {
 **สมมติ:** คุณชื่อ Alice มีเงิน 1000 USDC ใน MetaMask
 
 #### ขั้นตอนที่ 1: เชื่อมต่อ Wallet
+
 ```javascript
 // คลิกปุ่ม "Connect Wallet" บนหน้าเว็บ
 const provider = new ethers.BrowserProvider(window.ethereum);
@@ -228,6 +239,7 @@ console.log("Alice address:", aliceAddress);
 ```
 
 #### ขั้นตอนที่ 2: สร้าง Smart Wallet
+
 ```javascript
 // ระบบเรียก Factory Contract
 const factory = new ethers.Contract(FACTORY_ADDRESS, ABI, signer);
@@ -240,10 +252,12 @@ console.log("Alice's Smart Wallet:", aliceWallet);
 ```
 
 **ตอนนี้ Alice มี:**
+
 - ✅ MetaMask wallet: `0xAlice...` (มีเงิน 1000 USDC)
 - ✅ Smart Wallet: `0xWallet123...` (ยังไม่มีเงิน)
 
 #### ขั้นตอนที่ 3: ฝากเงินเข้า Smart Wallet
+
 ```javascript
 // Alice โอน 500 USDC จาก MetaMask → Smart Wallet
 const usdc = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, signer);
@@ -257,6 +271,7 @@ await wallet.depositToken(USDC_ADDRESS, ethers.parseUnits("500", 6));
 ```
 
 **ตอนนี้ Alice มี:**
+
 - MetaMask: 500 USDC (เหลือ)
 - Smart Wallet: 500 USDC ✅
 
@@ -269,8 +284,11 @@ await wallet.depositToken(USDC_ADDRESS, ethers.parseUnits("500", 6));
 const aavePool = new ethers.Contract(AAVE_POOL_ADDRESS, AAVE_ABI, provider);
 
 const approveCalldata = new ethers.Interface([
-  "function approve(address spender, uint256 amount)"
-]).encodeFunctionData("approve", [AAVE_POOL_ADDRESS, ethers.parseUnits("500", 6)]);
+  "function approve(address spender, uint256 amount)",
+]).encodeFunctionData("approve", [
+  AAVE_POOL_ADDRESS,
+  ethers.parseUnits("500", 6),
+]);
 
 // Smart Wallet เรียกฟังก์ชัน approve บน USDC contract
 await wallet.execute(USDC_ADDRESS, 0, approveCalldata);
@@ -279,8 +297,8 @@ await wallet.execute(USDC_ADDRESS, 0, approveCalldata);
 const supplyCalldata = aavePool.interface.encodeFunctionData("supply", [
   USDC_ADDRESS,
   ethers.parseUnits("500", 6),
-  aliceWallet,  // aUSDC จะไปที่ Smart Wallet
-  0
+  aliceWallet, // aUSDC จะไปที่ Smart Wallet
+  0,
 ]);
 
 await wallet.execute(AAVE_POOL_ADDRESS, 0, supplyCalldata);
@@ -289,6 +307,7 @@ console.log("✅ Yield Farm สร้างเสร็จแล้ว!");
 ```
 
 **ตอนนี้:**
+
 - Smart Wallet มี: 500 aUSDC (ตั๋วฝากเงิน Aave)
 - aUSDC จะเพิ่มมูลค่าเรื่อยๆ (ได้ดอกเบี้ย 5.2% ต่อปี)
 
@@ -300,8 +319,8 @@ console.log("✅ Yield Farm สร้างเสร็จแล้ว!");
 // Withdraw จาก Aave
 const withdrawCalldata = aavePool.interface.encodeFunctionData("withdraw", [
   USDC_ADDRESS,
-  ethers.parseUnits("526", 6),  // ถอนทั้งหมด
-  aliceWallet
+  ethers.parseUnits("526", 6), // ถอนทั้งหมด
+  aliceWallet,
 ]);
 
 await wallet.execute(AAVE_POOL_ADDRESS, 0, withdrawCalldata);
@@ -315,7 +334,7 @@ console.log("✅ เก็บเกี่ยวแล้ว! ได้ 526 USDC"
 // ถอน 526 USDC จาก Smart Wallet → MetaMask
 await wallet.withdrawToken(
   USDC_ADDRESS,
-  aliceAddress,  // ส่งกลับไปที่ MetaMask ของ Alice
+  aliceAddress, // ส่งกลับไปที่ MetaMask ของ Alice
   ethers.parseUnits("526", 6)
 );
 
@@ -323,6 +342,7 @@ console.log("✅ ถอนเงินเรียบร้อย!");
 ```
 
 **สรุปผลลัพธ์:**
+
 - เริ่มต้น: 1000 USDC
 - ฝากเข้าเกม: 500 USDC
 - ผลตอบแทน: +26 USDC (5.2% ต่อปี)
@@ -367,34 +387,36 @@ defi-city/
 ### ไฟล์สำคัญ:
 
 **1. hardhat.config.js** - ตั้งค่าเครือข่าย
+
 ```javascript
 module.exports = {
   solidity: "0.8.20",
   networks: {
     localhost: {
-      url: "http://127.0.0.1:8545"
+      url: "http://127.0.0.1:8545",
     },
     sepolia: {
       url: SEPOLIA_RPC_URL,
-      accounts: [PRIVATE_KEY]
+      accounts: [PRIVATE_KEY],
     },
     base: {
       url: BASE_RPC_URL,
-      accounts: [PRIVATE_KEY]
-    }
-  }
+      accounts: [PRIVATE_KEY],
+    },
+  },
 };
 ```
 
 **2. package.json** - Dependencies
+
 ```json
 {
   "dependencies": {
-    "@openzeppelin/contracts": "^5.4.0",  // Library มาตรฐาน
-    "dotenv": "^16.3.1"                   // จัดการ environment variables
+    "@openzeppelin/contracts": "^5.4.0", // Library มาตรฐาน
+    "dotenv": "^16.3.1" // จัดการ environment variables
   },
   "devDependencies": {
-    "hardhat": "^2.19.0",                 // Framework สำหรับพัฒนา
+    "hardhat": "^2.19.0", // Framework สำหรับพัฒนา
     "@nomicfoundation/hardhat-toolbox": "^4.0.0"
   }
 }
@@ -407,12 +429,14 @@ module.exports = {
 ### 7.1 ความต้องการของระบบ (Requirements)
 
 **ซอฟต์แวร์ที่ต้องมี:**
+
 - Node.js (v16 หรือสูงกว่า)
 - npm หรือ yarn
 - Git
 - MetaMask (สำหรับทดสอบ)
 
 **ความรู้พื้นฐาน:**
+
 - JavaScript พื้นฐาน
 - เข้าใจ Blockchain เบื้องต้น (แนะนำ แต่ไม่บังคับ)
 
@@ -440,6 +464,7 @@ yarn install
 ```
 
 **จะติดตั้งอะไรบ้าง:**
+
 - Hardhat (เครื่องมือพัฒนา Smart Contract)
 - OpenZeppelin Contracts (Library มาตรฐาน)
 - Ethers.js (ใช้เชื่อมต่อกับ Blockchain)
@@ -452,6 +477,7 @@ npx hardhat compile
 ```
 
 **Output:**
+
 ```
 Compiling 3 files with 0.8.20
 Compilation finished successfully
@@ -459,6 +485,7 @@ Compilation finished successfully
 ```
 
 **ไฟล์ที่ได้:**
+
 - `artifacts/contracts/SimpleSmartWallet.sol/SimpleSmartWallet.json` (ABI + Bytecode)
 - `artifacts/contracts/SimpleWalletFactory.sol/SimpleWalletFactory.json`
 
@@ -470,6 +497,7 @@ npx hardhat test
 ```
 
 **ผลลัพธ์ที่ควรได้:**
+
 ```
   SimpleWallet System
     Factory
@@ -498,11 +526,13 @@ npx hardhat test
 ### 7.4 Deploy บน Local Network
 
 **Terminal 1: เริ่ม Local Blockchain**
+
 ```bash
 npx hardhat node
 ```
 
 **Output:**
+
 ```
 Started HTTP and WebSocket JSON-RPC server at http://127.0.0.1:8545/
 
@@ -518,11 +548,13 @@ Private Key: 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
 ```
 
 **Terminal 2: Deploy Contracts**
+
 ```bash
 npx hardhat run scripts/deploy.js --network localhost
 ```
 
 **Output:**
+
 ```
 🚀 Deploying contracts...
 
@@ -559,7 +591,8 @@ const { ethers } = require("ethers");
 const provider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
 
 // 2. ใช้ account จาก Hardhat node
-const privateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const privateKey =
+  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const signer = new ethers.Wallet(privateKey, provider);
 
 console.log("Connected as:", await signer.getAddress());
@@ -619,6 +652,7 @@ const myWallet = await createSmartWallet(myAddress);
 ```
 
 **Output:**
+
 ```
 Creating wallet for: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 Wallet not found. Creating new one...
@@ -637,7 +671,7 @@ async function depositETH(walletAddress, amountInEther) {
   // ส่ง ETH ไปที่ wallet
   const tx = await signer.sendTransaction({
     to: walletAddress,
-    value: ethers.parseEther(amountInEther)
+    value: ethers.parseEther(amountInEther),
   });
 
   await tx.wait();
@@ -649,10 +683,11 @@ async function depositETH(walletAddress, amountInEther) {
 }
 
 // ใช้งาน
-await depositETH(myWallet, "1.0");  // ฝาก 1 ETH
+await depositETH(myWallet, "1.0"); // ฝาก 1 ETH
 ```
 
 **Output:**
+
 ```
 Depositing 1.0 ETH to wallet...
 ✅ Deposit successful!
@@ -684,11 +719,12 @@ async function withdrawETH(walletAddress, recipientAddress, amountInEther) {
 }
 
 // ใช้งาน
-const recipient = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";  // Account #1
-await withdrawETH(myWallet, recipient, "0.5");  // ถอน 0.5 ETH
+const recipient = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"; // Account #1
+await withdrawETH(myWallet, recipient, "0.5"); // ถอน 0.5 ETH
 ```
 
 **Output:**
+
 ```
 Withdrawing 0.5 ETH...
 ✅ Withdrawal successful!
@@ -702,7 +738,7 @@ Remaining balance: 0.5 ETH
 ```javascript
 async function deployMockUSDC() {
   const MockERC20 = await ethers.getContractFactory("MockERC20");
-  const usdc = await MockERC20.deploy("USD Coin", "USDC", 6);  // 6 decimals
+  const usdc = await MockERC20.deploy("USD Coin", "USDC", 6); // 6 decimals
   await usdc.waitForDeployment();
 
   const usdcAddress = await usdc.getAddress();
@@ -728,7 +764,10 @@ async function depositUSDC(walletAddress, usdc, amount) {
   const wallet = new ethers.Contract(walletAddress, walletArtifact.abi, signer);
 
   // 1. Approve wallet ให้ใช้ USDC ได้
-  const approveTx = await usdc.approve(walletAddress, ethers.parseUnits(amount, 6));
+  const approveTx = await usdc.approve(
+    walletAddress,
+    ethers.parseUnits(amount, 6)
+  );
   await approveTx.wait();
   console.log("✅ Approved");
 
@@ -745,10 +784,11 @@ async function depositUSDC(walletAddress, usdc, amount) {
   console.log("USDC balance:", ethers.formatUnits(balance, 6), "USDC");
 }
 
-await depositUSDC(myWallet, usdc, "1000");  // ฝาก 1000 USDC
+await depositUSDC(myWallet, usdc, "1000"); // ฝาก 1000 USDC
 ```
 
 **Output:**
+
 ```
 Depositing 1000 USDC...
 ✅ Approved
@@ -779,7 +819,7 @@ async function withdrawUSDC(walletAddress, usdc, recipientAddress, amount) {
   console.log("Remaining USDC:", ethers.formatUnits(balance, 6), "USDC");
 }
 
-await withdrawUSDC(myWallet, usdc, recipient, "500");  // ถอน 500 USDC
+await withdrawUSDC(myWallet, usdc, recipient, "500"); // ถอน 500 USDC
 ```
 
 ### 8.7 โปรแกรมตัวอย่างสมบูรณ์
@@ -805,7 +845,11 @@ async function main() {
   // 2. Load Factory
   const FACTORY_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
   const factoryArtifact = require("../artifacts/contracts/SimpleWalletFactory.sol/SimpleWalletFactory.json");
-  const factory = new ethers.Contract(FACTORY_ADDRESS, factoryArtifact.abi, signer);
+  const factory = new ethers.Contract(
+    FACTORY_ADDRESS,
+    factoryArtifact.abi,
+    signer
+  );
 
   // 3. Create Wallet
   console.log("\n📦 Creating Smart Wallet...");
@@ -819,7 +863,7 @@ async function main() {
   console.log("\n💰 Depositing 2 ETH...");
   const depositTx = await signer.sendTransaction({
     to: walletAddress,
-    value: ethers.parseEther("2.0")
+    value: ethers.parseEther("2.0"),
   });
   await depositTx.wait();
   console.log("✅ Deposited 2 ETH");
@@ -856,6 +900,7 @@ main()
 ```
 
 **รันโปรแกรม:**
+
 ```bash
 node examples/complete-flow.js
 ```
@@ -895,7 +940,10 @@ describe("SimpleWallet System", function () {
       expect(walletAddress).to.not.equal(ethers.ZeroAddress);
 
       // ตรวจสอบว่า wallet มี owner ถูกต้อง
-      const wallet = await ethers.getContractAt("SimpleSmartWallet", walletAddress);
+      const wallet = await ethers.getContractAt(
+        "SimpleSmartWallet",
+        walletAddress
+      );
       expect(await wallet.owner()).to.equal(user1.address);
     });
 
@@ -922,7 +970,7 @@ describe("SimpleWallet System", function () {
       // ฝาก 1 ETH
       await user1.sendTransaction({
         to: await wallet.getAddress(),
-        value: ethers.parseEther("1.0")
+        value: ethers.parseEther("1.0"),
       });
 
       // ตรวจสอบยอด
@@ -933,11 +981,13 @@ describe("SimpleWallet System", function () {
       // ฝาก
       await user1.sendTransaction({
         to: await wallet.getAddress(),
-        value: ethers.parseEther("1.0")
+        value: ethers.parseEther("1.0"),
       });
 
       // ถอน
-      await wallet.connect(user1).withdrawETH(user1.address, ethers.parseEther("0.5"));
+      await wallet
+        .connect(user1)
+        .withdrawETH(user1.address, ethers.parseEther("0.5"));
 
       // ตรวจสอบยอดที่เหลือ
       expect(await wallet.getETHBalance()).to.equal(ethers.parseEther("0.5"));
@@ -946,12 +996,14 @@ describe("SimpleWallet System", function () {
     it("Should revert if non-owner tries to withdraw", async function () {
       await user1.sendTransaction({
         to: await wallet.getAddress(),
-        value: ethers.parseEther("1.0")
+        value: ethers.parseEther("1.0"),
       });
 
       // user2 พยายามถอนเงินของ user1 → ควร revert
       await expect(
-        wallet.connect(user2).withdrawETH(user2.address, ethers.parseEther("0.5"))
+        wallet
+          .connect(user2)
+          .withdrawETH(user2.address, ethers.parseEther("0.5"))
       ).to.be.revertedWithCustomError(wallet, "OnlyOwner");
     });
   });
@@ -989,6 +1041,7 @@ npx hardhat test --watch
 ### Q2: ทำไมต้องใช้ Factory? สร้าง Wallet ด้วยตัวเองไม่ได้เหรอ?
 
 **A:** ได้! แต่ Factory ช่วยให้:
+
 - **จัดการง่าย**: มี mapping ระหว่าง owner → wallet
 - **ค้นหาง่าย**: เรียก `getWallet(owner)` ได้ทันที
 - **ป้องกันซ้ำ**: 1 คนมีได้ 1 wallet
@@ -997,29 +1050,34 @@ npx hardhat test --watch
 ### Q3: ถ้า Private Key หาย Smart Wallet จะหายด้วยไหม?
 
 **A:** ใช่! Smart Wallet ปัจจุบันยังควบคุมโดย owner address (EOA)
+
 - ถ้า Private Key ของ EOA หาย → เข้าถึง Smart Wallet ไม่ได้
 - **โซลูชัน:** ใช้ Social Recovery (Phase 4 ใน Roadmap)
 
 ### Q4: Gas คิดยังไง? แพงไหม?
 
 **A:** ค่า Gas แบ่งเป็น:
+
 - **Deploy Factory**: ~800,000 gas (ครั้งเดียว)
 - **Create Wallet**: ~350,000 gas (~$0.007 บน Base L2)
 - **Deposit/Withdraw**: ~25,000-30,000 gas
 
 **เทียบกับ EOA:**
+
 - EOA transfer: ~21,000 gas
 - Smart Wallet แพงกว่า แต่ได้ฟีเจอร์เยอะกว่า
 
 ### Q5: ปลอดภัยไหม? ถ้าโดนแฮกล่ะ?
 
 **A:** ความปลอดภัย:
+
 - ✅ Owner-only access (เฉพาะเจ้าของถอนได้)
 - ✅ Address validation (ป้องกันส่งเงินหาย)
 - ✅ Custom errors (ประหยัด gas)
 - ⚠️ **ยังไม่ผ่าน audit** (อยู่ระหว่าง MVP)
 
 **ข้อควรระวัง:**
+
 - อย่าใช้กับเงินจำนวนมากในระบบ production
 - ควร audit โค้ดก่อน deploy จริง
 - ระวัง reentrancy attack (ใน Phase 2)
@@ -1027,10 +1085,12 @@ npx hardhat test --watch
 ### Q6: เชื่อมต่อกับ DeFi protocols (Aave, Uniswap) ได้ไหม?
 
 **A:** ได้! (Phase 2 ใน Roadmap)
+
 - ตอนนี้ยังไม่มี `execute()` function
 - จะเพิ่มในอนาคต เพื่อให้เรียกฟังก์ชันใดก็ได้
 
 **ตัวอย่างใน Phase 2:**
+
 ```solidity
 function execute(address target, uint256 value, bytes calldata data)
     external onlyOwner
@@ -1043,6 +1103,7 @@ function execute(address target, uint256 value, bytes calldata data)
 ### Q7: ทำ Batch operations (หลาย transaction ในครั้งเดียว) ได้ไหม?
 
 **A:** ยังไม่ได้ (จะเพิ่มใน Phase 2)
+
 ```solidity
 function executeBatch(
     address[] calldata targets,
@@ -1058,6 +1119,7 @@ function executeBatch(
 ### Q8: สามารถโอนความเป็นเจ้าของ Wallet ให้คนอื่นได้ไหม?
 
 **A:** ได้! ใช้ฟังก์ชัน `transferOwnership()`
+
 ```javascript
 await wallet.transferOwnership(newOwnerAddress);
 ```
@@ -1067,6 +1129,7 @@ await wallet.transferOwnership(newOwnerAddress);
 ### Q9: Deploy บน Mainnet ต้องเตรียมอะไรบ้าง?
 
 **A:**
+
 1. **ETH สำหรับ Gas** - ประมาณ 0.05-0.1 ETH
 2. **RPC URL** - Infura หรือ Alchemy
 3. **Private Key** - ตั้งใน `.env` (อย่า commit!)
@@ -1085,8 +1148,8 @@ npx hardhat verify --network sepolia DEPLOYED_ADDRESS
 **A:** ยังไม่มี แต่สามารถใช้ React Hook ตัวอย่างนี้:
 
 ```jsx
-import { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
+import { useState, useEffect } from "react";
+import { ethers } from "ethers";
 
 function useSmartWallet() {
   const [wallet, setWallet] = useState(null);
@@ -1132,12 +1195,14 @@ export default function App() {
 ## 🎯 สรุป
 
 ### ✅ สิ่งที่เรียนรู้:
+
 1. **Smart Wallet คืออะไร** - กระเป๋าเงินที่ควบคุมด้วยโค้ด
 2. **Factory Pattern** - สร้าง wallet แบบมีระเบียบ
 3. **DeFi Integration** - เชื่อมต่อกับ Aave, Uniswap
 4. **Security Best Practices** - Owner-only, validation, custom errors
 
 ### 🚀 ขั้นตอนถัดไป:
+
 1. ✅ **ทดลองรัน**: Deploy บน localhost ทดสอบฟังก์ชัน
 2. ✅ **แก้ไข**: เพิ่มฟีเจอร์ตามต้องการ
 3. ✅ **Deploy Testnet**: ทดสอบบน Sepolia
@@ -1146,6 +1211,7 @@ export default function App() {
 6. 🔄 **Production**: Audit + Deploy mainnet
 
 ### 📚 เอกสารเพิ่มเติม:
+
 - [QUICKSTART.md](../QUICKSTART.md) - เริ่มต้นอย่างรวดเร็ว
 - [USAGE_EXAMPLES.md](./USAGE_EXAMPLES.md) - ตัวอย่างการใช้งานขั้นสูง
 - [AA_ARCHITECTURE.md](./AA_ARCHITECTURE.md) - สถาปัตยกรรม ERC-4337
@@ -1155,7 +1221,7 @@ export default function App() {
 
 **สร้างด้วย ❤️ สำหรับ DeFi City**
 
-*ทำให้ DeFi เข้าถึงได้ผ่านการเล่นเกม* 🎮
+_ทำให้ DeFi เข้าถึงได้ผ่านการเล่นเกม_ 🎮
 
 ---
 
