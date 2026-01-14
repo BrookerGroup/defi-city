@@ -1,0 +1,7 @@
+assets/.DS_Store
+assets/Donate.url
+assets/Facebook.url
+assets/Spritesheet/buildingTiles_sheet.xml
+frontend/node_modules/
+frontend/.next
+frontend/package-lock.json
