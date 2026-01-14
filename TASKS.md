@@ -1,133 +1,237 @@
-# DefiCity Development Tasks
+# DefiCity - Implementation Task List
 
-**Team Composition:**
-- 2 Full Stack Developers (FS1, FS2)
-- 2 QA Engineers (QA1, QA2)
-- 1 UX/UI Designer (UI)
-
-**Timeline:** 12-16 weeks
-**Current Phase:** Phase 1 - Foundation
+**Project:** DefiCity Implementation
+**Based on:** REQUIREMENT.md v1.0
+**Team:** 2 Full Stack Developers, 2 QA Engineers, 1 UX/UI Designer
+**Timeline:** 16 weeks (4 phases)
+**Start Date:** 2026-01-14
 
 ---
 
-## Task Status Legend
+## Table of Contents
 
-- 🔵 **TODO** - Not started
-- 🟡 **IN PROGRESS** - Currently working
-- 🟢 **DONE** - Completed
-- 🔴 **BLOCKED** - Waiting for dependencies
-- ⚪ **REVIEW** - Ready for review
+1. [Phase 1: Foundation (Weeks 1-4)](#phase-1-foundation-weeks-1-4)
+2. [Phase 2: DeFi Strategies (Weeks 5-8)](#phase-2-defi-strategies-weeks-5-8)
+3. [Phase 3: Advanced Features (Weeks 9-12)](#phase-3-advanced-features-weeks-9-12)
+4. [Phase 4: Testing & Launch (Weeks 13-16)](#phase-4-testing--launch-weeks-13-16)
+5. [Priority Legend](#priority-legend)
+6. [Dependencies](#dependencies)
 
 ---
 
 ## Phase 1: Foundation (Weeks 1-4)
 
-### Smart Contracts
+**Goal:** Setup core architecture, basic contracts, and frontend foundation
 
-#### SC-001: Deploy & Test Core Contracts
+### Smart Contract Tasks
+
+#### SC-001: Setup Foundry Project & Base Configuration
+- **Status:** 🔵 TODO
+- **Assignee:** FS1
+- **Priority:** P0 (Critical)
+- **Estimated:** 2 days
+- **Dependencies:** None
+- **Description:**
+  - Initialize Foundry project
+  - Configure foundry.toml for Base chain
+  - Setup remappings for OpenZeppelin, Chainlink
+  - Configure test environment
+  - Setup deployment scripts
+  - Add Base Sepolia RPC and contract addresses
+- **Acceptance Criteria:**
+  - [ ] Foundry project compiles successfully
+  - [ ] Can deploy to Base Sepolia testnet
+  - [ ] Test framework works (forge test)
+  - [ ] Deployment scripts functional
+  - [ ] All external dependencies imported correctly
+
+#### SC-002: Implement Core Contracts (Immutable State)
 - **Status:** 🔵 TODO
 - **Assignee:** FS1
 - **Priority:** P0 (Critical)
 - **Estimated:** 5 days
-- **Dependencies:** None
-- **Description:**
-  - Deploy all contracts to Base Sepolia testnet
-  - Deploy StrategyRegistry, FeeManager, EmergencyManager
-  - Deploy DefiCityCore with proper constructor args
-  - Register Aave and Aerodrome strategies
-  - Add building types (Bank, Shop)
-  - Verify contracts on BaseScan
-- **Acceptance Criteria:**
-  - [ ] All 5 core contracts deployed successfully
-  - [ ] Contracts verified on BaseScan
-  - [ ] 2 building types configured
-  - [ ] 2 strategies registered and active
-  - [ ] Deployment script runs without errors
-  - [ ] Document all deployed addresses
-
-#### SC-002: Write Comprehensive Tests
-- **Status:** 🔵 TODO
-- **Assignee:** FS2
-- **Priority:** P0 (Critical)
-- **Estimated:** 7 days
 - **Dependencies:** SC-001
 - **Description:**
-  - Write unit tests for DefiCityCore (placeBuilding, deposit, harvest, demolish)
-  - Write integration tests for strategy routing
-  - Write tests for fee calculation and collection
-  - Write tests for emergency functions
-  - Write upgrade scenario tests
-  - Achieve >80% code coverage
+  - Implement DefiCityCore.sol (state storage)
+    - UserCity struct with multi-asset balances
+    - Building struct (buildingType, depositedAmount, shares, createdAt, isActive, assetType)
+    - BuildingTypeConfig struct
+    - Events (BuildingPlaced, Deposit, Harvest, Demolish)
+    - Pausable functionality
+    - ReentrancyGuard
+  - Implement module coordination functions
+  - Add multi-asset support (USDC, USDT, ETH, WBTC)
+  - No business logic (delegate to managers)
 - **Acceptance Criteria:**
-  - [ ] Test coverage >80%
-  - [ ] All core functions tested
-  - [ ] Edge cases covered (0 amounts, invalid types, etc.)
-  - [ ] Integration tests pass
-  - [ ] Gas optimization tests included
-  - [ ] All tests passing on CI
+  - [ ] DefiCityCore compiles without errors
+  - [ ] State structs support multi-asset tracking
+  - [ ] Can store user cities and buildings
+  - [ ] Module coordination works (delegates to managers)
+  - [ ] Pause/unpause functionality works
+  - [ ] Events emit correctly
+  - [ ] Unit tests pass (80%+ coverage)
 
-#### SC-003: Implement AaveStrategy
+#### SC-003: Implement StrategyRegistry
 - **Status:** 🔵 TODO
-- **Assignee:** FS1
+- **Assignee:** FS2
 - **Priority:** P0 (Critical)
 - **Estimated:** 3 days
 - **Dependencies:** SC-001
 - **Description:**
-  - Complete AaveStrategy implementation for Base mainnet
-  - Test with actual Aave V3 contracts on testnet
-  - Implement deposit, withdraw, harvest, emergencyWithdraw
-  - Handle aToken accounting correctly
-  - Test APY calculations
+  - Implement StrategyRegistry.sol
+    - Map buildingType → strategy address
+    - Strategy version history tracking
+    - registerStrategy() function
+    - setStrategy() function
+    - getStrategy() view function
+    - deprecateStrategy() function
+  - Support for 4 building types (0=TownHall, 1=Bank, 2=Shop, 3=Lottery)
 - **Acceptance Criteria:**
-  - [ ] Strategy deposits to Aave successfully
-  - [ ] Withdraw returns correct amounts
-  - [ ] Shares accounting is accurate
-  - [ ] APY calculation matches Aave rates
-  - [ ] Emergency withdraw works when paused
+  - [ ] StrategyRegistry compiles without errors
+  - [ ] Can register strategies
+  - [ ] Can activate strategies for building types
+  - [ ] Version history tracks changes
+  - [ ] Can deprecate old strategies
+  - [ ] Unit tests pass (80%+ coverage)
 
-#### SC-004: Implement AerodromeStrategy
+#### SC-004: Implement BuildingManager
+- **Status:** 🔵 TODO
+- **Assignee:** FS1
+- **Priority:** P0 (Critical)
+- **Estimated:** 5 days
+- **Dependencies:** SC-002, SC-003
+- **Description:**
+  - Implement BuildingManager.sol
+    - placeBuilding() - create building, call strategy, collect fee
+    - deposit() - add funds to existing building
+    - harvest() - claim rewards
+    - demolish() - withdraw all and remove building
+    - Support multi-asset operations
+    - Validate building configs (no unlock requirements)
+  - Coordinate between Core, Registry, FeeManager, Strategies
+- **Acceptance Criteria:**
+  - [ ] BuildingManager compiles without errors
+  - [ ] placeBuilding() works for all building types
+  - [ ] deposit() adds funds correctly
+  - [ ] harvest() claims rewards correctly
+  - [ ] demolish() withdraws and removes building
+  - [ ] Multi-asset support works (USDC, USDT, ETH, WBTC)
+  - [ ] No unlock requirements enforced
+  - [ ] Unit tests pass (80%+ coverage)
+
+#### SC-005: Implement FeeManager
+- **Status:** 🔵 TODO
+- **Assignee:** FS2
+- **Priority:** P0 (Critical)
+- **Estimated:** 2 days
+- **Dependencies:** SC-001
+- **Description:**
+  - Implement FeeManager.sol
+    - Building creation fee: 0.05% (5 BPS)
+    - calculateBuildingFee() function
+    - collectFee() function (transfer to treasury)
+    - setBuildingFee() (owner only, max 5%)
+    - setTreasury() (owner only)
+    - Support multi-asset fee collection
+  - Events (FeeCollected, FeeUpdated, TreasuryUpdated)
+- **Acceptance Criteria:**
+  - [ ] FeeManager compiles without errors
+  - [ ] Calculates 0.05% fee correctly
+  - [ ] Fees collected to treasury
+  - [ ] Owner can update fee (max 5%)
+  - [ ] Multi-asset fee support
+  - [ ] Unit tests pass (80%+ coverage)
+
+#### SC-006: Implement EmergencyManager
 - **Status:** 🔵 TODO
 - **Assignee:** FS2
 - **Priority:** P1 (High)
-- **Estimated:** 5 days
-- **Dependencies:** SC-001
+- **Estimated:** 2 days
+- **Dependencies:** SC-002, SC-003
 - **Description:**
-  - Implement AerodromeStrategy for LP provisioning
-  - Handle USDC/WETH liquidity addition
-  - Implement auto-swapping for balanced LP
-  - Handle LP token/NFT management
-  - Implement reward claiming (AERO tokens)
+  - Implement EmergencyManager.sol
+    - emergencyWithdraw() - force withdraw when paused
+    - Only callable by Core
+    - Only works when Core.paused() == true
+    - Calls strategy.emergencyWithdraw()
+    - Deactivates building
 - **Acceptance Criteria:**
-  - [ ] Deposits split 50/50 USDC/WETH
-  - [ ] LP position created successfully
-  - [ ] Withdraw returns both tokens
-  - [ ] Rewards can be harvested
-  - [ ] Impermanent loss calculated correctly
+  - [ ] EmergencyManager compiles without errors
+  - [ ] emergencyWithdraw() only works when paused
+  - [ ] Only Core can call it
+  - [ ] Successfully withdraws from strategies
+  - [ ] Unit tests pass (80%+ coverage)
 
-#### SC-005: Security Audit Preparation
+#### SC-007: Implement Dummy Strategies (Placeholders)
 - **Status:** 🔵 TODO
 - **Assignee:** FS1, FS2
 - **Priority:** P1 (High)
 - **Estimated:** 3 days
-- **Dependencies:** SC-002, SC-003, SC-004
+- **Dependencies:** SC-003
 - **Description:**
-  - Run Slither static analysis
-  - Run Mythril security scanner
-  - Document all findings and fixes
-  - Create audit documentation package
-  - Prepare for external audit (if budget allows)
+  - Create IStrategy interface
+  - Implement DummyStrategy.sol for testing
+    - deposit() - mock deposit, return shares
+    - withdraw() - mock withdraw, return amount
+    - harvest() - mock harvest, return 0
+    - balanceOf() - return mocked value
+    - pendingRewards() - return 0
+    - getAPY() - return 500 (5%)
+  - No real DeFi integration yet
 - **Acceptance Criteria:**
-  - [ ] Slither analysis run with 0 high issues
-  - [ ] Mythril analysis complete
-  - [ ] All findings documented
-  - [ ] Security considerations documented
-  - [ ] Audit package ready
+  - [ ] IStrategy interface complete
+  - [ ] DummyStrategy compiles
+  - [ ] All interface functions implemented
+  - [ ] Returns reasonable mock values
+  - [ ] Can be registered in StrategyRegistry
+  - [ ] Unit tests pass
 
----
+#### SC-008: Integration Tests - Core System
+- **Status:** 🔵 TODO
+- **Assignee:** FS1, FS2
+- **Priority:** P0 (Critical)
+- **Estimated:** 3 days
+- **Dependencies:** SC-002, SC-003, SC-004, SC-005, SC-006, SC-007
+- **Description:**
+  - Write integration tests for core system
+    - Deploy all contracts
+    - Register dummy strategies
+    - Test complete flow: place → deposit → harvest → demolish
+    - Test multi-asset operations
+    - Test fee collection
+    - Test pause/emergency withdraw
+    - Test module updates
+- **Acceptance Criteria:**
+  - [ ] End-to-end flow works for all 4 building types
+  - [ ] Multi-asset support verified
+  - [ ] Fee collection works correctly
+  - [ ] Emergency mechanisms work
+  - [ ] Module swapping works
+  - [ ] Integration tests pass (100%)
 
-### Frontend Development
+#### SC-009: Deploy to Base Sepolia Testnet
+- **Status:** 🔵 TODO
+- **Assignee:** FS1
+- **Priority:** P0 (Critical)
+- **Estimated:** 2 days
+- **Dependencies:** SC-008
+- **Description:**
+  - Deploy all core contracts to Base Sepolia
+  - Verify contracts on BaseScan
+  - Register dummy strategies
+  - Configure building types (4 types)
+  - Fund treasury and paymaster
+  - Test on testnet
+- **Acceptance Criteria:**
+  - [ ] All contracts deployed and verified
+  - [ ] Building types configured (TownHall, Bank, Shop, Lottery placeholders)
+  - [ ] Dummy strategies work on testnet
+  - [ ] Can place/harvest/demolish buildings
+  - [ ] Testnet addresses documented
 
-#### FE-001: Setup Next.js Project
+### Frontend Tasks
+
+#### FE-001: Setup Next.js 14 Project
 - **Status:** 🔵 TODO
 - **Assignee:** FS1
 - **Priority:** P0 (Critical)
@@ -136,84 +240,136 @@
 - **Description:**
   - Initialize Next.js 14 with TypeScript
   - Setup Tailwind CSS
-  - Configure wagmi + viem for Web3
-  - Setup RainbowKit or Web3Modal
-  - Configure Base Sepolia network
-  - Setup folder structure (components, hooks, lib, etc.)
+  - Configure ESLint and Prettier
+  - Setup folder structure (components, pages, hooks, utils)
+  - Add shadcn/ui components
+  - Configure environment variables
 - **Acceptance Criteria:**
-  - [ ] Next.js project runs locally
-  - [ ] Tailwind configured and working
-  - [ ] Wallet connection works
-  - [ ] Base Sepolia network selectable
-  - [ ] ESLint + Prettier configured
-  - [ ] README with setup instructions
+  - [ ] Next.js project runs successfully
+  - [ ] Tailwind CSS works
+  - [ ] TypeScript configured
+  - [ ] shadcn/ui installed
+  - [ ] Basic routing works
+  - [ ] Dev server runs without errors
 
-#### FE-002: Wallet Connection UI
-- **Status:** 🔵 TODO
-- **Assignee:** FS2
-- **Priority:** P0 (Critical)
-- **Estimated:** 3 days
-- **Dependencies:** FE-001, UI-001
-- **Description:**
-  - Implement Connect Wallet button
-  - Show wallet address and balance
-  - Add network switcher (mainnet/testnet)
-  - Handle wallet disconnection
-  - Display USDC balance
-  - Add wallet modal with account info
-- **Acceptance Criteria:**
-  - [ ] Connect wallet button works
-  - [ ] Wallet address displayed correctly
-  - [ ] Network switcher functional
-  - [ ] USDC balance shows correctly
-  - [ ] Disconnect works properly
-  - [ ] Mobile responsive
-
-#### FE-003: Smart Contract Integration Layer
+#### FE-002: Setup Web3 Integration (Wagmi + Viem)
 - **Status:** 🔵 TODO
 - **Assignee:** FS1
 - **Priority:** P0 (Critical)
-- **Estimated:** 4 days
-- **Dependencies:** FE-001, SC-001
+- **Estimated:** 3 days
+- **Dependencies:** FE-001, SC-009
 - **Description:**
-  - Generate TypeScript types from ABIs using wagmi-cli
-  - Create useDefiCityCore hook
-  - Create useStrategy hooks
-  - Implement transaction handling with notifications
-  - Add error handling for reverts
-  - Create contract read/write helpers
+  - Install wagmi, viem, @rainbow-me/rainbowkit
+  - Configure Web3 providers for Base Sepolia
+  - Setup wallet connection (MetaMask, Coinbase Wallet, WalletConnect)
+  - Create contract hooks (useDefiCityCore, useStrategyRegistry, etc.)
+  - Setup contract ABIs
+  - Create multi-asset token hooks (USDC, USDT, ETH, WBTC)
 - **Acceptance Criteria:**
-  - [ ] TypeScript types generated
-  - [ ] All contract functions callable from frontend
-  - [ ] Transaction status tracked
-  - [ ] Error messages user-friendly
-  - [ ] Loading states implemented
-  - [ ] Success/failure toasts working
+  - [ ] Can connect wallet
+  - [ ] Can switch to Base Sepolia
+  - [ ] Contract hooks work
+  - [ ] Can read contract data
+  - [ ] Can send transactions
+  - [ ] Multi-asset token support
 
-#### FE-004: City Grid Component
+#### FE-003: Create Basic Layout & Navigation
+- **Status:** 🔵 TODO
+- **Assignee:** FS2
+- **Priority:** P1 (High)
+- **Estimated:** 2 days
+- **Dependencies:** FE-001
+- **Description:**
+  - Create header with wallet connection button
+  - Create navigation menu (Dashboard, Map, Buildings, Settings)
+  - Create footer
+  - Setup responsive layout
+  - Add wallet address display
+  - Add network indicator
+- **Acceptance Criteria:**
+  - [ ] Header displays correctly
+  - [ ] Navigation works
+  - [ ] Wallet connection button functional
+  - [ ] Responsive on mobile/tablet/desktop
+  - [ ] Network indicator shows Base Sepolia
+
+#### FE-004: Create Multi-Asset Wallet Dashboard
+- **Status:** 🔵 TODO
+- **Assignee:** FS2
+- **Priority:** P0 (Critical)
+- **Estimated:** 4 days
+- **Dependencies:** FE-002
+- **Description:**
+  - Display multi-asset balances (USDC, USDT, ETH, WBTC)
+  - Show total portfolio value in USD
+  - Display available balance per asset
+  - Display invested amount per asset
+  - Display total earned (all-time)
+  - Create deposit modal (select asset, enter amount)
+  - Create withdraw modal (select asset, enter amount)
+  - Show transaction history
+- **Acceptance Criteria:**
+  - [ ] Shows balances for all 4 assets
+  - [ ] Total portfolio value calculated correctly
+  - [ ] Deposit modal works for all assets
+  - [ ] Withdraw modal works for all assets
+  - [ ] Transaction history displays
+  - [ ] Real-time balance updates
+
+#### FE-005: Create City Map View (Basic Grid)
 - **Status:** 🔵 TODO
 - **Assignee:** FS2
 - **Priority:** P1 (High)
 - **Estimated:** 5 days
-- **Dependencies:** FE-001, UI-002
+- **Dependencies:** FE-001
 - **Description:**
-  - Create isometric grid system (10x10)
-  - Implement tile selection
-  - Add building placement preview
-  - Handle grid coordinate system
-  - Add zoom and pan controls
-  - Render empty tiles and placed buildings
+  - Create isometric grid for city map
+  - Render empty tiles
+  - Handle tile click events
+  - Display buildings on tiles
+  - Basic building sprites (placeholder rectangles with labels)
+  - Zoom and pan functionality
+  - Responsive grid size
 - **Acceptance Criteria:**
-  - [ ] 10x10 grid renders correctly
-  - [ ] Isometric perspective working
-  - [ ] Tiles are clickable
-  - [ ] Building preview shows on hover
-  - [ ] Zoom in/out works
-  - [ ] Pan/drag grid works
+  - [ ] Grid displays correctly
+  - [ ] Can click on tiles
+  - [ ] Buildings display on tiles
+  - [ ] Zoom/pan works
+  - [ ] Responsive on different screen sizes
+  - [ ] Performance: 60fps on desktop
 
----
+#### FE-006: Create Building Placement Flow (All 4 Types)
+- **Status:** 🔵 TODO
+- **Assignee:** FS1, FS2
+- **Priority:** P0 (Critical)
+- **Estimated:** 5 days
+- **Dependencies:** FE-004, FE-005, SC-009
+- **Description:**
+  - Click empty tile → Show building selection modal
+  - Display all 4 building types:
+    - Town Hall (Free, optional)
+    - Bank (Supply/Borrow, $100 min)
+    - Shop (LP, $500 min)
+    - Lottery (Entertainment, $10 min)
+  - No unlock requirements - all available from start
+  - Show building details (name, strategy, min deposit, APY, risk)
+  - Asset selection dropdown (USDC, USDT, ETH, WBTC)
+  - Amount input with validation
+  - Fee display (0.05%)
+  - Confirm button → Send transaction
+  - Loading state during transaction
+  - Success/error notifications
+- **Acceptance Criteria:**
+  - [ ] Building selection shows all 4 types
+  - [ ] No unlock requirements enforced
+  - [ ] Asset selection works for all supported assets
+  - [ ] Amount validation works
+  - [ ] Fee calculated correctly
+  - [ ] Transaction sent successfully
+  - [ ] Building appears on map after confirmation
+  - [ ] Works for all 4 building types
 
-### UX/UI Design
+### UX/UI Tasks
 
 #### UI-001: Design System & Component Library
 - **Status:** 🔵 TODO
@@ -222,1129 +378,1487 @@
 - **Estimated:** 5 days
 - **Dependencies:** None
 - **Description:**
-  - Create design system in Figma
-  - Define color palette (8-bit retro game theme)
-  - Define typography scale
-  - Design button styles (primary, secondary, disabled)
-  - Design input fields and forms
-  - Design modal/dialog components
-  - Design toast notifications
-  - Create icon set (buildings, resources, actions)
-- **Deliverables:**
-  - [ ] Figma design system file
-  - [ ] Color palette documented
-  - [ ] Typography scale defined
-  - [ ] Component variations designed
-  - [ ] Icon set (32+ icons)
-  - [ ] Design tokens exported
+  - Define color palette (gamified, not generic purple)
+  - Define typography (distinctive fonts, not Inter/Roboto)
+  - Create button styles (primary, secondary, danger)
+  - Create card components
+  - Create modal components
+  - Create form input components
+  - Create notification/toast components
+  - Design building sprites (4 types: Town Hall, Bank, Shop, Lottery)
+  - Create asset icons (USDC, USDT, ETH, BTC)
+  - Document in Figma
+- **Acceptance Criteria:**
+  - [ ] Design system documented in Figma
+  - [ ] All component variants designed
+  - [ ] Building sprites designed (4 types)
+  - [ ] Asset icons designed
+  - [ ] Color palette distinctive and cohesive
+  - [ ] Typography selection unique
+  - [ ] Responsive designs (mobile/tablet/desktop)
 
-#### UI-002: City Grid & Building UI
+#### UI-002: Design City Map & Building Placement UX
 - **Status:** 🔵 TODO
 - **Assignee:** UI
 - **Priority:** P0 (Critical)
-- **Estimated:** 7 days
+- **Estimated:** 4 days
 - **Dependencies:** UI-001
 - **Description:**
-  - Design isometric grid layout
-  - Design building sprites (Town Hall, Bank, Shop)
-  - Design empty tile state
-  - Design building placement flow
+  - Design isometric city map layout
+  - Design building placement flow (all 4 types, no unlocks)
+  - Design building selection modal
+  - Design multi-asset selection interface
   - Design building info panel
-  - Design resource display (USDC balance, APY, etc.)
-  - Create hover states and animations
-- **Deliverables:**
-  - [ ] City grid mockups (Figma)
-  - [ ] 3 building sprite designs
-  - [ ] Building info panel design
-  - [ ] Placement flow wireframes
-  - [ ] Resource display design
-  - [ ] Animation specifications
+  - Design harvest/demolish actions
+  - Create animations (building placement, harvest effects)
+  - Design empty state
+- **Acceptance Criteria:**
+  - [ ] Map layout visually appealing
+  - [ ] Building placement UX intuitive
+  - [ ] All 4 building types visually distinct
+  - [ ] Asset selection clear
+  - [ ] Building info panel comprehensive
+  - [ ] Animations enhance UX
+  - [ ] Designs responsive
 
-#### UI-003: Building Actions Modal
+#### UI-003: Design Multi-Asset Dashboard
 - **Status:** 🔵 TODO
 - **Assignee:** UI
 - **Priority:** P1 (High)
+- **Estimated:** 3 days
+- **Dependencies:** UI-001
+- **Description:**
+  - Design portfolio overview (total value, per asset)
+  - Design asset balance cards (USDC, USDT, ETH, WBTC)
+  - Design deposit/withdraw modals (multi-asset)
+  - Design transaction history
+  - Design charts (optional for Phase 1)
+- **Acceptance Criteria:**
+  - [ ] Dashboard layout clear and informative
+  - [ ] Multi-asset balances easy to understand
+  - [ ] Deposit/withdraw flows intuitive
+  - [ ] Transaction history readable
+  - [ ] Visual hierarchy good
+
+### QA Tasks
+
+#### QA-001: Create Test Plan & Test Cases
+- **Status:** 🔵 TODO
+- **Assignee:** QA1
+- **Priority:** P0 (Critical)
+- **Estimated:** 3 days
+- **Dependencies:** SC-009, FE-006
+- **Description:**
+  - Document test strategy
+  - Create test cases for:
+    - Smart contract interactions (all 4 building types)
+    - Multi-asset operations (deposit, withdraw, place, harvest, demolish)
+    - Fee calculations
+    - Emergency scenarios
+    - Frontend flows
+  - Define test environments (local, testnet)
+  - Setup test data
+- **Acceptance Criteria:**
+  - [ ] Test plan documented
+  - [ ] Test cases cover all building types
+  - [ ] Multi-asset scenarios included
+  - [ ] Edge cases identified
+  - [ ] Test environments defined
+
+#### QA-002: Setup Automated Testing Framework
+- **Status:** 🔵 TODO
+- **Assignee:** QA2
+- **Priority:** P1 (High)
+- **Estimated:** 3 days
+- **Dependencies:** FE-001
+- **Description:**
+  - Setup Playwright for E2E tests
+  - Setup Jest for unit tests
+  - Configure test runner in CI/CD
+  - Create test helpers and fixtures
+  - Setup test wallet with testnet funds
+- **Acceptance Criteria:**
+  - [ ] Playwright configured
+  - [ ] Jest configured
+  - [ ] CI/CD runs tests
+  - [ ] Test helpers available
+  - [ ] Can run tests locally and in CI
+
+#### QA-003: Manual Testing - Core Flows (Phase 1)
+- **Status:** 🔵 TODO
+- **Assignee:** QA1, QA2
+- **Priority:** P0 (Critical)
+- **Estimated:** 3 days
+- **Dependencies:** SC-009, FE-006
+- **Description:**
+  - Test wallet connection
+  - Test multi-asset deposit (USDC, USDT, ETH, WBTC)
+  - Test building placement (all 4 types, no unlock requirements)
+  - Test multi-asset withdraw
+  - Test fee collection
+  - Test on multiple browsers (Chrome, Firefox, Safari)
+  - Test on multiple devices (Desktop, Tablet, Mobile)
+- **Acceptance Criteria:**
+  - [ ] All flows work on Base Sepolia testnet
+  - [ ] Multi-asset support verified
+  - [ ] All 4 building types placeable
+  - [ ] No unlock requirements enforced
+  - [ ] Cross-browser compatible
+  - [ ] Cross-device compatible
+  - [ ] Bug reports filed for issues
+
+---
+
+## Phase 2: DeFi Strategies (Weeks 5-8)
+
+**Goal:** Implement real DeFi integrations (Aave, Aerodrome) with multi-asset support
+
+### Smart Contract Tasks
+
+#### SC-010: Implement Aave Strategy (Bank - Supply & Borrow)
+- **Status:** 🔵 TODO
+- **Assignee:** FS1
+- **Priority:** P0 (Critical)
+- **Estimated:** 7 days
+- **Dependencies:** SC-007
+- **Description:**
+  - Implement AaveStrategy.sol
+    - Support multi-asset (USDC, USDT, ETH, WBTC)
+    - **Supply Mode:**
+      - deposit() - supply asset to Aave, receive aTokens
+      - withdraw() - withdraw asset from Aave
+      - harvest() - calculate and return yield
+    - **Borrow Mode:**
+      - borrow() - borrow asset against collateral
+      - repay() - repay borrowed asset
+      - getHealthFactor() - calculate health factor
+      - isLiquidatable() - check liquidation risk
+    - balanceOf() - return asset value (supply - borrow)
+    - pendingRewards() - calculate unrealized yield
+    - getAPY() - fetch current supply/borrow APY from Aave
+    - emergencyWithdraw() - force withdraw
+  - Integrate with Aave V3 on Base
+  - Handle collateralization logic
+  - Liquidation warnings
+- **Acceptance Criteria:**
+  - [ ] Supply mode works for all 4 assets
+  - [ ] Borrow mode works for all 4 assets
+  - [ ] Health factor calculated correctly
+  - [ ] APY fetched correctly from Aave
+  - [ ] Handles liquidation scenarios
+  - [ ] Emergency withdraw works
+  - [ ] Unit tests pass (90%+ coverage)
+  - [ ] Integration tests with Aave V3 pass
+
+#### SC-011: Implement Aerodrome Strategy (Shop - LP)
+- **Status:** 🔵 TODO
+- **Assignee:** FS2
+- **Priority:** P0 (Critical)
+- **Estimated:** 7 days
+- **Dependencies:** SC-007
+- **Description:**
+  - Implement AerodromeStrategy.sol
+    - Support multiple pairs:
+      - USDC/ETH
+      - USDT/USDC
+      - ETH/WBTC
+    - deposit() - add liquidity, receive LP tokens/NFT
+    - withdraw() - remove liquidity
+    - harvest() - claim AERO rewards and fees
+    - Auto-swap if single asset deposited (50/50 split)
+    - balanceOf() - return LP position value
+    - pendingRewards() - calculate pending AERO + fees
+    - getAPY() - calculate APY from fees + AERO rewards
+    - calculateIL() - impermanent loss calculator
+    - emergencyWithdraw() - force withdraw
+  - Integrate with Aerodrome on Base
+  - Handle V2 and V3 pools
+- **Acceptance Criteria:**
+  - [ ] Works for all supported pairs
+  - [ ] Auto-swap works (single → dual asset)
+  - [ ] LP position created correctly
+  - [ ] AERO rewards claimable
+  - [ ] APY calculated correctly
+  - [ ] IL calculator works
+  - [ ] Emergency withdraw works
+  - [ ] Unit tests pass (90%+ coverage)
+  - [ ] Integration tests with Aerodrome pass
+
+#### SC-012: Implement Town Hall Strategy (Wallet Placeholder)
+- **Status:** 🔵 TODO
+- **Assignee:** FS2
+- **Priority:** P1 (High)
+- **Estimated:** 1 day
+- **Dependencies:** SC-007
+- **Description:**
+  - Implement TownHallStrategy.sol
+    - No DeFi integration
+    - Just returns 0 for all functions
+    - Represents wallet creation/visualization
+    - Free to create (no deposit)
+- **Acceptance Criteria:**
+  - [ ] Strategy compiles
+  - [ ] Returns 0 for all yield functions
+  - [ ] Can be registered in registry
+  - [ ] Free to place (no deposit required)
+
+#### SC-013: Update Core & Manager for Real Strategies
+- **Status:** 🔵 TODO
+- **Assignee:** FS1, FS2
+- **Priority:** P0 (Critical)
+- **Estimated:** 3 days
+- **Dependencies:** SC-010, SC-011, SC-012
+- **Description:**
+  - Update BuildingManager to handle:
+    - Multi-asset deposits
+    - Asset-specific strategy calls
+    - Borrow mode for Bank
+    - Pair selection for Shop
+  - Update DefiCityCore to track:
+    - Asset type per building
+    - Borrow amounts (for Bank)
+    - Pair type (for Shop)
+  - Test integration with real strategies
+- **Acceptance Criteria:**
+  - [ ] BuildingManager works with real strategies
+  - [ ] Core tracks asset-specific data
+  - [ ] Borrow mode functional for Bank
+  - [ ] Pair selection functional for Shop
+  - [ ] Integration tests pass
+
+#### SC-014: Integration Tests - DeFi Strategies
+- **Status:** 🔵 TODO
+- **Assignee:** FS1, FS2
+- **Priority:** P0 (Critical)
+- **Estimated:** 4 days
+- **Dependencies:** SC-013
+- **Description:**
+  - Test complete flows with real strategies:
+    - **Town Hall:** Place for free
+    - **Bank Supply:** Deposit USDC → Aave → Harvest → Withdraw
+    - **Bank Borrow:** Supply ETH → Borrow USDC → Repay → Withdraw
+    - **Shop:** Deposit USDC → LP USDC/ETH → Harvest AERO → Withdraw
+  - Test multi-asset scenarios
+  - Test edge cases (liquidation, IL, etc.)
+  - Test on Base Sepolia fork
+- **Acceptance Criteria:**
+  - [ ] All building types work end-to-end
+  - [ ] Multi-asset flows verified
+  - [ ] Borrow mode works without liquidation
+  - [ ] LP positions earn fees
+  - [ ] Edge cases handled
+  - [ ] Integration tests pass (100%)
+
+#### SC-015: Deploy Real Strategies to Base Sepolia
+- **Status:** 🔵 TODO
+- **Assignee:** FS1
+- **Priority:** P0 (Critical)
+- **Estimated:** 2 days
+- **Dependencies:** SC-014
+- **Description:**
+  - Deploy AaveStrategy, AerodromeStrategy, TownHallStrategy
+  - Register in StrategyRegistry
+  - Activate for building types:
+    - Type 0: TownHallStrategy
+    - Type 1: AaveStrategy
+    - Type 2: AerodromeStrategy
+    - Type 3: LotteryStrategy (placeholder for now)
+  - Verify contracts on BaseScan
+  - Test on testnet
+- **Acceptance Criteria:**
+  - [ ] All strategies deployed and verified
+  - [ ] Registered in StrategyRegistry
+  - [ ] Activated for building types
+  - [ ] Work on testnet
+  - [ ] Testnet addresses documented
+
+### Frontend Tasks
+
+#### FE-007: Update Building Placement for Real Strategies
+- **Status:** 🔵 TODO
+- **Assignee:** FS1, FS2
+- **Priority:** P0 (Critical)
+- **Estimated:** 5 days
+- **Dependencies:** FE-006, SC-015
+- **Description:**
+  - **Town Hall:**
+    - Show as free option
+    - No deposit required
+    - Creates wallet visualization
+  - **Bank (Aave):**
+    - Asset selection (USDC, USDT, ETH, WBTC)
+    - Mode selection: Supply only OR Supply + Borrow
+    - If borrowing:
+      - Show collateral asset
+      - Show borrow asset
+      - Show max borrow amount
+      - Show health factor
+      - Show liquidation warning
+    - Display supply APY and borrow APY
+  - **Shop (Aerodrome):**
+    - Pair selection (USDC/ETH, USDT/USDC, ETH/WBTC)
+    - Asset deposit (single or dual)
+    - Auto-swap option
+    - Display trading fee APY + AERO rewards APY
+    - IL calculator before placement
+  - **Lottery (Placeholder):**
+    - Show "Coming Soon" message
+- **Acceptance Criteria:**
+  - [ ] Town Hall placement works (free)
+  - [ ] Bank supply mode works
+  - [ ] Bank borrow mode works with health factor
+  - [ ] Shop LP works for all pairs
+  - [ ] IL calculator functional
+  - [ ] Lottery shows placeholder
+  - [ ] All transactions succeed on testnet
+
+#### FE-008: Create Building Info Panel (Enhanced)
+- **Status:** 🔵 TODO
+- **Assignee:** FS2
+- **Priority:** P1 (High)
+- **Estimated:** 4 days
+- **Dependencies:** FE-007
+- **Description:**
+  - Click building → Show detailed info panel
+  - **Town Hall:**
+    - Wallet address
+    - Total portfolio value
+    - No actions
+  - **Bank:**
+    - Asset type (USDC, USDT, ETH, WBTC)
+    - Mode (Supply only or Supply + Borrow)
+    - Supplied amount
+    - Borrowed amount (if any)
+    - Health factor (if borrowing)
+    - Supply APY
+    - Borrow APY (if borrowing)
+    - Net yield
+    - Pending rewards
+    - Actions: Deposit More, Harvest, Repay (if borrowing), Demolish
+  - **Shop:**
+    - Pair type (USDC/ETH, etc.)
+    - LP position value
+    - Asset breakdown (how much of each asset)
+    - Trading fees earned
+    - AERO rewards earned
+    - Current IL percentage
+    - APY breakdown
+    - Pending rewards
+    - Actions: Deposit More, Harvest, Demolish
+  - **Lottery:**
+    - Show "Coming Soon"
+- **Acceptance Criteria:**
+  - [ ] Info panel shows all relevant data
+  - [ ] Data updates in real-time
+  - [ ] Actions work correctly
+  - [ ] Health factor displays for Bank (if borrowing)
+  - [ ] IL percentage displays for Shop
+  - [ ] Design matches Figma
+
+#### FE-009: Create Harvest Flow
+- **Status:** 🔵 TODO
+- **Assignee:** FS1
+- **Priority:** P0 (Critical)
+- **Estimated:** 3 days
+- **Dependencies:** FE-008, SC-015
+- **Description:**
+  - Click "Harvest" button in building info panel
+  - Show harvest confirmation modal:
+    - Pending rewards amount
+    - Asset type
+    - Estimated gas (should be $0 - gasless)
+  - Send harvest transaction
+  - Show loading state
+  - Update balance after success
+  - Show success notification with amount
+- **Acceptance Criteria:**
+  - [ ] Harvest button clickable when rewards > 0
+  - [ ] Confirmation modal shows correct amount
+  - [ ] Transaction gasless (paymaster sponsors)
+  - [ ] Balance updates after harvest
+  - [ ] Works for Bank and Shop
+  - [ ] Success notification displays
+
+#### FE-010: Create Demolish Flow
+- **Status:** 🔵 TODO
+- **Assignee:** FS1
+- **Priority:** P0 (Critical)
+- **Estimated:** 3 days
+- **Dependencies:** FE-008, SC-015
+- **Description:**
+  - Click "Demolish" button in building info panel
+  - Show demolish confirmation modal:
+    - Total value (principal + unrealized yield)
+    - Asset type
+    - Warnings:
+      - For Bank borrowing: Must repay first
+      - For Shop: Current IL percentage shown
+    - Estimated gas (should be $0 - gasless)
+  - Send demolish transaction
+  - Building removed from map
+  - Balance updated
+  - Show success notification
+- **Acceptance Criteria:**
+  - [ ] Demolish confirmation shows total value
+  - [ ] Cannot demolish Bank with outstanding borrow
+  - [ ] IL warning shown for Shop
+  - [ ] Transaction gasless
+  - [ ] Building removed from map
+  - [ ] Balance updated correctly
+  - [ ] Town Hall cannot be demolished
+
+### UX/UI Tasks
+
+#### UI-004: Design Building Types with Real Data
+- **Status:** 🔵 TODO
+- **Assignee:** UI
+- **Priority:** P0 (Critical)
 - **Estimated:** 4 days
 - **Dependencies:** UI-001, UI-002
 - **Description:**
-  - Design building action modal (when clicking building)
-  - Design deposit form
-  - Design harvest button & rewards display
-  - Design demolish confirmation dialog
-  - Design building stats display (deposited, current value, APY, rewards)
-  - Design transaction feedback states
-- **Deliverables:**
-  - [ ] Building modal design
-  - [ ] Form layouts
-  - [ ] Confirmation dialogs
-  - [ ] Stats display design
-  - [ ] Transaction state designs
+  - Refine building sprites with more detail:
+    - Town Hall: Castle/headquarters style
+    - Bank: Modern building with Aave branding
+    - Shop: Market/store with Aerodrome branding
+    - Lottery: Government building (for Phase 3)
+  - Design building info panel layouts (enhanced)
+  - Design Bank-specific UI:
+    - Supply/Borrow mode toggle
+    - Health factor indicator (color-coded)
+    - Liquidation warning styles
+  - Design Shop-specific UI:
+    - Pair selection
+    - IL calculator
+    - Asset breakdown chart
+  - Design harvest/demolish confirmation modals
+- **Acceptance Criteria:**
+  - [ ] Building sprites detailed and distinct
+  - [ ] Info panel layouts comprehensive
+  - [ ] Bank UI shows health factor clearly
+  - [ ] Shop UI shows IL prominently
+  - [ ] Modals designed
+  - [ ] All assets identifiable (icons)
 
----
-
-### QA Testing
-
-#### QA-001: Test Plan Creation
+#### UI-005: Design Multi-Asset Portfolio Analytics
 - **Status:** 🔵 TODO
-- **Assignee:** QA1
-- **Priority:** P0 (Critical)
+- **Assignee:** UI
+- **Priority:** P2 (Nice to have)
 - **Estimated:** 3 days
-- **Dependencies:** None
+- **Dependencies:** UI-003
 - **Description:**
-  - Create comprehensive test plan document
-  - Define test scenarios for all use cases (UC-01 to UC-10)
-  - Create test case templates
-  - Define testing environments (testnet, local)
-  - Create bug reporting template
-  - Setup test tracking system (spreadsheet or tool)
-- **Deliverables:**
-  - [ ] Test plan document
-  - [ ] Test case spreadsheet (50+ cases)
-  - [ ] Bug report template
-  - [ ] Testing environment documentation
-  - [ ] Test tracking system ready
+  - Design asset breakdown chart (pie/bar)
+  - Design performance over time chart
+  - Design yield earned per building chart
+  - Design building type distribution
+  - Design responsive layouts
+- **Acceptance Criteria:**
+  - [ ] Charts visually appealing
+  - [ ] Data visualization clear
+  - [ ] Responsive layouts
+  - [ ] Optional for Phase 2 (can defer to Phase 3)
 
-#### QA-002: Smart Contract Testing Support
+### QA Tasks
+
+#### QA-004: Test DeFi Strategy Integrations
 - **Status:** 🔵 TODO
-- **Assignee:** QA2
-- **Priority:** P1 (High)
-- **Estimated:** 5 days
-- **Dependencies:** SC-001, SC-002
-- **Description:**
-  - Run all contract tests manually on testnet
-  - Test edge cases not covered in unit tests
-  - Test gas costs for all operations
-  - Test emergency scenarios (pause, emergency withdraw)
-  - Document all findings
-  - Verify contract upgrades work correctly
-- **Deliverables:**
-  - [ ] Manual test results documented
-  - [ ] Gas cost analysis
-  - [ ] Edge case test results
-  - [ ] Emergency scenario test results
-  - [ ] Bug reports filed (if any)
-
----
-
-## Phase 2: Core Features (Weeks 5-8)
-
-### Frontend Development
-
-#### FE-005: Place Building Flow
-- **Status:** 🔵 TODO
-- **Assignee:** FS1
+- **Assignee:** QA1, QA2
 - **Priority:** P0 (Critical)
 - **Estimated:** 5 days
-- **Dependencies:** FE-004, SC-003, UI-003
+- **Dependencies:** FE-010, SC-015
 - **Description:**
-  - Implement building type selection modal
-  - Show building requirements (min deposit, max per user)
-  - Implement deposit amount input with validation
-  - Show fee calculation (0.05%)
-  - Show estimated APY
-  - Implement transaction approval flow
-  - Update grid after successful placement
+  - **Test Town Hall:**
+    - Can place for free
+    - Shows wallet address
+    - Cannot demolish
+  - **Test Bank (Supply mode):**
+    - Deposit USDC → Supply to Aave → Check aUSDC balance
+    - Wait for yield → Harvest → Check USDC received
+    - Demolish → Check full withdrawal
+    - Repeat for USDT, ETH, WBTC
+  - **Test Bank (Borrow mode):**
+    - Supply ETH as collateral
+    - Borrow USDC (below safe threshold)
+    - Check health factor
+    - Repay USDC
+    - Withdraw ETH collateral
+  - **Test Shop:**
+    - Deposit USDC → LP USDC/ETH → Check LP position
+    - Wait for fees → Harvest → Check AERO + fees
+    - Check IL percentage
+    - Demolish → Check assets returned
+    - Repeat for other pairs
+  - Test edge cases:
+    - Try to borrow above limit → Should fail
+    - Monitor health factor during price changes
+    - Check IL calculation accuracy
+  - Test on Base Sepolia testnet
 - **Acceptance Criteria:**
-  - [ ] Building selection modal works
-  - [ ] Deposit input validates correctly
-  - [ ] Fee shown before confirmation
-  - [ ] Transaction submits successfully
-  - [ ] Grid updates after placement
-  - [ ] Error handling for failures
-
-#### FE-006: Building Info Panel
-- **Status:** 🔵 TODO
-- **Assignee:** FS2
-- **Priority:** P0 (Critical)
-- **Estimated:** 4 days
-- **Dependencies:** FE-005, UI-003
-- **Description:**
-  - Show building details when clicked
-  - Display deposited amount
-  - Display current value (with yield)
-  - Display APY (from strategy)
-  - Display pending rewards
-  - Add deposit more button
-  - Add harvest button
-  - Add demolish button
-- **Acceptance Criteria:**
-  - [ ] Panel opens on building click
-  - [ ] All stats display correctly
-  - [ ] Real-time updates for values
-  - [ ] Buttons trigger correct actions
-  - [ ] Loading states during transactions
-  - [ ] Error handling
-
-#### FE-007: Harvest & Deposit Flow
-- **Status:** 🔵 TODO
-- **Assignee:** FS1
-- **Priority:** P0 (Critical)
-- **Estimated:** 4 days
-- **Dependencies:** FE-006
-- **Description:**
-  - Implement harvest transaction
-  - Show harvested amount in toast
-  - Update balance after harvest
-  - Implement deposit more functionality
-  - Update building stats after deposit
-  - Add transaction history display
-- **Acceptance Criteria:**
-  - [ ] Harvest button works
-  - [ ] Harvested amount shown
-  - [ ] Balance updates correctly
-  - [ ] Deposit more works
-  - [ ] Stats refresh after actions
-  - [ ] Transaction history visible
-
-#### FE-008: Demolish Building Flow
-- **Status:** 🔵 TODO
-- **Assignee:** FS2
-- **Priority:** P1 (High)
-- **Estimated:** 3 days
-- **Dependencies:** FE-006, UI-003
-- **Description:**
-  - Implement demolish confirmation dialog
-  - Show total withdrawal amount
-  - Show fees (if any)
-  - Execute demolish transaction
-  - Remove building from grid
-  - Update user balance
-- **Acceptance Criteria:**
-  - [ ] Confirmation dialog shows
-  - [ ] Withdrawal amount calculated
-  - [ ] Transaction executes
-  - [ ] Building removed from grid
-  - [ ] Balance updated
-  - [ ] Can't demolish non-demolishable buildings
-
-#### FE-009: Dashboard & Stats
-- **Status:** 🔵 TODO
-- **Assignee:** FS1
-- **Priority:** P1 (High)
-- **Estimated:** 5 days
-- **Dependencies:** FE-006, UI-004
-- **Description:**
-  - Create city overview dashboard
-  - Show total deposited
-  - Show total earned
-  - Show city level
-  - Show all buildings list
-  - Show portfolio value chart
-  - Show APY breakdown by building
-- **Acceptance Criteria:**
-  - [ ] Dashboard displays all stats
-  - [ ] Stats update in real-time
-  - [ ] Chart visualizes portfolio
-  - [ ] Buildings list functional
-  - [ ] Level system works
-  - [ ] Mobile responsive
-
----
-
-### UX/UI Design
-
-#### UI-004: Dashboard Design
-- **Status:** 🔵 TODO
-- **Assignee:** UI
-- **Priority:** P1 (High)
-- **Estimated:** 5 days
-- **Dependencies:** UI-002
-- **Description:**
-  - Design main dashboard layout
-  - Design portfolio stats cards
-  - Design buildings list view
-  - Design APY breakdown visualization
-  - Design city level progression UI
-  - Design empty state (no buildings)
-- **Deliverables:**
-  - [ ] Dashboard layout mockups
-  - [ ] Stats card designs
-  - [ ] List view design
-  - [ ] Chart/visualization designs
-  - [ ] Level UI design
-  - [ ] Empty state designs
-
-#### UI-005: Mobile Responsive Design
-- **Status:** 🔵 TODO
-- **Assignee:** UI
-- **Priority:** P1 (High)
-- **Estimated:** 4 days
-- **Dependencies:** UI-002, UI-003, UI-004
-- **Description:**
-  - Design mobile layouts for all screens
-  - Design mobile navigation
-  - Design touch-optimized controls
-  - Design mobile grid interaction
-  - Design mobile modals (bottom sheets)
-  - Test designs on various screen sizes
-- **Deliverables:**
-  - [ ] Mobile mockups (320px, 375px, 414px)
-  - [ ] Mobile navigation design
-  - [ ] Touch gesture documentation
-  - [ ] Mobile-specific components
-  - [ ] Responsive breakpoints defined
-
-#### UI-006: Animation & Interaction Design
-- **Status:** 🔵 TODO
-- **Assignee:** UI
-- **Priority:** P2 (Medium)
-- **Estimated:** 4 days
-- **Dependencies:** UI-002, UI-003
-- **Description:**
-  - Design building placement animation
-  - Design harvest effect (coins, particles)
-  - Design demolish animation
-  - Design transition between states
-  - Design hover effects
-  - Create animation timing specifications
-- **Deliverables:**
-  - [ ] Animation specifications document
-  - [ ] Lottie/JSON animations (if needed)
-  - [ ] Timing/easing definitions
-  - [ ] Interactive prototype
-  - [ ] Microinteraction designs
-
----
-
-### QA Testing
-
-#### QA-003: End-to-End User Flow Testing
-- **Status:** 🔵 TODO
-- **Assignee:** QA1
-- **Priority:** P0 (Critical)
-- **Estimated:** 5 days
-- **Dependencies:** FE-005, FE-006, FE-007, FE-008
-- **Description:**
-  - Test complete user journey (wallet connect → place building → harvest → demolish)
-  - Test all building types (Bank, Shop)
-  - Test deposit more functionality
-  - Test multiple buildings per user
-  - Test building limits
-  - Document all bugs and edge cases
-- **Test Cases:**
-  - [ ] UC-01: Create Wallet (if applicable)
-  - [ ] UC-02: Deposit Funds
-  - [ ] UC-03: Place Building
-  - [ ] UC-04: Harvest Yield
-  - [ ] UC-05: Demolish Building
-  - [ ] Test with 0 amounts, invalid inputs
-  - [ ] Test concurrent operations
-
-#### QA-004: Cross-Browser & Device Testing
-- **Status:** 🔵 TODO
-- **Assignee:** QA2
-- **Priority:** P1 (High)
-- **Estimated:** 4 days
-- **Dependencies:** FE-009
-- **Description:**
-  - Test on Chrome, Firefox, Safari, Edge
-  - Test on mobile browsers (iOS Safari, Chrome Mobile)
-  - Test on different screen sizes (mobile, tablet, desktop)
-  - Test wallet extensions (MetaMask, Coinbase Wallet)
-  - Document compatibility issues
-  - Create device compatibility matrix
-- **Deliverables:**
-  - [ ] Browser test results
-  - [ ] Mobile device test results
-  - [ ] Compatibility matrix
-  - [ ] Bug reports for issues
-  - [ ] Recommended browser versions
+  - [ ] All Town Hall functions work
+  - [ ] Bank supply mode works for all assets
+  - [ ] Bank borrow mode works safely
+  - [ ] Health factor accurate
+  - [ ] Shop LP works for all pairs
+  - [ ] IL calculator accurate
+  - [ ] Harvest and demolish work correctly
+  - [ ] Edge cases handled
+  - [ ] All bugs filed and resolved
 
 #### QA-005: Performance & Load Testing
 - **Status:** 🔵 TODO
-- **Assignee:** QA1
+- **Assignee:** QA2
 - **Priority:** P1 (High)
-- **Estimated:** 3 days
-- **Dependencies:** FE-009
+- **Estimated:** 2 days
+- **Dependencies:** FE-010
 - **Description:**
-  - Measure page load times
-  - Test with 100+ buildings on grid
-  - Test concurrent user operations
-  - Monitor memory usage
-  - Test network request optimization
-  - Profile React rendering performance
-- **Deliverables:**
-  - [ ] Performance test results
-  - [ ] Load time metrics
-  - [ ] Memory profiling report
-  - [ ] Optimization recommendations
-  - [ ] Performance benchmark baseline
+  - Test app performance:
+    - Page load time (<3s)
+    - Map rendering (60fps)
+    - Transaction response time
+  - Test with many buildings (10+ on map)
+  - Test on slow networks
+  - Test memory usage
+  - Profile and optimize bottlenecks
+- **Acceptance Criteria:**
+  - [ ] Page loads < 3 seconds
+  - [ ] Map maintains 60fps
+  - [ ] No memory leaks
+  - [ ] Works on slow connections
+  - [ ] Performance report documented
 
 ---
 
 ## Phase 3: Advanced Features (Weeks 9-12)
 
-### Smart Contracts
+**Goal:** Implement Account Abstraction, Lottery, and gasless gameplay
 
-#### SC-006: Smart Wallet Integration (ERC-4337)
+### Smart Contract Tasks
+
+#### SC-016: Implement Lottery Strategy (Gov. Lottery Office)
 - **Status:** 🔵 TODO
 - **Assignee:** FS1
-- **Priority:** P1 (High)
+- **Priority:** P0 (Critical)
 - **Estimated:** 7 days
-- **Dependencies:** SC-001
+- **Dependencies:** SC-007
 - **Description:**
-  - Integrate with existing DefiCityWallet
-  - Implement session key management with spending limits
-  - Session key restrictions:
-    - Daily limit: 1000 USDC
-    - Valid duration: 24 hours
-    - Allowed contract: DefiCityCore only
-    - Can be revoked anytime
-  - Implement wallet creation via WalletFactory (regular tx)
-  - Test with EntryPoint on Base Sepolia
-  - Test wallet recovery mechanisms
-- **Important:**
-  - Wallet creation, deposit, withdraw = Regular Transactions (user pays gas)
-  - Gameplay actions (place, harvest, demolish) = UserOperations (gasless)
+  - Implement LotteryStrategy.sol
+    - Support multi-asset ticket purchases (USDC, USDT, ETH, WBTC)
+    - buyTicket() - purchase lottery ticket with chosen asset
+    - User selects numbers or quick pick (random)
+    - Tickets stored per user
+    - Draw mechanism:
+      - Use Chainlink VRF for provably fair randomness
+      - Daily or weekly draws (configurable)
+      - Prize pool = 70% of ticket sales
+      - 30% to treasury
+    - Prize distribution:
+      - Jackpot: Match all numbers (50% of pool)
+      - 2nd Prize: Match 5/6 (20%)
+      - 3rd Prize: Match 4/6 (15%)
+      - 4th Prize: Match 3/6 (15%)
+    - claimPrize() - claim winnings (paid in same asset as ticket)
+    - Jackpot rollover if no winner
+    - getActiveTickets() - view user's active tickets
+    - getPrizePool() - view current jackpot
+    - Unclaimed prizes return to pool after 90 days
+  - Events: TicketPurchased, DrawExecuted, PrizeWon, PrizeClaimed
+  - Integrate with Chainlink VRF on Base
 - **Acceptance Criteria:**
-  - [ ] Wallet creates via regular transaction
-  - [ ] Session keys with spending limits work
-  - [ ] UserOp validation enforces limits
-  - [ ] Session key expires after 24h
-  - [ ] Session key revocation works
-  - [ ] Recovery mechanism tested
-  - [ ] All wallet tests passing
+  - [ ] Can buy tickets with all 4 assets
+  - [ ] VRF randomness provably fair
+  - [ ] Draw executes correctly
+  - [ ] Prize distribution accurate (70/30 split)
+  - [ ] Prizes claimable in original asset
+  - [ ] Jackpot rolls over
+  - [ ] Unclaimed prizes return to pool
+  - [ ] Unit tests pass (90%+ coverage)
+  - [ ] Integration tests with Chainlink VRF pass
 
-#### SC-007: Paymaster Configuration
+#### SC-017: Deploy DefiCity Smart Wallet (ERC-4337)
 - **Status:** 🔵 TODO
 - **Assignee:** FS2
-- **Priority:** P1 (High)
-- **Estimated:** 4 days
-- **Dependencies:** SC-006
-- **Description:**
-  - Configure DefiCityPaymaster
-  - Set gas limits (per-user, global)
-  - Fund paymaster with ETH
-  - Test gas sponsorship rules
-  - Implement abuse prevention
-  - Monitor paymaster balance
-- **Acceptance Criteria:**
-  - [ ] Paymaster funded adequately
-  - [ ] Gas limits configured
-  - [ ] Sponsorship rules working
-  - [ ] Abuse prevention active
-  - [ ] Monitoring dashboard setup
-  - [ ] Alert system for low balance
-
----
-
-### Frontend Development
-
-#### FE-010: Account Abstraction Integration
-- **Status:** 🔵 TODO
-- **Assignee:** FS1
-- **Priority:** P1 (High)
-- **Estimated:** 7 days
-- **Dependencies:** SC-006, FE-001
-- **Description:**
-  - Implement dual transaction system:
-    - **Regular Transactions:** Wallet creation, deposit, withdraw (user pays gas)
-    - **UserOperations:** Gameplay actions (gasless, paymaster sponsored)
-  - Integrate with account-kit or custom AA SDK
-  - Implement passkey authentication for wallet ownership
-  - Create smart wallet via WalletFactory (regular tx)
-  - Implement session key management:
-    - Create session key (one-time, regular tx)
-    - Store securely in localStorage
-    - Auto-refresh before expiry (24h)
-    - Revoke on logout
-  - Handle UserOperation creation for gameplay
-  - Integrate with bundler service
-  - Build transaction router (decide regular vs UserOp)
-- **Transaction Mapping:**
-  - Regular Tx: createWallet(), deposit(), withdraw(), addSessionKey()
-  - UserOp: placeBuilding(), harvest(), demolish(), deposit() [to building]
-- **Acceptance Criteria:**
-  - [ ] Regular tx and UserOp clearly separated
-  - [ ] Wallet creates via regular transaction
-  - [ ] Session key creates via regular transaction
-  - [ ] Gameplay actions use UserOp
-  - [ ] Deposit to wallet = regular, deposit to building = UserOp
-  - [ ] UserOps created correctly
-  - [ ] Bundler integration functional
-  - [ ] Session keys managed properly
-  - [ ] Gasless transactions work for gameplay
-  - [ ] Transaction type indicator in UI
-
-#### FE-011: Gasless Transaction UX
-- **Status:** 🔵 TODO
-- **Assignee:** FS2
-- **Priority:** P1 (High)
-- **Estimated:** 4 days
-- **Dependencies:** FE-010, UI-007
-- **Description:**
-  - Show "Transaction Sponsored" indicator
-  - Display gas savings to user
-  - Handle transaction status for UserOps
-  - Show bundler confirmation
-  - Add fallback to regular transactions
-  - Display gas sponsorship limits
-- **Acceptance Criteria:**
-  - [ ] Sponsored indicator shows
-  - [ ] Gas savings displayed
-  - [ ] UserOp status tracked
-  - [ ] Fallback to regular tx works
-  - [ ] Limits communicated clearly
-  - [ ] Error handling for sponsorship failures
-
-#### FE-012: Multi-Strategy Support
-- **Status:** 🔵 TODO
-- **Assignee:** FS1
-- **Priority:** P1 (High)
+- **Priority:** P0 (Critical)
 - **Estimated:** 5 days
-- **Dependencies:** SC-004, FE-005
+- **Dependencies:** None (external library)
 - **Description:**
-  - Support multiple strategies (Aave, Aerodrome)
-  - Show strategy-specific info (APY, risk, assets)
-  - Handle different token types (USDC, USDC+ETH)
-  - Display impermanent loss warnings for LP
-  - Show strategy comparison
-  - Allow strategy selection during placement
+  - Use existing ERC-4337 wallet library (ZeroDev, Biconomy, or Alchemy)
+  - Or fork SimpleAccount.sol and customize:
+    - Add session key management
+    - Add spending limits per session key (1000 USDC/day)
+    - Add time limits per session key (24h)
+    - Add contract whitelist (DefiCityCore only)
+    - Add function whitelist (place, deposit, harvest, demolish)
+  - Implement WalletFactory for deployment
+  - Support passkey authentication (WebAuthn)
+  - Support guardian recovery
 - **Acceptance Criteria:**
-  - [ ] Both strategies selectable
-  - [ ] Strategy info displays correctly
-  - [ ] LP strategy shows IL warning
-  - [ ] Token approvals handled
-  - [ ] Strategy comparison useful
-  - [ ] Risk levels communicated
+  - [ ] Wallet deployable via factory
+  - [ ] Session key management works
+  - [ ] Spending limits enforced
+  - [ ] Time limits enforced
+  - [ ] Contract/function whitelisting works
+  - [ ] Passkey auth supported
+  - [ ] Guardian recovery works
+  - [ ] Compatible with ERC-4337 EntryPoint
 
-#### FE-013: Real-Time APY & Value Updates
+#### SC-018: Deploy DefiCity Paymaster
 - **Status:** 🔵 TODO
 - **Assignee:** FS2
-- **Priority:** P2 (Medium)
+- **Priority:** P0 (Critical)
 - **Estimated:** 4 days
-- **Dependencies:** FE-009
+- **Dependencies:** SC-017
 - **Description:**
-  - Implement polling for APY updates
-  - Show live building values
-  - Display pending rewards countdown
-  - Update stats every 30 seconds
-  - Add manual refresh button
-  - Cache values for performance
+  - Use existing Paymaster library or implement custom:
+    - validatePaymasterUserOp() - validate session key signature
+    - Enforce per-user gas limits (500 USDC/day)
+    - Enforce global gas limits (10,000 USDC/day)
+    - Enforce per-tx gas limit (0.5 USDC max)
+    - Track gas spending per user
+    - Owner can deposit ETH to fund gas
+    - Auto-pause if balance too low
+  - Events: GasSponsored, LimitExceeded, Refunded
+  - Deploy to Base Sepolia
+  - Fund with testnet ETH
 - **Acceptance Criteria:**
-  - [ ] APY updates automatically
-  - [ ] Values refresh periodically
-  - [ ] Countdown for harvestable time
-  - [ ] Manual refresh works
-  - [ ] No excessive RPC calls
-  - [ ] Smooth UX during updates
+  - [ ] Validates session keys correctly
+  - [ ] Enforces per-user limits
+  - [ ] Enforces global limits
+  - [ ] Tracks spending accurately
+  - [ ] Can be funded by owner
+  - [ ] Auto-pauses if low balance
+  - [ ] Unit tests pass (90%+ coverage)
 
----
+#### SC-019: Update Core for AA Support
+- **Status:** 🔵 TODO
+- **Assignee:** FS1, FS2
+- **Priority:** P0 (Critical)
+- **Estimated:** 3 days
+- **Dependencies:** SC-017, SC-018
+- **Description:**
+  - Update DefiCityCore to accept calls from:
+    - Smart Wallets (via EntryPoint)
+    - EOA (direct calls for deposit/withdraw)
+  - Identify msg.sender properly (may be EntryPoint)
+  - Use tx.origin for wallet identification (in AA context)
+  - Ensure fee collection works with gasless txs
+- **Acceptance Criteria:**
+  - [ ] Works with Smart Wallet calls
+  - [ ] Works with EOA calls
+  - [ ] Identifies user correctly
+  - [ ] Fee collection works in both modes
+  - [ ] Integration tests pass
 
-### UX/UI Design
+#### SC-020: Integration Tests - AA System
+- **Status:** 🔵 TODO
+- **Assignee:** FS1, FS2
+- **Priority:** P0 (Critical)
+- **Estimated:** 4 days
+- **Dependencies:** SC-019
+- **Description:**
+  - Test complete AA flow:
+    - Create Smart Wallet
+    - Create session key
+    - Place building (gasless via UserOp)
+    - Harvest (gasless)
+    - Demolish (gasless)
+    - Buy lottery ticket (gasless)
+  - Test session key security:
+    - Expires after 24h
+    - Spending limit enforced
+    - Contract whitelist enforced
+    - Can be revoked
+  - Test paymaster limits:
+    - Per-user limit works
+    - Global limit works
+  - Test on Base Sepolia testnet with real EntryPoint
+- **Acceptance Criteria:**
+  - [ ] Gasless gameplay works end-to-end
+  - [ ] Session keys expire correctly
+  - [ ] Spending limits work
+  - [ ] Paymaster limits enforced
+  - [ ] Can revoke session keys
+  - [ ] All tests pass on testnet
 
-#### UI-007: AA & Gasless UI
+#### SC-021: Deploy Complete System to Base Sepolia
+- **Status:** 🔵 TODO
+- **Assignee:** FS1
+- **Priority:** P0 (Critical)
+- **Estimated:** 2 days
+- **Dependencies:** SC-016, SC-020
+- **Description:**
+  - Deploy all contracts:
+    - Core, Registry, Managers
+    - All 4 strategies (TownHall, Aave, Aerodrome, Lottery)
+    - Smart Wallet Factory
+    - Paymaster
+  - Register strategies
+  - Configure building types
+  - Fund Paymaster with 5 ETH
+  - Verify all contracts
+  - Document all addresses
+- **Acceptance Criteria:**
+  - [ ] All contracts deployed and verified
+  - [ ] Strategies registered and activated
+  - [ ] Building types configured (0-3)
+  - [ ] Paymaster funded
+  - [ ] System functional on testnet
+  - [ ] Addresses documented
+
+### Frontend Tasks
+
+#### FE-011: Integrate Account Abstraction SDK
+- **Status:** 🔵 TODO
+- **Assignee:** FS1
+- **Priority:** P0 (Critical)
+- **Estimated:** 5 days
+- **Dependencies:** SC-021
+- **Description:**
+  - Install AA SDK (ZeroDev, Biconomy, Alchemy, or Permissionless.js)
+  - Configure for Base Sepolia
+  - Setup EntryPoint, Bundler, Paymaster connections
+  - Create smart wallet on user signup
+  - Implement transaction router:
+    - Regular Tx: Wallet creation, deposit, withdraw
+    - UserOp: Place, harvest, demolish, buy lottery ticket
+  - Implement session key management:
+    - Create session key (one-time approval)
+    - Store in localStorage (encrypted)
+    - Auto-refresh before expiry
+    - Revoke on logout
+- **Acceptance Criteria:**
+  - [ ] AA SDK integrated
+  - [ ] Smart wallet created for users
+  - [ ] Transaction router works correctly
+  - [ ] Session keys created and stored
+  - [ ] Auto-refresh works
+  - [ ] Logout revokes keys
+
+#### FE-012: Implement Gasless Transactions
+- **Status:** 🔵 TODO
+- **Assignee:** FS1, FS2
+- **Priority:** P0 (Critical)
+- **Estimated:** 4 days
+- **Dependencies:** FE-011
+- **Description:**
+  - Update all gameplay transactions to use UserOps:
+    - Place building
+    - Deposit to building
+    - Harvest
+    - Demolish
+    - Buy lottery ticket
+  - Show "Gasless" indicator in UI
+  - Handle UserOp signing with session key
+  - Show loading state during bundler submission
+  - Handle errors (paymaster exhausted, session key expired, etc.)
+  - Fallback to regular tx if paymaster unavailable
+- **Acceptance Criteria:**
+  - [ ] All gameplay actions are gasless
+  - [ ] Gasless indicator displayed
+  - [ ] Session key signs UserOps
+  - [ ] Loading states work
+  - [ ] Errors handled gracefully
+  - [ ] Fallback to regular tx works
+
+#### FE-013: Create Lottery Building UI
+- **Status:** 🔵 TODO
+- **Assignee:** FS2
+- **Priority:** P0 (Critical)
+- **Estimated:** 5 days
+- **Dependencies:** FE-012, SC-021
+- **Description:**
+  - **Placement:**
+    - Asset selection (USDC, USDT, ETH, WBTC)
+    - Number of tickets input
+    - Number selection or quick pick
+    - Price per ticket ($10 min)
+    - Confirm purchase (gasless)
+  - **Info Panel:**
+    - Active tickets (with chosen numbers)
+    - Next draw countdown
+    - Current jackpot size
+    - Odds of winning (each tier)
+    - Prize breakdown
+    - Responsible gaming warnings
+  - **After Draw:**
+    - Winning tickets highlighted
+    - Prize amount shown
+    - Claim prize button
+  - **Claim Prize:**
+    - Confirm prize claim
+    - Receive asset (same as ticket purchase)
+    - Success notification
+- **Acceptance Criteria:**
+  - [ ] Can buy tickets with all assets
+  - [ ] Number selection works
+  - [ ] Quick pick generates random numbers
+  - [ ] Active tickets displayed
+  - [ ] Countdown to draw accurate
+  - [ ] Winning tickets highlighted
+  - [ ] Can claim prizes
+  - [ ] Prizes received in correct asset
+  - [ ] Responsible gaming warnings displayed
+
+#### FE-014: Update Dashboard for AA
+- **Status:** 🔵 TODO
+- **Assignee:** FS2
+- **Priority:** P1 (High)
+- **Estimated:** 3 days
+- **Dependencies:** FE-011
+- **Description:**
+  - Show smart wallet address
+  - Show session key status (active, expired, none)
+  - Add "Create Session Key" button
+  - Add "Revoke Session Key" button
+  - Show gasless transaction count
+  - Show remaining daily gas allowance
+  - Update deposit/withdraw to use regular txs (user pays gas)
+- **Acceptance Criteria:**
+  - [ ] Smart wallet address displayed
+  - [ ] Session key status visible
+  - [ ] Can create/revoke session keys
+  - [ ] Gasless stats displayed
+  - [ ] Deposit/withdraw use regular txs
+
+#### FE-015: Create Onboarding Flow
+- **Status:** 🔵 TODO
+- **Assignee:** FS1, FS2
+- **Priority:** P1 (High)
+- **Estimated:** 4 days
+- **Dependencies:** FE-014
+- **Description:**
+  - **Step 1:** Welcome screen
+  - **Step 2:** Email/social login (create passkey)
+  - **Step 3:** Smart wallet created automatically
+  - **Step 4:** Deposit funds (select asset, amount)
+  - **Step 5:** Optional tutorial (2 min walkthrough)
+  - **Step 6:** Ready to build!
+  - Skip option for returning users
+  - Clear messaging about gasless gameplay
+- **Acceptance Criteria:**
+  - [ ] Onboarding flow intuitive
+  - [ ] Smart wallet created seamlessly
+  - [ ] Tutorial helpful
+  - [ ] Can skip for returning users
+  - [ ] Gasless benefits communicated
+
+### UX/UI Tasks
+
+#### UI-006: Design Lottery Building & UI
+- **Status:** 🔵 TODO
+- **Assignee:** UI
+- **Priority:** P0 (Critical)
+- **Estimated:** 4 days
+- **Dependencies:** UI-004
+- **Description:**
+  - Design lottery building sprite (government-style)
+  - Design ticket purchase modal:
+    - Asset selection
+    - Number selection grid (1-49 or similar)
+    - Quick pick button
+    - Price calculation
+    - Responsible gaming warning
+  - Design lottery info panel:
+    - Active tickets display (card format)
+    - Countdown timer
+    - Jackpot amount (big and prominent)
+    - Odds display
+    - Prize breakdown table
+  - Design winning ticket notification (big celebration!)
+  - Design claim prize flow
+- **Acceptance Criteria:**
+  - [ ] Lottery building sprite distinctive
+  - [ ] Ticket purchase UX clear
+  - [ ] Number selection intuitive
+  - [ ] Info panel informative
+  - [ ] Winning notification exciting
+  - [ ] Responsible gaming warnings prominent
+
+#### UI-007: Design Account Abstraction UI
+- **Status:** 🔵 TODO
+- **Assignee:** UI
+- **Priority:** P1 (High)
+- **Estimated:** 3 days
+- **Dependencies:** UI-003
+- **Description:**
+  - Design smart wallet display (address, copy button)
+  - Design session key indicator (active/expired)
+  - Design "Gasless" badge for transactions
+  - Design session key creation flow
+  - Design session key management panel
+  - Design gasless stats (transactions, gas saved)
+  - Design fallback UI (when paymaster exhausted)
+- **Acceptance Criteria:**
+  - [ ] Smart wallet UI clear
+  - [ ] Session key status visible
+  - [ ] Gasless indicators intuitive
+  - [ ] Stats display engaging
+  - [ ] Fallback messaging clear
+
+#### UI-008: Design Onboarding Flow
 - **Status:** 🔵 TODO
 - **Assignee:** UI
 - **Priority:** P1 (High)
 - **Estimated:** 3 days
 - **Dependencies:** UI-001
 - **Description:**
-  - Design passkey authentication flow
-  - Design "gas sponsored" badge/indicator
-  - Design gas savings display
-  - Design session key management UI
-  - Design wallet creation flow
-  - Design error states for AA failures
-- **Deliverables:**
-  - [ ] Passkey flow wireframes
-  - [ ] Gas sponsor indicator design
-  - [ ] Savings display design
-  - [ ] Wallet setup flow
-  - [ ] Error state designs
+  - Design welcome screen (hero, value props)
+  - Design login screen (email/social options)
+  - Design wallet creation screen
+  - Design deposit screen (first deposit)
+  - Design tutorial screens (4-5 steps)
+  - Design progress indicator
+  - Design skip/back buttons
+- **Acceptance Criteria:**
+  - [ ] Onboarding flow visually appealing
+  - [ ] Steps clear and concise
+  - [ ] Progress visible
+  - [ ] Can skip tutorial
+  - [ ] Mobile-friendly
 
-#### UI-008: Strategy Selection UI
-- **Status:** 🔵 TODO
-- **Assignee:** UI
-- **Priority:** P1 (High)
-- **Estimated:** 4 days
-- **Dependencies:** UI-002
-- **Description:**
-  - Design strategy comparison cards
-  - Design risk level indicators (Low, High)
-  - Design APY display variations
-  - Design asset type indicators (USDC vs USDC+ETH)
-  - Design IL warning component
-  - Design strategy info tooltips
-- **Deliverables:**
-  - [ ] Strategy card designs
-  - [ ] Risk indicator designs
-  - [ ] Comparison layout
-  - [ ] Warning/alert designs
-  - [ ] Tooltip designs
+### QA Tasks
 
-#### UI-009: Marketing & Landing Page
+#### QA-006: Test Account Abstraction Features
 - **Status:** 🔵 TODO
-- **Assignee:** UI
-- **Priority:** P2 (Medium)
+- **Assignee:** QA1, QA2
+- **Priority:** P0 (Critical)
 - **Estimated:** 5 days
-- **Dependencies:** UI-001
+- **Dependencies:** FE-015, SC-021
 - **Description:**
-  - Design landing page layout
-  - Design hero section
-  - Design features showcase
-  - Design how-it-works section
-  - Design CTA buttons and sections
-  - Design footer
-- **Deliverables:**
-  - [ ] Landing page mockup
-  - [ ] Hero section design
-  - [ ] Features section design
-  - [ ] How it works infographic
-  - [ ] CTA designs
+  - **Test Smart Wallet Creation:**
+    - Email signup creates wallet
+    - Wallet address displayed
+    - Can receive assets
+  - **Test Session Keys:**
+    - Create session key (one-time approval)
+    - Gameplay is gasless
+    - Expires after 24 hours
+    - Spending limit enforced (try to exceed 1000 USDC)
+    - Can be revoked
+    - Auto-refresh before expiry
+  - **Test Gasless Transactions:**
+    - Place building (gasless)
+    - Harvest (gasless)
+    - Demolish (gasless)
+    - Buy lottery ticket (gasless)
+    - Verify no gas prompts
+  - **Test Paymaster Limits:**
+    - Try to exceed per-user limit
+    - Try to exceed global limit (harder to test)
+    - Test fallback to regular tx
+  - **Test Regular Transactions:**
+    - Deposit (user pays gas)
+    - Withdraw (user pays gas)
+    - Wallet creation (user pays gas - one-time)
+  - Test on Base Sepolia testnet
+- **Acceptance Criteria:**
+  - [ ] Smart wallet creation works
+  - [ ] Session keys work as expected
+  - [ ] Gasless transactions succeed
+  - [ ] Limits enforced correctly
+  - [ ] Fallback works
+  - [ ] Regular txs work
+  - [ ] All bugs filed and resolved
 
----
-
-### QA Testing
-
-#### QA-006: Account Abstraction Testing
+#### QA-007: Test Lottery Functionality
 - **Status:** 🔵 TODO
 - **Assignee:** QA1
-- **Priority:** P1 (High)
-- **Estimated:** 5 days
-- **Dependencies:** FE-010, FE-011
+- **Priority:** P0 (Critical)
+- **Estimated:** 4 days
+- **Dependencies:** FE-013, SC-021
 - **Description:**
-  - Test dual transaction system
-  - Test passkey authentication flow
-  - Test smart wallet creation (regular tx)
-  - Test session key creation (regular tx)
-  - Test gasless gameplay transactions (UserOp)
-  - Test session key expiration (24h)
-  - Test session key spending limits (1000 USDC/day)
-  - Test bundler failures
-  - Test paymaster limits
-  - Document edge cases
-- **Test Cases - Regular Transactions:**
-  - [ ] Create smart wallet (user pays gas)
-  - [ ] Deposit USDC to wallet (user pays gas)
-  - [ ] Withdraw USDC from wallet (user pays gas)
-  - [ ] Create session key (user pays gas, one-time)
-- **Test Cases - UserOperations (Gasless):**
-  - [ ] Place building (gasless)
-  - [ ] Harvest yield (gasless)
-  - [ ] Demolish building (gasless)
-  - [ ] Deposit more to building (gasless)
-- **Test Cases - Session Key:**
-  - [ ] Session key works for 24 hours
-  - [ ] Session key expires after 24h
-  - [ ] Spending limit enforced (1000 USDC)
-  - [ ] Session key only works with DefiCityCore
-  - [ ] Session key revocation works
-  - [ ] Multiple session keys per wallet
-- **Test Cases - Edge Cases:**
-  - [ ] Paymaster out of funds (fallback to regular tx)
-  - [ ] Bundler down (graceful error)
-  - [ ] Session key expired (auto-refresh prompt)
-  - [ ] Multiple devices with same wallet
-  - [ ] Recovery flow
+  - **Test Ticket Purchase:**
+    - Buy ticket with USDC
+    - Buy ticket with USDT
+    - Buy ticket with ETH
+    - Buy ticket with WBTC
+    - Select numbers manually
+    - Use quick pick
+    - Buy multiple tickets
+  - **Test Draw Execution:**
+    - Wait for draw (or trigger manually on testnet)
+    - Verify randomness via Chainlink VRF
+    - Check winning numbers announced
+    - Verify prize pool calculation (70% of sales)
+  - **Test Prize Distribution:**
+    - Match all numbers (jackpot)
+    - Match 5/6 (2nd prize)
+    - Match 4/6 (3rd prize)
+    - Match 3/6 (4th prize)
+    - No winner (jackpot rollover)
+  - **Test Prize Claim:**
+    - Claim prize in USDC
+    - Claim prize in ETH
+    - Verify correct amount received
+  - **Test Edge Cases:**
+    - Unclaimed prize after 90 days
+    - Multiple winners splitting prize
+    - Zero tickets sold (no draw)
+  - Test responsible gaming warnings displayed
+- **Acceptance Criteria:**
+  - [ ] Ticket purchase works for all assets
+  - [ ] Draw execution fair (VRF verified)
+  - [ ] Prize distribution correct
+  - [ ] Prize claims work
+  - [ ] Edge cases handled
+  - [ ] Warnings displayed
+  - [ ] All bugs filed and resolved
 
-#### QA-007: Strategy-Specific Testing
+#### QA-008: E2E Automated Tests
 - **Status:** 🔵 TODO
 - **Assignee:** QA2
 - **Priority:** P1 (High)
 - **Estimated:** 5 days
-- **Dependencies:** FE-012, SC-004
+- **Dependencies:** QA-006, QA-007
 - **Description:**
-  - Test Aave strategy (Bank building)
-  - Test Aerodrome strategy (Shop building)
-  - Test LP position management
-  - Test impermanent loss scenarios
-  - Test reward claiming for both strategies
-  - Compare actual vs expected APY
-- **Test Cases:**
-  - [ ] Bank building full lifecycle
-  - [ ] Shop building full lifecycle
-  - [ ] LP IL calculation accuracy
-  - [ ] Multi-asset handling (USDC+ETH)
-  - [ ] Reward distribution correctness
-  - [ ] APY accuracy verification
-
-#### QA-008: Security Testing
-- **Status:** 🔵 TODO
-- **Assignee:** QA1, QA2
-- **Priority:** P0 (Critical)
-- **Estimated:** 4 days
-- **Dependencies:** SC-005, FE-010
-- **Description:**
-  - Test wallet security (passkey attacks)
-  - Test transaction replay attacks
-  - Test signature verification
-  - Test access control on contracts
-  - Test reentrancy protection
-  - Penetration testing on frontend
-- **Test Cases:**
-  - [ ] Try to call restricted functions
-  - [ ] Test signature manipulation
-  - [ ] Test transaction replay
-  - [ ] Test XSS vulnerabilities
-  - [ ] Test CSRF attacks
-  - [ ] Document all security findings
+  - Write Playwright E2E tests:
+    - User onboarding flow
+    - Deposit multi-asset
+    - Place all 4 building types
+    - Harvest from Bank and Shop
+    - Buy lottery ticket
+    - Demolish buildings
+    - Withdraw funds
+  - Run on CI/CD
+  - Generate test reports
+- **Acceptance Criteria:**
+  - [ ] E2E tests cover major flows
+  - [ ] Tests run on CI/CD
+  - [ ] All tests pass
+  - [ ] Test reports generated
 
 ---
 
-## Phase 4: Polish & Launch (Weeks 13-16)
+## Phase 4: Testing & Launch (Weeks 13-16)
 
-### Frontend Development
+**Goal:** Comprehensive testing, security prep, and testnet/mainnet launch
 
-#### FE-014: Animations & Polish
+### Smart Contract Tasks
+
+#### SC-022: Security Audit Preparation
 - **Status:** 🔵 TODO
-- **Assignee:** FS2
-- **Priority:** P2 (Medium)
+- **Assignee:** FS1, FS2
+- **Priority:** P0 (Critical)
 - **Estimated:** 5 days
-- **Dependencies:** UI-006, FE-009
+- **Dependencies:** SC-021
 - **Description:**
-  - Implement building placement animation
-  - Add harvest celebration effect
-  - Add demolish animation
-  - Add loading skeletons
-  - Polish transitions between states
-  - Add micro-interactions (hover, click)
+  - Code cleanup and documentation
+  - Write comprehensive NatSpec comments
+  - Add inline comments for complex logic
+  - Create audit documentation:
+    - Architecture overview
+    - Contract interaction diagrams
+    - Known issues/limitations
+    - Deployment addresses
+  - Run static analysis tools:
+    - Slither
+    - Mythril
+    - Aderyn
+  - Fix any findings
+  - Prepare audit scope
 - **Acceptance Criteria:**
-  - [ ] Placement animation smooth
-  - [ ] Harvest effect delightful
-  - [ ] Demolish animation clear
-  - [ ] Loading states polished
-  - [ ] Transitions smooth
-  - [ ] No janky animations
+  - [ ] All contracts well-documented
+  - [ ] Audit docs complete
+  - [ ] Static analysis clean
+  - [ ] Ready for external audit
+  - [ ] Audit scope defined
 
-#### FE-015: Error Handling & Edge Cases
-- **Status:** 🔵 TODO
-- **Assignee:** FS1
-- **Priority:** P0 (Critical)
-- **Estimated:** 4 days
-- **Dependencies:** FE-013
-- **Description:**
-  - Improve all error messages
-  - Handle network failures gracefully
-  - Handle insufficient balance
-  - Handle transaction failures
-  - Add retry mechanisms
-  - Log errors to monitoring service
-- **Acceptance Criteria:**
-  - [ ] All errors have user-friendly messages
-  - [ ] Network failures handled
-  - [ ] Retry works for failed txs
-  - [ ] Error logging active
-  - [ ] No crashes from errors
-  - [ ] Fallbacks for all failures
-
-#### FE-016: Analytics Integration
-- **Status:** 🔵 TODO
-- **Assignee:** FS2
-- **Priority:** P2 (Medium)
-- **Estimated:** 2 days
-- **Dependencies:** FE-009
-- **Description:**
-  - Integrate Google Analytics or Mixpanel
-  - Track key user actions (wallet connect, place building, etc.)
-  - Track conversion funnel
-  - Set up custom events
-  - Add privacy compliance (GDPR banner if needed)
-  - Create analytics dashboard
-- **Acceptance Criteria:**
-  - [ ] Analytics tracking works
-  - [ ] Key events tracked
-  - [ ] Funnel analysis setup
-  - [ ] Dashboard accessible
-  - [ ] Privacy compliance met
-  - [ ] No PII tracked
-
-#### FE-017: SEO & Meta Tags
-- **Status:** 🔵 TODO
-- **Assignee:** FS1
-- **Priority:** P2 (Medium)
-- **Estimated:** 2 days
-- **Dependencies:** UI-009
-- **Description:**
-  - Add proper meta tags (title, description)
-  - Add Open Graph tags for social sharing
-  - Add Twitter Card tags
-  - Create sitemap.xml
-  - Configure robots.txt
-  - Test social sharing previews
-- **Acceptance Criteria:**
-  - [ ] Meta tags on all pages
-  - [ ] OG preview looks good
-  - [ ] Twitter Card works
-  - [ ] Sitemap generated
-  - [ ] robots.txt configured
-  - [ ] SEO score >90
-
-#### FE-018: Production Build & Optimization
-- **Status:** 🔵 TODO
-- **Assignee:** FS1, FS2
-- **Priority:** P0 (Critical)
-- **Estimated:** 3 days
-- **Dependencies:** FE-014, FE-015
-- **Description:**
-  - Optimize bundle size
-  - Implement code splitting
-  - Optimize images and assets
-  - Enable production caching
-  - Setup CDN for static assets
-  - Measure Lighthouse scores
-- **Acceptance Criteria:**
-  - [ ] Bundle size <500KB (initial)
-  - [ ] Code splitting active
-  - [ ] Images optimized
-  - [ ] CDN configured
-  - [ ] Lighthouse score >85
-  - [ ] Load time <3s
-
----
-
-### DevOps & Deployment
-
-#### DO-001: Testnet Deployment
-- **Status:** 🔵 TODO
-- **Assignee:** FS1
-- **Priority:** P0 (Critical)
-- **Estimated:** 2 days
-- **Dependencies:** SC-005, FE-018
-- **Description:**
-  - Deploy contracts to Base Sepolia
-  - Deploy frontend to Vercel/Netlify (staging)
-  - Configure environment variables
-  - Setup testnet faucet access
-  - Document deployment process
-  - Test full production flow on testnet
-- **Acceptance Criteria:**
-  - [ ] All contracts deployed
-  - [ ] Frontend deployed to staging
-  - [ ] ENV vars configured
-  - [ ] Testnet fully functional
-  - [ ] Deployment docs ready
-  - [ ] Team can test on staging
-
-#### DO-002: Mainnet Deployment
-- **Status:** 🔵 TODO
-- **Assignee:** FS1, FS2
-- **Priority:** P0 (Critical)
-- **Estimated:** 3 days
-- **Dependencies:** DO-001, QA-010
-- **Description:**
-  - Deploy contracts to Base Mainnet
-  - Verify contracts on BaseScan
-  - Deploy frontend to production
-  - Configure production ENV vars
-  - Setup monitoring and alerts
-  - Prepare rollback plan
-- **Acceptance Criteria:**
-  - [ ] Contracts deployed to mainnet
-  - [ ] Contracts verified
-  - [ ] Frontend deployed to production
-  - [ ] Monitoring active
-  - [ ] Alerts configured
-  - [ ] Rollback plan documented
-
-#### DO-003: Monitoring & Logging Setup
+#### SC-023: Gas Optimization
 - **Status:** 🔵 TODO
 - **Assignee:** FS2
 - **Priority:** P1 (High)
-- **Estimated:** 2 days
-- **Dependencies:** DO-002
+- **Estimated:** 3 days
+- **Dependencies:** SC-022
 - **Description:**
-  - Setup Sentry for error tracking
-  - Setup contract event monitoring
-  - Setup uptime monitoring (UptimeRobot)
-  - Configure log aggregation
-  - Create alerts for critical errors
-  - Setup on-call rotation (if applicable)
+  - Profile gas usage for all functions
+  - Optimize:
+    - Storage layout (pack variables)
+    - Loop optimizations
+    - Reduce SLOAD/SSTORE
+    - Use immutable/constant where possible
+    - Batch operations
+  - Target gas costs:
+    - Place building: <250k gas
+    - Harvest: <120k gas
+    - Demolish: <200k gas
+  - Document gas usage
 - **Acceptance Criteria:**
-  - [ ] Sentry capturing errors
-  - [ ] Contract events logged
-  - [ ] Uptime monitoring active
-  - [ ] Log aggregation working
-  - [ ] Critical alerts configured
-  - [ ] Incident response plan ready
+  - [ ] Gas costs meet targets
+  - [ ] No functionality broken
+  - [ ] Gas report generated
+  - [ ] Optimizations documented
 
----
-
-### QA Testing
-
-#### QA-009: Testnet Staging Testing
+#### SC-024: Deploy to Base Mainnet (Prep)
 - **Status:** 🔵 TODO
-- **Assignee:** QA1, QA2
+- **Assignee:** FS1
 - **Priority:** P0 (Critical)
-- **Estimated:** 5 days
-- **Dependencies:** DO-001
+- **Estimated:** 3 days
+- **Dependencies:** SC-022, SC-023
 - **Description:**
-  - Test complete app on testnet staging
-  - Run all test cases again on staging
-  - Test with real testnet funds
-  - Test all building types end-to-end
-  - Test wallet integration completely
-  - Document all bugs found
-- **Test Coverage:**
-  - [ ] All use cases (UC-01 to UC-10)
-  - [ ] All building types
-  - [ ] All strategies
-  - [ ] Gasless transactions
-  - [ ] Mobile testing
-  - [ ] Browser compatibility
+  - Prepare mainnet deployment scripts
+  - Setup multi-sig wallet (3/5 threshold)
+  - Transfer contract ownership to multi-sig
+  - Fund paymaster with mainnet ETH ($50k worth)
+  - Prepare mainnet addresses (Aave, Aerodrome, Chainlink VRF)
+  - Dry-run deployment on fork
+  - Create deployment checklist
+- **Acceptance Criteria:**
+  - [ ] Deployment scripts ready
+  - [ ] Multi-sig configured
+  - [ ] Paymaster funded
+  - [ ] Mainnet addresses verified
+  - [ ] Dry-run successful
+  - [ ] Checklist complete
 
-#### QA-010: Pre-Launch Checklist
+### Frontend Tasks
+
+#### FE-016: Polish & Animations
+- **Status:** 🔵 TODO
+- **Assignee:** FS2, UI
+- **Priority:** P1 (High)
+- **Estimated:** 5 days
+- **Dependencies:** FE-015
+- **Description:**
+  - Add animations:
+    - Building placement (fade in + bounce)
+    - Harvest effects (coins falling)
+    - Demolish effects (explosion/fade out)
+    - Lottery win celebration (confetti!)
+  - Add transitions between screens
+  - Add loading skeletons
+  - Add empty states
+  - Polish micro-interactions
+  - Optimize performance
+- **Acceptance Criteria:**
+  - [ ] Animations smooth (60fps)
+  - [ ] Transitions enhance UX
+  - [ ] Loading states professional
+  - [ ] Empty states helpful
+  - [ ] Performance not degraded
+
+#### FE-017: Error Handling & Edge Cases
+- **Status:** 🔵 TODO
+- **Assignee:** FS1
+- **Priority:** P0 (Critical)
+- **Estimated:** 3 days
+- **Dependencies:** FE-016
+- **Description:**
+  - Implement comprehensive error handling:
+    - Transaction reverts (show reason)
+    - Network errors (retry logic)
+    - Wallet disconnection (reconnect prompt)
+    - Insufficient balance (clear message)
+    - Session key expired (auto-refresh or prompt)
+    - Paymaster exhausted (fallback to regular tx)
+  - Handle edge cases:
+    - No buildings yet (empty state)
+    - No assets (prompt to deposit)
+    - Building limit reached (message)
+    - Liquidation warning (Bank)
+    - High IL warning (Shop)
+  - User-friendly error messages
+  - Error logging to Sentry
+- **Acceptance Criteria:**
+  - [ ] All errors handled gracefully
+  - [ ] Error messages user-friendly
+  - [ ] Edge cases covered
+  - [ ] Errors logged
+  - [ ] Users not stuck
+
+#### FE-018: Add Help & Documentation
+- **Status:** 🔵 TODO
+- **Assignee:** FS2, UI
+- **Priority:** P2 (Nice to have)
+- **Estimated:** 3 days
+- **Dependencies:** FE-017
+- **Description:**
+  - Add help tooltips (info icons with explanations)
+  - Create FAQ section
+  - Write building guides:
+    - What is a Bank? (supply/borrow)
+    - What is a Shop? (LP + IL)
+    - What is Lottery? (entertainment)
+  - Add glossary (APY, IL, Health Factor, etc.)
+  - Link to external docs (Aave, Aerodrome)
+  - Create video tutorial (optional)
+- **Acceptance Criteria:**
+  - [ ] Tooltips helpful
+  - [ ] FAQ comprehensive
+  - [ ] Guides clear
+  - [ ] Glossary complete
+  - [ ] External links work
+
+#### FE-019: Production Optimization
+- **Status:** 🔵 TODO
+- **Assignee:** FS1, FS2
+- **Priority:** P0 (Critical)
+- **Estimated:** 3 days
+- **Dependencies:** FE-018
+- **Description:**
+  - Optimize bundle size:
+    - Code splitting
+    - Lazy loading
+    - Tree shaking
+    - Remove unused deps
+  - Optimize images (compress, WebP format)
+  - Setup CDN for static assets
+  - Enable caching
+  - Add service worker (PWA)
+  - Setup monitoring (Vercel Analytics, Sentry)
+  - Configure SEO (meta tags, sitemap, robots.txt)
+  - Test on slow networks (throttling)
+- **Acceptance Criteria:**
+  - [ ] Bundle size <500KB (initial load)
+  - [ ] Images optimized
+  - [ ] CDN configured
+  - [ ] PWA works
+  - [ ] Monitoring setup
+  - [ ] SEO configured
+  - [ ] Works on slow networks
+
+#### FE-020: Deploy Frontend to Production
+- **Status:** 🔵 TODO
+- **Assignee:** FS1
+- **Priority:** P0 (Critical)
+- **Estimated:** 2 days
+- **Dependencies:** FE-019, SC-024
+- **Description:**
+  - Deploy to Vercel/Netlify
+  - Configure custom domain
+  - Setup environment variables (mainnet RPC, contract addresses)
+  - Enable analytics
+  - Setup error tracking (Sentry)
+  - Configure CORS
+  - Test production deployment
+  - Create rollback plan
+- **Acceptance Criteria:**
+  - [ ] Deployed to production
+  - [ ] Custom domain works
+  - [ ] Environment variables correct
+  - [ ] Analytics tracking
+  - [ ] Errors tracked
+  - [ ] CORS configured
+  - [ ] Production tested
+
+### QA Tasks
+
+#### QA-009: Comprehensive Testing - All Flows
 - **Status:** 🔵 TODO
 - **Assignee:** QA1, QA2
 - **Priority:** P0 (Critical)
+- **Estimated:** 7 days
+- **Dependencies:** FE-019
+- **Description:**
+  - Test complete user journeys:
+    - New user: Signup → Deposit → Build → Harvest → Withdraw
+    - Returning user: Login → Check buildings → Harvest → Expand
+    - Power user: Multiple buildings, multiple assets, borrow mode, lottery
+  - Test all building types thoroughly
+  - Test all assets (USDC, USDT, ETH, WBTC)
+  - Test edge cases and error scenarios
+  - Test on all browsers (Chrome, Firefox, Safari, Edge)
+  - Test on all devices (Desktop, Tablet, Mobile - iOS, Android)
+  - Test performance under load
+  - Regression testing (ensure old features still work)
+- **Acceptance Criteria:**
+  - [ ] All user journeys work
+  - [ ] All building types functional
+  - [ ] All assets supported
+  - [ ] Edge cases handled
+  - [ ] Cross-browser compatible
+  - [ ] Cross-device compatible
+  - [ ] Performance acceptable
+  - [ ] No regressions
+  - [ ] Bug backlog empty
+
+#### QA-010: Security Testing
+- **Status:** 🔵 TODO
+- **Assignee:** QA1
+- **Priority:** P0 (Critical)
+- **Estimated:** 4 days
+- **Dependencies:** SC-022
+- **Description:**
+  - Test smart contract security:
+    - Try to steal funds
+    - Try to manipulate fees
+    - Try to bypass session key limits
+    - Try to exploit liquidation
+    - Try to manipulate lottery
+  - Test frontend security:
+    - XSS attempts
+    - CSRF attempts
+    - localStorage manipulation
+    - Session hijacking
+  - Test AA security:
+    - Session key theft
+    - Paymaster drain attempts
+  - Document findings
+  - Work with dev team to fix
+- **Acceptance Criteria:**
+  - [ ] No critical vulnerabilities found
+  - [ ] All findings documented
+  - [ ] All high/critical issues fixed
+  - [ ] Medium/low issues tracked
+
+#### QA-011: User Acceptance Testing (UAT)
+- **Status:** 🔵 TODO
+- **Assignee:** QA2
+- **Priority:** P1 (High)
 - **Estimated:** 3 days
 - **Dependencies:** QA-009
 - **Description:**
-  - Create comprehensive pre-launch checklist
-  - Verify all features working
-  - Verify all tests passing
-  - Check analytics tracking
-  - Check error monitoring
-  - Smoke test on mainnet (if safe)
-  - Get team sign-off
-- **Checklist:**
-  - [ ] All features functional
-  - [ ] All tests passing (>95%)
-  - [ ] No critical bugs open
-  - [ ] Performance benchmarks met
-  - [ ] Security audit complete
-  - [ ] Team approval granted
-  - [ ] Launch plan finalized
+  - Recruit 10-20 beta testers
+  - Create UAT scenarios
+  - Guide testers through flows
+  - Collect feedback:
+    - Usability issues
+    - Confusing UI
+    - Bugs encountered
+    - Feature requests
+  - Analyze feedback
+  - Prioritize improvements
+  - Implement critical fixes
+- **Acceptance Criteria:**
+  - [ ] Beta testers recruited
+  - [ ] UAT scenarios executed
+  - [ ] Feedback collected and analyzed
+  - [ ] Critical issues fixed
+  - [ ] Nice-to-haves tracked for future
 
-#### QA-011: Post-Launch Monitoring
+#### QA-012: Testnet Launch Testing
 - **Status:** 🔵 TODO
-- **Assignee:** QA1
-- **Priority:** P1 (High)
-- **Estimated:** Ongoing
-- **Dependencies:** DO-002
+- **Assignee:** QA1, QA2
+- **Priority:** P0 (Critical)
+- **Estimated:** 5 days
+- **Dependencies:** SC-021, FE-020
 - **Description:**
-  - Monitor production for 48 hours post-launch
-  - Track error rates
-  - Track transaction success rates
-  - Monitor user feedback
-  - Triage any critical issues immediately
-  - Document all incidents
-- **Monitoring:**
-  - [ ] Error rates <1%
-  - [ ] Transaction success rate >95%
-  - [ ] No critical bugs reported
-  - [ ] Performance stable
-  - [ ] User feedback positive
-  - [ ] Incident log maintained
+  - Public testnet launch (Base Sepolia)
+  - Announce on social media (Discord, Twitter)
+  - Invite community to test
+  - Monitor:
+    - Transaction success rate
+    - Error frequency
+    - Gas sponsorship usage
+    - User feedback
+  - Track metrics:
+    - Signups
+    - Buildings placed
+    - Assets deposited
+    - Lottery tickets sold
+  - Fix issues as they arise
+  - Prepare for mainnet
+- **Acceptance Criteria:**
+  - [ ] Testnet stable
+  - [ ] Community testing successful
+  - [ ] Metrics tracked
+  - [ ] Issues resolved
+  - [ ] Ready for mainnet
+
+#### QA-013: Mainnet Launch Testing
+- **Status:** 🔵 TODO
+- **Assignee:** QA1, QA2
+- **Priority:** P0 (Critical)
+- **Estimated:** 3 days
+- **Dependencies:** SC-024, FE-020, QA-012
+- **Description:**
+  - Soft launch (limited users)
+  - Test all flows on mainnet
+  - Monitor for issues
+  - Gradual rollout
+  - Full launch when stable
+  - Monitor 24/7 for first week
+  - Have emergency response plan ready
+- **Acceptance Criteria:**
+  - [ ] Soft launch successful
+  - [ ] No critical issues on mainnet
+  - [ ] Gradual rollout smooth
+  - [ ] Full launch successful
+  - [ ] Monitoring active
+  - [ ] Emergency plan ready
 
 ---
 
-## Additional Ongoing Tasks
+## Priority Legend
 
-### Documentation
-
-#### DOC-001: Technical Documentation
-- **Status:** 🔵 TODO
-- **Assignee:** FS1, FS2
-- **Priority:** P1 (High)
-- **Estimated:** Ongoing
-- **Description:**
-  - Document all smart contract functions
-  - Create API documentation
-  - Document frontend architecture
-  - Create developer onboarding guide
-  - Document deployment procedures
-  - Keep docs updated
-- **Deliverables:**
-  - [ ] Smart contract docs (NatSpec)
-  - [ ] Frontend docs (JSDoc)
-  - [ ] Architecture diagrams
-  - [ ] Onboarding guide
-  - [ ] Deployment runbook
-
-#### DOC-002: User Documentation
-- **Status:** 🔵 TODO
-- **Assignee:** UI, QA1
-- **Priority:** P2 (Medium)
-- **Estimated:** 4 days
-- **Description:**
-  - Create user guide
-  - Create FAQ
-  - Create video tutorials (optional)
-  - Create troubleshooting guide
-  - Document common errors and solutions
-- **Deliverables:**
-  - [ ] User guide (PDF/web)
-  - [ ] FAQ page
-  - [ ] Troubleshooting guide
-  - [ ] Help center content
+- **P0 (Critical):** Must have for launch. Blocks other work.
+- **P1 (High):** Important for good UX. Should be included.
+- **P2 (Nice to have):** Enhances experience but not critical. Can defer.
 
 ---
 
-## Risk Management
+## Dependencies
 
-### Critical Risks
+### Sprint-by-Sprint Breakdown
 
-| Risk | Probability | Impact | Mitigation | Owner |
-|------|------------|--------|------------|-------|
-| Smart contract bug discovered post-launch | Medium | Critical | Comprehensive testing, audit, emergency pause | FS1, QA Team |
-| Paymaster runs out of funds | Low | High | Monitoring, alerts, auto-refill | FS2 |
-| Third-party protocol (Aave/Aerodrome) issues | Low | High | Emergency manager, diversification | FS1 |
-| User passkey loss | Medium | Medium | Recovery mechanism, guardian system | FS1 |
-| High gas costs make transactions expensive | Medium | Medium | Gas optimization, batch operations | FS1, FS2 |
-| Poor user adoption | Medium | High | Marketing, UX improvements, incentives | UI, Team |
+**Sprint 1 (Week 1-2):**
+- SC-001 → SC-002, SC-003 → SC-004, SC-005
+- FE-001 → FE-002, FE-003
+- UI-001 → UI-002, UI-003
 
----
+**Sprint 2 (Week 3-4):**
+- SC-004, SC-005, SC-006, SC-007 → SC-008 → SC-009
+- FE-002, FE-003 → FE-004, FE-005 → FE-006
+- UI-002 → FE-005
+- QA-001, QA-002 → QA-003
 
-## Sprint Planning (2-week sprints)
+**Sprint 3 (Week 5-6):**
+- SC-009 → SC-010, SC-011, SC-012 → SC-013
+- FE-006 → FE-007
 
-### Sprint 1-2: Foundation
-- SC-001, SC-002, SC-003
-- FE-001, FE-002, FE-003
-- UI-001, UI-002
-- QA-001, QA-002
+**Sprint 4 (Week 7-8):**
+- SC-013 → SC-014 → SC-015
+- FE-007 → FE-008, FE-009, FE-010
+- UI-004, UI-005
+- QA-004, QA-005
 
-### Sprint 3-4: Core Features
-- SC-004, FE-004, FE-005, FE-006
-- UI-003, UI-004
-- QA-003, QA-004
+**Sprint 5 (Week 9-10):**
+- SC-015 → SC-016, SC-017, SC-018 → SC-019
+- FE-010 → FE-011
 
-### Sprint 5-6: Advanced Features
-- FE-007, FE-008, FE-009
-- SC-006, SC-007
-- UI-005, UI-006
-- QA-005, QA-006
+**Sprint 6 (Week 11-12):**
+- SC-019 → SC-020 → SC-021
+- FE-011 → FE-012, FE-013, FE-014, FE-015
+- UI-006, UI-007, UI-008
+- QA-006, QA-007, QA-008
 
-### Sprint 7-8: Polish & Launch
-- FE-010, FE-011, FE-012, FE-013
-- UI-007, UI-008
-- QA-007, QA-008
-
-### Sprint 9: Final Polish
-- FE-014, FE-015, FE-016, FE-017, FE-018
-- UI-009
-- DO-001, DO-002, DO-003
-
-### Sprint 10: Launch
+**Sprint 7 (Week 13-14):**
+- SC-021 → SC-022, SC-023 → SC-024
+- FE-015 → FE-016, FE-017, FE-018
 - QA-009, QA-010
-- Launch preparation
-- Post-launch monitoring
+
+**Sprint 8 (Week 15-16):**
+- SC-024 (Deploy mainnet)
+- FE-018 → FE-019 → FE-020 (Deploy frontend)
+- QA-011, QA-012 → QA-013 (Launch!)
 
 ---
 
-## Account Abstraction Architecture Summary
+## Summary
 
-### 🔐 Transaction Types
+**Total Tasks:** 79 tasks
+- Smart Contract: 24 tasks
+- Frontend: 20 tasks
+- UX/UI: 8 tasks
+- QA: 13 tasks
+- Integration/Deployment: 14 tasks
 
-DefiCity uses **TWO** distinct transaction types:
+**Timeline:** 16 weeks (4 months)
 
-#### 1. Regular Transactions (User Pays Gas)
-**Used for:** Wallet & fund management
-- ✅ Create Smart Wallet
-- ✅ Deposit USDC to wallet
-- ✅ Withdraw USDC from wallet
-- ✅ Create session key (one-time)
+**Team Allocation:**
+- FS1: Smart contracts (primary), Frontend (secondary)
+- FS2: Smart contracts (secondary), Frontend (primary)
+- QA1: Manual testing, Security testing, UAT
+- QA2: Automation, Performance testing, E2E
+- UI: Design system, All UX/UI tasks
 
-**Why?** Security, fund safety, clear user intent
-
-#### 2. UserOperations (Gasless/Sponsored)
-**Used for:** Gameplay actions
-- ✅ Place Building
-- ✅ Harvest Yield
-- ✅ Demolish Building (terminate + remove assets)
-- ✅ Deposit more to building
-- ✅ Upgrade building
-
-**Why?** Better UX, no gas friction, attract more users
-
-### 🎯 Key Principles
-
-```
-┌─────────────────────────────────────────────────┐
-│  Smart Wallet = Asset Custody + Access Control  │
-├─────────────────────────────────────────────────┤
-│                                                 │
-│  Owner (Passkey)                                │
-│    └── Full control                             │
-│                                                 │
-│  Session Keys (Temporary)                       │
-│    ├── Limited spending (1000 USDC/day)        │
-│    ├── Time-bound (24 hours)                   │
-│    ├── Restricted to DefiCityCore only         │
-│    └── Revocable anytime                       │
-│                                                 │
-└─────────────────────────────────────────────────┘
-```
-
-### 💰 Gas Cost Expectations
-
-**Setup Costs (One-time, User Pays):**
-- Create Smart Wallet: ~$2.50
-- Deposit USDC: ~$0.30
-- Create Session Key: ~$0.50
-- **Total Setup: ~$3.30**
-
-**Gameplay Costs (Sponsored):**
-- Place Building: FREE ✨
-- Harvest (unlimited): FREE ✨
-- Demolish: FREE ✨
-- **Total Gameplay: $0**
-
-**Savings:** ~65% reduction vs traditional approach!
-
-### 📚 Required Reading
-
-Team members should read:
-- `/contracts/ARCHITECTURE_AA.md` - Complete AA architecture
-- `/contracts/USECASE.md` - User flows with AA
-- ERC-4337 specification (optional)
+**Critical Path:**
+1. Core contracts → DeFi strategies → AA + Lottery → Testing → Launch
+2. Frontend foundation → DeFi integration → AA integration → Polish → Deploy
 
 ---
 
-## Notes & Best Practices
+**Next Steps:**
+1. Review this task list with the team
+2. Assign specific tasks to team members
+3. Setup project management tool (Jira, Linear, GitHub Projects)
+4. Start Sprint 1!
 
-### For Full Stack Developers:
-- Daily standups to sync progress
-- Code reviews required for all PRs
-- Test all changes locally before PR
-- Document complex logic
-- Keep dependencies updated
-- Follow git commit conventions
-
-### For QA Engineers:
-- Test early and often
-- File bugs immediately with reproduction steps
-- Regression test after bug fixes
-- Maintain test case documentation
-- Communicate blockers quickly
-
-### For UX/UI Designer:
-- Share designs early for feedback
-- Iterate based on developer feasibility
-- Maintain design system consistency
-- Test designs on actual devices
-- Collaborate with developers on implementation
-
-### Communication:
-- Daily standups (15 min)
-- Weekly sprint planning (1 hour)
-- Bi-weekly sprint reviews (1 hour)
-- Use project management tool (Jira, Linear, etc.)
-- Document decisions in shared docs
-
----
-
-## Success Metrics
-
-### Development:
-- [ ] All features implemented per PRD
-- [ ] Test coverage >80%
-- [ ] Zero critical bugs at launch
-- [ ] Performance benchmarks met
-
-### User Metrics (Post-Launch):
-- [ ] 100+ smart wallets created (Month 1)
-- [ ] 500+ buildings placed (Month 1)
-- [ ] $50K+ TVL (Month 1)
-- [ ] <5% error rate
-
-### Technical Metrics:
-- [ ] Page load time <3s
-- [ ] Transaction success rate >95%
-- [ ] Uptime >99.5%
-- [ ] Gas costs <$0.50 per operation
-
----
-
-**Last Updated:** [Current Date]
-**Next Review:** [Sprint Planning Date]
+**Last Updated:** 2026-01-14
