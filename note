@@ -1,0 +1,16 @@
+
+
+
+- Town Hall (deposit/withdown)
+- Bank (Lending/Borrow on aave)
+- Shop (LP provide on Uniswap)
+
+
+
+
+
+- ต้องเก็บ access/สิทธิ์ ต่างไว้ใน smart wallet เท่านั้น
+- user ต้องสร้าง Tx ผ่าน UserOperation เท่านั้น (ตอนเล่นเกม)
+- แต่ การ create wallet/depoit/withdraw ไม่ต้องใช้ UserOperation
+- building ที่สร้างแล้วสามารถ terminate ได้โดยต้องมีการ remove asset ออกจาก building ได้
+
