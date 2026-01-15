@@ -88,37 +88,9 @@ Users should be able to:
 
 ---
 
-## Architecture Comparison
+## Architecture 
 
-### v1.0 (Custodial) Architecture
-
-```
-┌─────────────┐
-│   User EOA  │
-└──────┬──────┘
-       │ deposit()
-       ↓
-┌─────────────────┐
-│  DefiCityCore   │ ← HOLDS TOKENS
-│  (Token Vault)  │
-└────────┬────────┘
-         │ placeBuilding()
-         ↓
-┌─────────────────┐
-│ Strategy (Aave) │
-└────────┬────────┘
-         │
-         ↓
-┌─────────────────┐
-│  Aave Protocol  │
-└─────────────────┘
-```
-
-**Problem:** Users must trust DefiCityCore with token custody
-
----
-
-### v2.0 (Self-Custodial) Architecture
+###  (Self-Custodial) Architecture
 
 ```
 ┌─────────────┐
@@ -703,46 +675,64 @@ Users must trust:
 
 ## User Experience Flow
 
-### First-Time User Onboarding
+### First-Time User Onboarding (NEW: Wallet Created on Town Hall Placement)
 
 ```
 1. User visits DefiCity
 2. Click "Sign Up with Email"
 3. Enter email, verify with code
-4. SmartWallet deployed (gasless via Paymaster)
-5. User shown: "Your SmartWallet: 0xABC...DEF"
-6. Tutorial: "This wallet holds all your assets"
-7. Click "Enable Gasless Gameplay"
-8. Approve session key creation (one-time)
-9. Ready to play!
+4. User lands on empty city map
+5. Tutorial: "Place your Town Hall to create your wallet"
+6. User clicks empty tile → "Place Town Hall"
+7. Modal explains:
+   - "Town Hall = Your SmartWallet"
+   - "You own this wallet forever"
+   - "All assets stored here (self-custodial)"
+8. User clicks "Create My Wallet" (gasless via Paymaster)
+9. SmartWallet deployed via Factory
+10. User shown: "Your SmartWallet: 0xABC...DEF"
+11. Town Hall appears on map
+12. Tutorial continues: "Now deposit funds to start building"
 ```
 
-**Difference from v1.0:** User explicitly owns SmartWallet from the start
+**Key Benefit:** Users only create wallet when they're ready to engage (lazy initialization)
+
+**Difference from v1.0:**
+- Wallet creation deferred to first building placement
+- Town Hall has real meaning (it IS the wallet)
+- Users can explore without wallet commitment
 
 ---
 
-### Placing First Building
+### Placing First DeFi Building (After Town Hall)
 
 ```
-1. User has 0 balance
-2. UI shows: "Transfer USDC to your SmartWallet to get started"
+1. User has Town Hall (SmartWallet created)
+2. UI shows: "Deposit to your SmartWallet to place buildings"
 3. User clicks "Deposit"
 4. MetaMask prompts: USDC.transfer(smartWallet, 100 USDC)
 5. User approves (pays gas)
-6. USDC in SmartWallet, UI updates
-7. User clicks empty tile → "Place Bank"
-8. Select USDC, enter 100 USDC
-9. UI shows: "Your SmartWallet will supply to Aave"
-10. Click "Confirm" (gasless via session key)
-11. SmartWallet supplies to Aave
-12. Building appears on map
-13. aUSDC in SmartWallet, accruing interest
+6. USDC now in user's SmartWallet
+7. UI updates balance
+8. User clicks empty tile → "Place Bank"
+9. Select USDC, enter 100 USDC
+10. UI shows: "Your SmartWallet will supply to Aave"
+11. Click "Confirm" (gasless via session key)
+12. SmartWallet supplies to Aave
+13. Building appears on map
+14. aUSDC in SmartWallet, accruing interest
 ```
 
 **Key UX Messages:**
+- "Town Hall = Your SmartWallet"
 - "Your SmartWallet is supplying to Aave"
 - "You own the aUSDC in your SmartWallet"
 - "DefiCity just tracks your buildings"
+
+**Order of Operations:**
+1. **Town Hall (Free)** - Creates SmartWallet
+2. **Deposit** - Transfer funds to SmartWallet
+3. **Other Buildings** - Use funds from SmartWallet
 
 ---
 

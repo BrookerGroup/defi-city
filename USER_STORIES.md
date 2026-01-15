@@ -52,27 +52,27 @@ Buildings, stats, game state (accounting records)
 
 ## Epic 1: User Onboarding & Account Management
 
-### US-001: New User Signup with Smart Wallet Creation
+### US-001: New User Signup (Without Wallet)
 
 **As a** new DeFi user
-**I want** to sign up with my email or social account and automatically get a smart wallet created
-**So that** I can start using DefiCity without needing to manage private keys or understand crypto wallets
+**I want** to sign up with my email or social account
+**So that** I can start exploring DefiCity and create my city
 
 **Acceptance Criteria:**
 - [ ] User can sign up with email (passwordless login)
 - [ ] User can sign up with social accounts (Google, Twitter, Discord)
-- [ ] Smart wallet (ERC-4337) is created automatically on signup and OWNED by the user
-- [ ] Wallet creation uses passkey authentication (WebAuthn)
-- [ ] User sees their wallet address after creation
-- [ ] Wallet address is copyable
+- [ ] Signup creates user profile only (NO wallet yet)
+- [ ] User sees welcome screen: "Place your Town Hall to create your wallet"
 - [ ] No manual private key management required
-- [ ] Signup flow takes less than 2 minutes
-- [ ] User's SmartWallet will hold all their assets (self-custodial)
-- [ ] Game registers SmartWallet address in Core contract for bookkeeping
+- [ ] Signup flow takes less than 1 minute
+- [ ] SmartWallet will be created when user places Town Hall building
+- [ ] User can explore game and tutorial without wallet
 
 **Priority:** P0 (Critical)
-**Estimated:** 5 story points
+**Estimated:** 3 story points (reduced - simpler flow)
 **Dependencies:** None
+
+**Note:** SmartWallet creation deferred to US-009 (Place Town Hall)
 
 ---
 
@@ -143,16 +143,19 @@ Buildings, stats, game state (accounting records)
 
 ### US-005: Deposit Multi-Asset Funds
 
-**As a** DefiCity user
+**As a** DefiCity user with a SmartWallet
 **I want** to transfer USDC, USDT, ETH, or WBTC to my SmartWallet
 **So that** I can use these assets to build DeFi positions in my city
 
 **Acceptance Criteria:**
+- [ ] User must have Town Hall (SmartWallet) placed first
+- [ ] If no Town Hall, show: "Place Town Hall first to create your wallet"
 - [ ] User can select asset type (USDC, USDT, ETH, WBTC)
 - [ ] User can enter deposit amount
 - [ ] UI shows current balance in SmartWallet for selected asset
+- [ ] UI shows SmartWallet address with copy button
 - [ ] UI shows minimum deposit (if any)
-- [ ] User confirms transaction in wallet
+- [ ] User confirms transaction in MetaMask/wallet
 - [ ] Transaction transfers tokens FROM user's EOA TO user's SmartWallet
 - [ ] DefiCityCore updates accounting records (tracks balance for game UI)
 - [ ] Transaction shows loading state
@@ -163,7 +166,7 @@ Buildings, stats, game state (accounting records)
 
 **Priority:** P0 (Critical)
 **Estimated:** 5 story points
-**Dependencies:** US-001
+**Dependencies:** US-009 (Town Hall must be placed first)
 
 ---
 
@@ -244,27 +247,40 @@ Buildings, stats, game state (accounting records)
 
 ## Epic 3: Town Hall Building (Smart Wallet)
 
-### US-009: Place Town Hall Building
+### US-009: Place Town Hall Building (Creates SmartWallet)
 
 **As a** new DefiCity user
-**I want** to place a Town Hall building for free
-**So that** I have a visual representation of my SmartWallet in my city
+**I want** to place a Town Hall building as my first action
+**So that** my SmartWallet is created and I can start managing my DeFi portfolio
 
 **Acceptance Criteria:**
-- [ ] User can click empty tile to place building
-- [ ] Town Hall appears in building selection menu
-- [ ] Town Hall is labeled as "Free" (no deposit required)
-- [ ] Town Hall represents the user's SmartWallet (asset custody location)
-- [ ] No asset selection needed
-- [ ] No amount input needed
-- [ ] Transaction is gasless (via session key)
-- [ ] SmartWallet executes bookkeeping call to DefiCityCore
-- [ ] Building appears on map after placement
-- [ ] Town Hall cannot be demolished
+- [ ] User clicks "Place Town Hall" as first building
+- [ ] System prompts: "This will create your SmartWallet (gasless)"
+- [ ] Modal explains:
+  - "Town Hall = Your SmartWallet"
+  - "You own this wallet forever"
+  - "All your assets will be stored here (self-custodial)"
+  - "One-time creation, cannot be demolished"
+- [ ] User confirms placement
+- [ ] SmartWallet deployed via ERC-4337 (gasless via Paymaster)
+- [ ] User's EOA set as SmartWallet owner
+- [ ] SmartWallet registered in DefiCityCore
+- [ ] Town Hall building appears on map
+- [ ] UI shows: "Your SmartWallet: 0xABC...DEF" with copy button
+- [ ] Tutorial continues: "Now deposit funds to your SmartWallet"
+- [ ] Town Hall cannot be demolished (permanent)
+- [ ] Entire flow is gasless
 
-**Priority:** P1 (High)
-**Estimated:** 3 story points
+**Priority:** P0 (Critical - Required before any other buildings)
+**Estimated:** 8 story points (includes wallet deployment)
 **Dependencies:** US-001
+
+**Technical Flow:**
+1. Frontend calls SmartWalletFactory.deployWallet(userEOA)
+2. Factory deploys DefiCitySmartWallet (ERC-4337)
+3. SmartWallet calls Core.registerWallet()
+4. Core records Town Hall building
+5. Frontend displays wallet address
 
 ---
 
