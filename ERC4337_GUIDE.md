@@ -26,6 +26,7 @@
 ### 🎯 เป้าหมายหลัก
 
 ERC-4337 ถูกสร้างขึ้นเพื่อแก้ปัญหาของ Externally Owned Accounts (EOA) โดยทำให้:
+
 - ✅ **ไม่ต้องจำ Seed Phrase 12-24 คำ** - ใช้วิธีอื่นในการกู้คืนบัญชี
 - ✅ **Gasless Transactions** - ผู้ใช้ไม่ต้องมี ETH สำหรับจ่าย gas
 - ✅ **Batch Transactions** - ทำหลาย transactions ในครั้งเดียว
@@ -49,27 +50,28 @@ ERC-4337 ถูกสร้างขึ้นเพื่อแก้ปัญ�
 ```
 ปัญหา EOA (Externally Owned Account):
 ┌─────────────────────────────────────────┐
-│ 1. Private Key = ทุกอย่าง              │
-│    - หาย = เงินหายหมด                   │
-│    - รั่ว = โดนแฮก                      │
+│ 1. Private Key = ทุกอย่าง                 │
+│    - หาย = เงินหายหมด                    │
+│    - รั่ว = โดนแฮก                        │
 │                                         │
-│ 2. ต้องมี ETH เสมอ                     │
-│    - จ่าย Gas ทุกครั้ง                 │
-│    - ไม่มี ETH = ทำอะไรไม่ได้          │
+│ 2. ต้องมี ETH เสมอ                        │
+│    - จ่าย Gas ทุกครั้ง                      │
+│    - ไม่มี ETH = ทำอะไรไม่ได้               │
 │                                         │
-│ 3. ทำได้ครั้งละ 1 TX                   │
-│    - ไม่มี batch transactions          │
-│    - เสีย gas เยอะ                      │
+│ 3. ทำได้ครั้งละ 1 TX                       │
+│    - ไม่มี batch transactions             │
+│    - เสีย gas เยอะ                       │
 │                                         │
-│ 4. ไม่มี Custom Logic                  │
-│    - ไม่สามารถตั้งกฎได้                │
-│    - ไม่มี 2FA, Spending Limits         │
+│ 4. ไม่มี Custom Logic                     │
+│    - ไม่สามารถตั้งกฎได้                     │
+│    - ไม่มี 2FA, Spending Limits           │
 └─────────────────────────────────────────┘
 ```
 
 ### โซลูชัน: Account Abstraction
 
 Account Abstraction แก้ปัญหาโดยการ:
+
 1. **แยก "การควบคุม" ออกจาก "บัญชี"**
 2. **ใช้ Smart Contract เป็น "บัญชี"** แทน EOA
 3. **ให้โค้ดตัดสินใจ** ว่าจะทำธุรกรรมหรือไม่
@@ -79,14 +81,14 @@ Account Abstraction:
 ┌─────────────────────────────────────────┐
 │ Smart Contract Wallet                   │
 │ ┌─────────────────────────────────┐     │
-│ │  Code ควบคุมการทำงาน            │     │
+│ │  Code ควบคุมการทำงาน             │     │
 │ │  - Multi-sig                    │     │
 │ │  - Social recovery              │     │
 │ │  - Spending limits              │     │
 │ │  - Gasless transactions         │     │
 │ └─────────────────────────────────┘     │
 │                                         │
-│ เงินและ assets อยู่ในนี้              │
+│ เงินและ assets อยู่ในนี้                     │
 └─────────────────────────────────────────┘
 ```
 
@@ -96,18 +98,18 @@ Account Abstraction:
 
 ### ตารางเปรียบเทียบ
 
-| Feature | EOA (MetaMask) | Smart Contract Wallet (ERC-4337) |
-|---------|----------------|----------------------------------|
-| **ควบคุมโดย** | Private Key (64 hex) | Smart Contract Code |
-| **Seed Phrase** | ✅ ต้องจำ 12-24 คำ | ❌ ไม่ต้องจำ |
-| **Recovery** | ❌ หาย = เงินหาย | ✅ Social Recovery ได้ |
-| **Gas** | ✅ ต้องมี ETH เสมอ | ✅ Paymaster จ่ายให้ได้ |
-| **Batch TX** | ❌ ครั้งละ 1 TX | ✅ รวม TX ได้ |
-| **2FA / Multi-sig** | ❌ | ✅ ตั้งได้ |
-| **Spending Limits** | ❌ | ✅ ตั้งได้ |
-| **Session Keys** | ❌ | ✅ มี (temporary keys) |
-| **Deploy Cost** | ฟรี | ✅ ต้อง deploy contract (~$5-20) |
-| **TX Cost** | ปกติ | สูงกว่าเล็กน้อย (~10-20%) |
+| Feature             | EOA (MetaMask)       | Smart Contract Wallet (ERC-4337) |
+| ------------------- | -------------------- | -------------------------------- |
+| **ควบคุมโดย**       | Private Key (64 hex) | Smart Contract Code              |
+| **Seed Phrase**     | ✅ ต้องจำ 12-24 คำ   | ❌ ไม่ต้องจำ                     |
+| **Recovery**        | ❌ หาย = เงินหาย     | ✅ Social Recovery ได้           |
+| **Gas**             | ✅ ต้องมี ETH เสมอ   | ✅ Paymaster จ่ายให้ได้          |
+| **Batch TX**        | ❌ ครั้งละ 1 TX      | ✅ รวม TX ได้                    |
+| **2FA / Multi-sig** | ❌                   | ✅ ตั้งได้                       |
+| **Spending Limits** | ❌                   | ✅ ตั้งได้                       |
+| **Session Keys**    | ❌                   | ✅ มี (temporary keys)           |
+| **Deploy Cost**     | ฟรี                  | ✅ ต้อง deploy contract (~$5-20) |
+| **TX Cost**         | ปกติ                 | สูงกว่าเล็กน้อย (~10-20%)        |
 
 ### ภาพรวม Architecture
 
@@ -159,6 +161,7 @@ struct UserOperation {
 ### 4.2 EntryPoint Contract
 
 **EntryPoint** เป็น singleton contract ที่:
+
 - รับ UserOperations จาก Bundlers
 - ตรวจสอบความถูกต้อง (verification)
 - Execute UserOperations
@@ -172,6 +175,7 @@ address constant ENTRYPOINT = 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789;
 ### 4.3 Smart Contract Wallet
 
 **Wallet** คือ Smart Contract ที่:
+
 - เก็บเงินและ assets ของผู้ใช้
 - Implement `IAccount` interface
 - มี logic สำหรับ validate signatures
@@ -191,6 +195,7 @@ interface IAccount {
 ### 4.4 Bundler
 
 **Bundler** คือ off-chain service ที่:
+
 - รับ UserOperations จากผู้ใช้
 - รวม UserOps หลายๆ อันเป็น bundle
 - ส่ง bundle ไป EntryPoint
@@ -205,6 +210,7 @@ User 3 → UserOp C ┘
 ### 4.5 Paymaster (Optional)
 
 **Paymaster** คือ Smart Contract ที่:
+
 - จ่าย gas แทนผู้ใช้
 - ทำให้เกิด "gasless transactions"
 - ตรวจสอบเงื่อนไข (เช่น ผู้ใช้ต้องมี token บางตัว)
@@ -263,16 +269,16 @@ interface IPaymaster {
 ```javascript
 // Frontend code
 const userOp = {
-  sender: walletAddress,           // Smart wallet address
+  sender: walletAddress, // Smart wallet address
   nonce: await wallet.getNonce(),
   callData: wallet.interface.encodeFunctionData("execute", [
     recipientAddress,
     ethers.parseEther("0.1"),
-    "0x"
+    "0x",
   ]),
-  signature: "0x...",              // ลายเซ็นจาก EOA
+  signature: "0x...", // ลายเซ็นจาก EOA
   // ... gas fields
-}
+};
 ```
 
 #### Step 2: Bundler รับและตรวจสอบ
@@ -289,7 +295,7 @@ const userOp = {
 
 ```javascript
 // Bundler calls EntryPoint
-await entryPoint.handleOps([userOp1, userOp2, userOp3], bundlerAddress)
+await entryPoint.handleOps([userOp1, userOp2, userOp3], bundlerAddress);
 ```
 
 #### Step 4: EntryPoint ประมวลผล
@@ -425,12 +431,13 @@ const userOp = {
   callData: "0x...",
   paymasterAndData: paymasterAddress + "0x...",
   signature: "0x...",
-}
+};
 
 // Paymaster จะจ่าย gas ให้
 ```
 
 **Use cases**:
+
 - Onboarding ผู้ใช้ใหม่ (ไม่ต้องซื้อ ETH ก่อน)
 - Apps จ่าย gas ให้ผู้ใช้
 - Subscription model (จ่ายเดือนละ X, ใช้ gas ฟรี)
@@ -448,8 +455,8 @@ const calls = [
     to: USDC_ADDRESS,
     data: usdc.interface.encodeFunctionData("approve", [
       UNISWAP_ROUTER,
-      amount
-    ])
+      amount,
+    ]),
   },
   {
     to: UNISWAP_ROUTER,
@@ -458,16 +465,17 @@ const calls = [
       minOut,
       path,
       walletAddress,
-      deadline
-    ])
-  }
-]
+      deadline,
+    ]),
+  },
+];
 
 // Execute ทั้งหมดพร้อมกัน
-await wallet.executeBatch(calls)
+await wallet.executeBatch(calls);
 ```
 
 **ประโยชน์**:
+
 - ประหยัด gas (~20-30%)
 - UX ดีขึ้น (1 click แทน 2 clicks)
 - Atomic transactions (สำเร็จหมดหรือล้มหมด)
@@ -514,6 +522,7 @@ function validateUserOp(...) external returns (uint256) {
 ```
 
 **Use cases**:
+
 - เกม: ให้ game client มี key ที่ใช้ได้ 24 ชม.
 - DeFi: auto-compound โดยไม่ต้อง sign
 - Trading bot: ให้ bot trade ได้แต่จำกัดวงเงิน
@@ -559,10 +568,7 @@ async function depositToAave(amount) {
     {
       to: USDC_ADDRESS,
       value: 0,
-      data: usdc.interface.encodeFunctionData("approve", [
-        AAVE_POOL,
-        amount
-      ])
+      data: usdc.interface.encodeFunctionData("approve", [AAVE_POOL, amount]),
     },
     // 2. Supply to Aave
     {
@@ -572,13 +578,13 @@ async function depositToAave(amount) {
         USDC_ADDRESS,
         amount,
         walletAddress,
-        0
-      ])
-    }
-  ]
+        0,
+      ]),
+    },
+  ];
 
   // Execute batch (1 UserOp)
-  await wallet.executeBatch(calls)
+  await wallet.executeBatch(calls);
 }
 ```
 
@@ -590,13 +596,13 @@ async function buildYieldFarm(position, usdcAmount) {
   // Create session key for game client
   await wallet.createSessionKey(
     gameClientAddress,
-    86400,              // 24 hours
-    ethers.parseUnits("100", 6)  // Max 100 USDC
-  )
+    86400, // 24 hours
+    ethers.parseUnits("100", 6) // Max 100 USDC
+  );
 
   // Game can now auto-execute transactions
   // without asking user to sign every time
-  await gameClient.placeBuilding(position, usdcAmount)
+  await gameClient.placeBuilding(position, usdcAmount);
 }
 ```
 
@@ -621,16 +627,16 @@ await paymaster.subscribe(
 
 ```javascript
 // ใช้ Passkey (Face ID / Touch ID) แทน private key
-import { PasskeyClient } from '@safe-global/safe-modules-passkey'
+import { PasskeyClient } from "@safe-global/safe-modules-passkey";
 
 // Create wallet with passkey
 const passkeyClient = await PasskeyClient.create({
-  rpId: 'yourapp.com',
-  userName: 'user@example.com'
-})
+  rpId: "yourapp.com",
+  userName: "user@example.com",
+});
 
 // Sign UserOp with biometric
-const signature = await passkeyClient.sign(userOpHash)
+const signature = await passkeyClient.sign(userOpHash);
 ```
 
 ---
@@ -728,13 +734,13 @@ contract SimpleSmartWallet is IAccount {
 // Install dependencies
 // npm install @account-abstraction/sdk ethers
 
-import { SimpleAccountAPI } from '@account-abstraction/sdk'
-import { ethers } from 'ethers'
+import { SimpleAccountAPI } from "@account-abstraction/sdk";
+import { ethers } from "ethers";
 
 // Setup
-const provider = new ethers.JsonRpcProvider(RPC_URL)
-const bundlerUrl = 'https://bundler.example.com'
-const entryPointAddress = '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789'
+const provider = new ethers.JsonRpcProvider(RPC_URL);
+const bundlerUrl = "https://bundler.example.com";
+const entryPointAddress = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
 
 // Create wallet API
 const walletAPI = new SimpleAccountAPI({
@@ -742,32 +748,28 @@ const walletAPI = new SimpleAccountAPI({
   entryPointAddress,
   owner: signerOrProvider,
   factoryAddress: FACTORY_ADDRESS,
-})
+});
 
 // Get wallet address (counterfactual)
-const walletAddress = await walletAPI.getAccountAddress()
-console.log('Smart Wallet:', walletAddress)
+const walletAddress = await walletAPI.getAccountAddress();
+console.log("Smart Wallet:", walletAddress);
 
 // Create UserOperation
 const userOp = await walletAPI.createSignedUserOp({
   target: recipientAddress,
-  data: '0x',
-  value: ethers.parseEther('0.1'),
-})
+  data: "0x",
+  value: ethers.parseEther("0.1"),
+});
 
 // Send to bundler
-const bundler = new HttpRpcClient(
-  bundlerUrl,
-  entryPointAddress,
-  chainId
-)
+const bundler = new HttpRpcClient(bundlerUrl, entryPointAddress, chainId);
 
-const userOpHash = await bundler.sendUserOpToBundler(userOp)
-console.log('UserOp hash:', userOpHash)
+const userOpHash = await bundler.sendUserOpToBundler(userOp);
+console.log("UserOp hash:", userOpHash);
 
 // Wait for transaction
-const receipt = await userOp.wait()
-console.log('Transaction:', receipt.transactionHash)
+const receipt = await userOp.wait();
+console.log("Transaction:", receipt.transactionHash);
 ```
 
 ### 8.3 Paymaster Implementation
@@ -832,14 +834,14 @@ contract SimplePaymaster is IPaymaster {
 
 ### 9.1 ข้อจำกัด
 
-| ข้อจำกัด | รายละเอียด |
-|----------|-----------|
-| **Deploy Cost** | ต้องจ่ายค่า deploy wallet (~$5-20) |
-| **Gas Overhead** | Transaction แพงกว่า EOA ~10-20% |
-| **Complexity** | ซับซ้อนกว่า EOA มาก |
-| **Debugging** | ยากกว่าเพราะมีหลาย layer |
-| **Contract Risk** | Bug ใน wallet code = เงินหาย |
-| **Bundler Dependency** | พึ่งพา bundler service |
+| ข้อจำกัด               | รายละเอียด                         |
+| ---------------------- | ---------------------------------- |
+| **Deploy Cost**        | ต้องจ่ายค่า deploy wallet (~$5-20) |
+| **Gas Overhead**       | Transaction แพงกว่า EOA ~10-20%    |
+| **Complexity**         | ซับซ้อนกว่า EOA มาก                |
+| **Debugging**          | ยากกว่าเพราะมีหลาย layer           |
+| **Contract Risk**      | Bug ใน wallet code = เงินหาย       |
+| **Bundler Dependency** | พึ่งพา bundler service             |
 
 ### 9.2 ข้อควรระวัง
 
@@ -866,7 +868,7 @@ function execute(address to, uint256 value, bytes calldata data)
 
 ```javascript
 // ⚠️ ต้องประมาณการ gas ให้ถูกต้อง
-const gasEstimate = await wallet.estimateGas(userOp)
+const gasEstimate = await wallet.estimateGas(userOp);
 
 // ถ้าประมาณต่ำเกินไป → TX fail
 // ถ้าประมาณสูงเกินไป → เสีย gas
@@ -901,12 +903,14 @@ function validateUserOp(...) external returns (uint256) {
 ### Q1: ERC-4337 ต่างจาก EIP-4337 อย่างไร?
 
 **A:** เหมือนกัน!
+
 - EIP (Ethereum Improvement Proposal) = ข้อเสนอ
 - ERC (Ethereum Request for Comments) = มาตรฐานที่ผ่านแล้ว
 
 ### Q2: ทำไมไม่แก้ Ethereum protocol ตรงๆ?
 
 **A:** ERC-4337 ออกแบบให้ทำงานได้โดยไม่ต้องแก้ protocol เพราะ:
+
 - ✅ Deploy ได้เลยวันนี้
 - ✅ ไม่ต้อง hard fork
 - ✅ ทดลองและปรับปรุงได้ง่าย
@@ -914,6 +918,7 @@ function validateUserOp(...) external returns (uint256) {
 ### Q3: Smart Contract Wallet ปลอดภัยกว่า EOA ไหม?
 
 **A:** ขึ้นอยู่กับ implementation:
+
 - ✅ ปลอดภัยกว่า: มี social recovery, multi-sig
 - ⚠️ เสี่ยงกว่า: มี bug ใน contract code
 - 📝 ต้อง audit และ test ดีๆ
@@ -921,6 +926,7 @@ function validateUserOp(...) external returns (uint256) {
 ### Q4: ค่าใช้จ่ายเยอะแค่ไหน?
 
 **A:**
+
 - Deploy: ~$5-20 (ครั้งเดียว)
 - Transaction: แพงกว่า EOA ~10-20%
 - กับ Paymaster: ฟรี (สำหรับ user)
@@ -928,6 +934,7 @@ function validateUserOp(...) external returns (uint256) {
 ### Q5: Wallet ไหนรองรับ ERC-4337?
 
 **A:**
+
 - Safe (เดิมคือ Gnosis Safe)
 - Biconomy
 - Candide
@@ -938,6 +945,7 @@ function validateUserOp(...) external returns (uint256) {
 ### Q6: ERC-4337 ใช้ได้บน L2 ไหม?
 
 **A:** ใช้ได้! รองรับบน:
+
 - ✅ Polygon
 - ✅ Arbitrum
 - ✅ Optimism
@@ -948,6 +956,7 @@ function validateUserOp(...) external returns (uint256) {
 ### Q7: จะ migrate จาก EOA เป็น Smart Wallet ได้ไหม?
 
 **A:** ได้! วิธี:
+
 1. สร้าง Smart Wallet ใหม่
 2. Transfer assets จาก EOA → Smart Wallet
 3. ใช้ Smart Wallet เป็นหลัก
@@ -955,9 +964,11 @@ function validateUserOp(...) external returns (uint256) {
 ### Q8: EntryPoint address เป็นอะไร?
 
 **A:**
+
 ```
 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789
 ```
+
 - เหมือนกันทุก chain (Ethereum, Polygon, Arbitrum, etc.)
 - Deploy แล้วบน mainnet และ testnets
 - Singleton contract
@@ -965,6 +976,7 @@ function validateUserOp(...) external returns (uint256) {
 ### Q9: Bundler รายได้จากไหน?
 
 **A:** Bundler ได้เงินจาก:
+
 - Gas refund จาก EntryPoint
 - Priority fees จาก users
 - บางที MEV (Miner Extractable Value)
@@ -972,6 +984,7 @@ function validateUserOp(...) external returns (uint256) {
 ### Q10: ใช้ ERC-4337 กับ DeFi City ยังไง?
 
 **A:** ในโปรเจค DeFi City สามารถ:
+
 - ✅ Gasless transactions - ผู้เล่นไม่ต้องมี ETH
 - ✅ Session keys - เล่นเกมได้โดยไม่ต้อง sign ทุกครั้ง
 - ✅ Batch transactions - สร้างหลายอาคารในครั้งเดียว
@@ -982,22 +995,26 @@ function validateUserOp(...) external returns (uint256) {
 ## 📚 Resources เพิ่มเติม
 
 ### Official Documentation
+
 - [ERC-4337 Spec](https://eips.ethereum.org/EIPS/eip-4337)
 - [Account Abstraction GitHub](https://github.com/eth-infinitism/account-abstraction)
 - [Bundler Reference](https://github.com/eth-infinitism/bundler)
 
 ### Implementations
+
 - [Safe (Gnosis Safe)](https://github.com/safe-global/safe-contracts)
 - [Biconomy](https://docs.biconomy.io/)
 - [Alchemy Account Kit](https://accountkit.alchemy.com/)
 - [ZeroDev](https://docs.zerodev.app/)
 
 ### Tools
+
 - [Bundler Explorer](https://www.bundlebear.com/)
 - [UserOp Builder](https://userop.dev/)
 - [Paymaster Directory](https://paymasters.io/)
 
 ### Articles & Tutorials
+
 - [Vitalik's Blog Post](https://ethereum.org/en/developers/docs/accounts/#account-abstraction)
 - [ERC-4337 Deep Dive](https://www.alchemy.com/blog/account-abstraction)
 - [Building Smart Wallets](https://docs.stackup.sh/)
@@ -1009,10 +1026,12 @@ function validateUserOp(...) external returns (uint256) {
 หลังจากอ่านคู่มือนี้แล้ว คุณสามารถ:
 
 1. **ลองใช้ Smart Wallet**
+
    - ติดตั้ง Safe wallet
    - ทดสอบบน testnet
 
 2. **Implement ใน DeFi City**
+
    - เพิ่ม ERC-4337 support
    - ใช้ Paymaster สำหรับ gasless TX
    - เพิ่ม session keys
@@ -1027,6 +1046,7 @@ function validateUserOp(...) external returns (uint256) {
 **สรุป:**
 
 ERC-4337 Account Abstraction ทำให้ Web3 wallets ดีขึ้นด้วย:
+
 - ✅ ไม่ต้องจำ seed phrase
 - ✅ Social recovery
 - ✅ Gasless transactions
@@ -1034,6 +1054,7 @@ ERC-4337 Account Abstraction ทำให้ Web3 wallets ดีขึ้นด�
 - ✅ Custom logic (2FA, limits, etc.)
 
 เหมาะสำหรับ:
+
 - 🎮 Gaming (DeFi City!)
 - 💰 DeFi apps
 - 🏦 Fintech

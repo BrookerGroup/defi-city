@@ -59,6 +59,7 @@ contract WalletFactory {
     error InvalidOwner();
     error InvalidEntryPoint();
     error WalletAlreadyExists();
+    error ArrayLengthMismatch();
 
     // ============ Constructor ============
 
@@ -239,7 +240,7 @@ contract WalletFactory {
         address[] calldata owners,
         uint256[] calldata salts
     ) external returns (SmartWallet[] memory wallets) {
-        require(owners.length == salts.length, "Length mismatch");
+        if (owners.length != salts.length) revert ArrayLengthMismatch();
 
         wallets = new SmartWallet[](owners.length);
 
@@ -261,7 +262,7 @@ contract WalletFactory {
         address[] calldata owners,
         uint256[] calldata salts
     ) external view returns (address[] memory addresses) {
-        require(owners.length == salts.length, "Length mismatch");
+        if (owners.length != salts.length) revert ArrayLengthMismatch();
 
         addresses = new address[](owners.length);
 

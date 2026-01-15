@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 /**
  * @title SimpleSmartWallet
  * @notice Simplified smart wallet for DeFi City MVP
@@ -11,8 +15,11 @@ pragma solidity ^0.8.20;
  * - Deposit ETH and ERC20 tokens
  * - Withdraw ETH and ERC20 tokens
  * - View balances
+ * - Reentrancy protection
+ * - SafeERC20 for token operations
  */
-contract SimpleSmartWallet {
+contract SimpleSmartWallet is ReentrancyGuard {
+    using SafeERC20 for IERC20;
     // ============ State Variables ============
 
     /// @notice Owner of this wallet
@@ -65,22 +72,11 @@ contract SimpleSmartWallet {
      * @param amount Amount to deposit
      * @dev User must approve this wallet first
      */
-    function depositToken(address token, uint256 amount) external {
+    function depositToken(address token, uint256 amount) external nonReentrant {
         if (token == address(0)) revert InvalidAddress();
 
-        // Transfer tokens from sender to this wallet
-        (bool success, bytes memory data) = token.call(
-            abi.encodeWithSignature(
-                "transferFrom(address,address,uint256)",
-                msg.sender,
-                address(this),
-                amount
-            )
-        );
-
-        if (!success || (data.length > 0 && !abi.decode(data, (bool)))) {
-            revert TransferFailed();
-        }
+        // Transfer tokens from sender to this wallet using SafeERC20
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         emit Deposited(token, amount, msg.sender);
     }
@@ -92,7 +88,7 @@ contract SimpleSmartWallet {
      * @param to Address to send ETH to
      * @param amount Amount of ETH to withdraw
      */
-    function withdrawETH(address payable to, uint256 amount) public onlyOwner {
+    function withdrawETH(address payable to, uint256 amount) public onlyOwner nonReentrant {
         if (to == address(0)) revert InvalidAddress();
         if (address(this).balance < amount) revert InsufficientBalance();
 
@@ -117,17 +113,11 @@ contract SimpleSmartWallet {
      * @param to Address to send tokens to
      * @param amount Amount to withdraw
      */
-    function withdrawToken(address token, address to, uint256 amount) public onlyOwner {
+    function withdrawToken(address token, address to, uint256 amount) public onlyOwner nonReentrant {
         if (token == address(0) || to == address(0)) revert InvalidAddress();
 
-        // Transfer tokens from this wallet to recipient
-        (bool success, bytes memory data) = token.call(
-            abi.encodeWithSignature("transfer(address,uint256)", to, amount)
-        );
-
-        if (!success || (data.length > 0 && !abi.decode(data, (bool)))) {
-            revert TransferFailed();
-        }
+        // Transfer tokens from this wallet to recipient using SafeERC20
+        IERC20(token).safeTransfer(to, amount);
 
         emit Withdrawn(token, amount, to);
     }
@@ -158,15 +148,7 @@ contract SimpleSmartWallet {
      * @return Balance of the token
      */
     function getTokenBalance(address token) public view returns (uint256) {
-        (bool success, bytes memory data) = token.staticcall(
-            abi.encodeWithSignature("balanceOf(address)", address(this))
-        );
-
-        if (success && data.length >= 32) {
-            return abi.decode(data, (uint256));
-        }
-
-        return 0;
+        return IERC20(token).balanceOf(address(this));
     }
 
     // ============ Owner Management ============

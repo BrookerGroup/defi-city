@@ -1,10 +1,11 @@
 'use client'
 
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { parseEther } from 'viem'
+import { parseEther, isAddress } from 'viem'
 import { toast } from 'sonner'
 import { useEffect } from 'react'
 import { SimpleSmartWalletABI } from '@/lib/contracts'
+import { ZERO_ADDRESS } from '@/lib/constants'
 
 export function useWithdraw(smartWalletAddress: `0x${string}` | null) {
   const {
@@ -45,9 +46,26 @@ export function useWithdraw(smartWalletAddress: `0x${string}` | null) {
       return
     }
 
+    // Validate recipient address
+    if (!isAddress(recipient)) {
+      toast.error('Invalid recipient address', {
+        description: 'Please enter a valid Ethereum address',
+      })
+      return
+    }
+
+    if (recipient === ZERO_ADDRESS) {
+      toast.error('Invalid recipient', {
+        description: 'Cannot send to zero address',
+      })
+      return
+    }
+
     const value = parseEther(amount)
     if (value <= 0n) {
-      toast.error('Invalid amount')
+      toast.error('Invalid amount', {
+        description: 'Amount must be greater than 0',
+      })
       return
     }
 
@@ -62,6 +80,21 @@ export function useWithdraw(smartWalletAddress: `0x${string}` | null) {
   const withdrawAll = (recipient: `0x${string}`) => {
     if (!smartWalletAddress) {
       toast.error('No Smart Wallet found')
+      return
+    }
+
+    // Validate recipient address
+    if (!isAddress(recipient)) {
+      toast.error('Invalid recipient address', {
+        description: 'Please enter a valid Ethereum address',
+      })
+      return
+    }
+
+    if (recipient === ZERO_ADDRESS) {
+      toast.error('Invalid recipient', {
+        description: 'Cannot send to zero address',
+      })
       return
     }
 

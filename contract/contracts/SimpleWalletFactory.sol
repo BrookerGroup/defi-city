@@ -92,14 +92,8 @@ contract SimpleWalletFactory {
         wallet = wallets[owner];
 
         if (wallet == address(0)) {
-            // Wallet doesn't exist, create it
-            SimpleSmartWallet newWallet = new SimpleSmartWallet(owner);
-            wallet = address(newWallet);
-
-            wallets[owner] = wallet;
-            totalWallets++;
-
-            emit WalletCreated(owner, wallet, totalWallets);
+            // Wallet doesn't exist, create it using existing function
+            return this.createWallet(owner);
         }
 
         return wallet;

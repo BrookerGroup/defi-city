@@ -44,9 +44,37 @@ export function useDeposit(smartWalletAddress: `0x${string}` | null) {
       return
     }
 
-    const value = parseEther(amount)
+    // Validate amount format
+    const trimmedAmount = amount.trim()
+    if (!trimmedAmount || isNaN(Number(trimmedAmount))) {
+      toast.error('Invalid amount', {
+        description: 'Please enter a valid number',
+      })
+      return
+    }
+
+    const value = parseEther(trimmedAmount)
     if (value <= 0n) {
-      toast.error('Invalid amount')
+      toast.error('Invalid amount', {
+        description: 'Amount must be greater than 0',
+      })
+      return
+    }
+
+    // Safety check: warn for large deposits (> 10 ETH)
+    const MAX_SAFE_DEPOSIT = parseEther('10')
+    if (value > MAX_SAFE_DEPOSIT) {
+      toast.warning('Large deposit detected', {
+        description: `You are about to deposit ${trimmedAmount} ETH. Please confirm this is correct.`,
+      })
+    }
+
+    // Hard limit: prevent extremely large deposits (> 1000 ETH)
+    const MAX_DEPOSIT = parseEther('1000')
+    if (value > MAX_DEPOSIT) {
+      toast.error('Amount too large', {
+        description: 'Maximum deposit is 1000 ETH per transaction',
+      })
       return
     }
 
