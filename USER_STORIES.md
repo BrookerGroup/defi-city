@@ -1,9 +1,37 @@
-# DefiCity - User Stories
+# DefiCity - User Stories (Self-Custodial Architecture)
 
 **Project:** DefiCity Implementation
-**Version:** 1.0
-**Last Updated:** 2026-01-14
+**Version:** 2.0 (Self-Custodial)
+**Last Updated:** 2026-01-15
 **Based on:** REQUIREMENT.md, USECASE.md, TECHNICAL_DESIGN.md
+
+---
+
+## Architecture Overview: Self-Custodial Design
+
+**Key Principle:** Users maintain full custody of their assets at all times. DefiCity game contracts ONLY perform bookkeeping and accounting - they NEVER hold user funds.
+
+**Asset Flow:**
+```
+User EOA Wallet (MetaMask, etc.)
+    ↓ (owns)
+User's SmartWallet (ERC-4337 Account Abstraction)
+    ↓ (holds all tokens)
+    ↓ (executes via session keys)
+DeFi Protocols (Aave, Aerodrome, Megapot)
+
+DefiCityCore (bookkeeping only - NO token custody)
+    ↓ (tracks)
+Buildings, stats, game state (accounting records)
+```
+
+**What This Means:**
+- Your assets are always in YOUR SmartWallet, not in game contracts
+- You retain full control and ownership of all funds
+- Game contracts only track what you're doing (like a ledger)
+- Session keys authorize your SmartWallet to execute game actions
+- You can always withdraw directly from your SmartWallet
+- Game cannot access your funds without your authorization
 
 ---
 
@@ -33,12 +61,14 @@
 **Acceptance Criteria:**
 - [ ] User can sign up with email (passwordless login)
 - [ ] User can sign up with social accounts (Google, Twitter, Discord)
-- [ ] Smart wallet (ERC-4337) is created automatically on signup
+- [ ] Smart wallet (ERC-4337) is created automatically on signup and OWNED by the user
 - [ ] Wallet creation uses passkey authentication (WebAuthn)
 - [ ] User sees their wallet address after creation
 - [ ] Wallet address is copyable
 - [ ] No manual private key management required
 - [ ] Signup flow takes less than 2 minutes
+- [ ] User's SmartWallet will hold all their assets (self-custodial)
+- [ ] Game registers SmartWallet address in Core contract for bookkeeping
 
 **Priority:** P0 (Critical)
 **Estimated:** 5 story points
@@ -114,19 +144,22 @@
 ### US-005: Deposit Multi-Asset Funds
 
 **As a** DefiCity user
-**I want** to deposit USDC, USDT, ETH, or WBTC into my smart wallet
+**I want** to transfer USDC, USDT, ETH, or WBTC to my SmartWallet
 **So that** I can use these assets to build DeFi positions in my city
 
 **Acceptance Criteria:**
 - [ ] User can select asset type (USDC, USDT, ETH, WBTC)
 - [ ] User can enter deposit amount
-- [ ] UI shows current balance for selected asset
+- [ ] UI shows current balance in SmartWallet for selected asset
 - [ ] UI shows minimum deposit (if any)
 - [ ] User confirms transaction in wallet
+- [ ] Transaction transfers tokens FROM user's EOA TO user's SmartWallet
+- [ ] DefiCityCore updates accounting records (tracks balance for game UI)
 - [ ] Transaction shows loading state
 - [ ] Balance updates after successful deposit
 - [ ] Success notification displays with transaction hash
 - [ ] User pays gas fee for deposit (not gasless)
+- [ ] Assets remain in user's SmartWallet (NOT transferred to game contracts)
 
 **Priority:** P0 (Critical)
 **Estimated:** 5 story points
@@ -142,13 +175,15 @@
 
 **Acceptance Criteria:**
 - [ ] Dashboard shows balances for all 4 assets (USDC, USDT, ETH, WBTC)
+- [ ] Balances are read from user's SmartWallet (on-chain)
 - [ ] Shows total portfolio value in USD
-- [ ] Shows available balance (not invested) per asset
-- [ ] Shows invested amount per asset (in buildings)
+- [ ] Shows available balance (idle in SmartWallet) per asset
+- [ ] Shows invested amount per asset (in DeFi protocols via buildings)
 - [ ] Shows total earned (all-time) per asset
 - [ ] Shows percentage distribution (pie chart or bar chart)
 - [ ] Real-time price updates
 - [ ] Balances update after deposits/withdrawals
+- [ ] All balances reflect actual SmartWallet holdings (self-custodial)
 
 **Priority:** P0 (Critical)
 **Estimated:** 5 story points
@@ -159,20 +194,23 @@
 ### US-007: Withdraw Multi-Asset Funds
 
 **As a** DefiCity user
-**I want** to withdraw my available balance to my external wallet
-**So that** I can move funds off the platform when needed
+**I want** to withdraw my available balance from my SmartWallet to my EOA wallet
+**So that** I can move funds to my main wallet or external exchanges
 
 **Acceptance Criteria:**
 - [ ] User can select asset type to withdraw
 - [ ] User can enter withdrawal amount
-- [ ] UI shows available balance (not invested)
-- [ ] UI prevents withdrawal of invested funds
-- [ ] User confirms transaction in wallet
+- [ ] UI shows available balance in SmartWallet (not invested in buildings)
+- [ ] UI prevents withdrawal of invested funds (must demolish buildings first)
+- [ ] User confirms transaction
+- [ ] Transaction transfers tokens FROM user's SmartWallet TO user's EOA
+- [ ] DefiCityCore updates accounting records
 - [ ] Transaction shows loading state
 - [ ] Balance updates after successful withdrawal
 - [ ] Success notification displays
 - [ ] User pays gas fee for withdrawal (not gasless)
 - [ ] Cannot withdraw more than available balance
+- [ ] User can also withdraw directly from SmartWallet without using game UI (true self-custody)
 
 **Priority:** P0 (Critical)
 **Estimated:** 3 story points
@@ -210,15 +248,17 @@
 
 **As a** new DefiCity user
 **I want** to place a Town Hall building for free
-**So that** I have a visual representation of my smart wallet in my city
+**So that** I have a visual representation of my SmartWallet in my city
 
 **Acceptance Criteria:**
 - [ ] User can click empty tile to place building
 - [ ] Town Hall appears in building selection menu
 - [ ] Town Hall is labeled as "Free" (no deposit required)
+- [ ] Town Hall represents the user's SmartWallet (asset custody location)
 - [ ] No asset selection needed
 - [ ] No amount input needed
 - [ ] Transaction is gasless (via session key)
+- [ ] SmartWallet executes bookkeeping call to DefiCityCore
 - [ ] Building appears on map after placement
 - [ ] Town Hall cannot be demolished
 
@@ -231,15 +271,17 @@
 ### US-010: View Town Hall Info
 
 **As a** DefiCity user
-**I want** to click my Town Hall and see my wallet information
-**So that** I can view my smart wallet address and total portfolio value
+**I want** to click my Town Hall and see my SmartWallet information
+**So that** I can view my SmartWallet address and total portfolio value
 
 **Acceptance Criteria:**
 - [ ] Click Town Hall → Info panel opens
-- [ ] Shows smart wallet address
+- [ ] Shows SmartWallet address
 - [ ] Shows copy button for address
-- [ ] Shows total portfolio value (all assets)
-- [ ] Shows "This is your smart wallet" description
+- [ ] Shows total portfolio value (all assets in SmartWallet)
+- [ ] Shows "This is YOUR SmartWallet - You own all assets" description
+- [ ] Shows "Assets are self-custodial (not held by game)" notice
+- [ ] Shows link to view SmartWallet on BaseScan
 - [ ] No actions available (cannot harvest/demolish)
 - [ ] Visual representation distinctive (castle/HQ style)
 
@@ -264,10 +306,12 @@
 - [ ] User enters deposit amount (minimum $100)
 - [ ] UI shows current Aave supply APY
 - [ ] UI shows 0.05% building placement fee
-- [ ] User confirms transaction (gasless)
+- [ ] User confirms transaction (gasless via session key)
+- [ ] SmartWallet executes: transfer tokens from SmartWallet to Aave V3
+- [ ] SmartWallet receives aTokens (held in user's SmartWallet)
+- [ ] DefiCityCore records building placement (bookkeeping only)
 - [ ] Building appears on map
-- [ ] Assets supplied to Aave V3
-- [ ] User receives aTokens (tracked internally)
+- [ ] Assets remain in user's control (via SmartWallet → Aave, not via game contracts)
 
 **Priority:** P0 (Critical)
 **Estimated:** 8 story points
@@ -292,10 +336,13 @@
 - [ ] UI shows liquidation warning if health factor < 1.5
 - [ ] UI shows supply APY and borrow APY
 - [ ] UI shows net APY (supply APY - borrow APY)
-- [ ] User confirms transaction (gasless)
+- [ ] User confirms transaction (gasless via session key)
+- [ ] SmartWallet executes: supply collateral to Aave and borrow assets
+- [ ] SmartWallet receives aTokens for collateral (held in SmartWallet)
+- [ ] Borrowed assets transferred to SmartWallet
+- [ ] DefiCityCore records building placement (bookkeeping only)
 - [ ] Building appears on map
-- [ ] Collateral supplied to Aave
-- [ ] Assets borrowed from Aave
+- [ ] All assets remain under user's SmartWallet control
 
 **Priority:** P1 (High)
 **Estimated:** 13 story points
@@ -355,15 +402,17 @@
 
 **As a** DefiCity user with a Bank building
 **I want** to harvest my earned interest
-**So that** I can realize my gains and add to my available balance
+**So that** I can realize my gains and add to my available balance in SmartWallet
 
 **Acceptance Criteria:**
 - [ ] Click "Harvest" button in Bank info panel
 - [ ] Shows pending rewards amount
 - [ ] Shows confirmation modal
-- [ ] Transaction is gasless
-- [ ] Interest withdrawn from Aave (aToken → token)
-- [ ] Available balance increases
+- [ ] Transaction is gasless (via session key)
+- [ ] SmartWallet executes: withdraw interest from Aave (aToken → token)
+- [ ] Harvested tokens remain in user's SmartWallet
+- [ ] DefiCityCore updates accounting records
+- [ ] Available balance in SmartWallet increases
 - [ ] Building remains active
 - [ ] Success notification displays
 - [ ] Balance updates in real-time
@@ -385,11 +434,13 @@
 - [ ] User enters repay amount (or clicks "Max")
 - [ ] UI shows remaining debt after repayment
 - [ ] UI shows new health factor after repayment
-- [ ] Transaction is gasless
-- [ ] Borrowed amount repaid to Aave
+- [ ] Transaction is gasless (via session key)
+- [ ] SmartWallet executes: repay borrowed amount to Aave from SmartWallet balance
+- [ ] DefiCityCore updates accounting records
 - [ ] Health factor updated
 - [ ] Can demolish building after full repayment
 - [ ] Success notification displays
+- [ ] Repayment uses tokens from user's SmartWallet
 
 **Priority:** P1 (High)
 **Estimated:** 5 story points
@@ -401,17 +452,19 @@
 
 **As a** DefiCity user
 **I want** to demolish my Bank building
-**So that** I can withdraw all my funds and reclaim the tile
+**So that** I can withdraw all my funds from Aave and reclaim the tile
 
 **Acceptance Criteria:**
 - [ ] Click "Demolish" button in Bank info panel
 - [ ] Shows confirmation modal with total value (principal + interest)
 - [ ] If borrowing: Must repay fully first (or shows error)
 - [ ] Shows warning about losing building
-- [ ] Transaction is gasless
-- [ ] All assets withdrawn from Aave
+- [ ] Transaction is gasless (via session key)
+- [ ] SmartWallet executes: withdraw all assets from Aave
+- [ ] Assets returned to user's SmartWallet
+- [ ] DefiCityCore updates accounting records (removes building)
 - [ ] Building removed from map
-- [ ] Available balance increases
+- [ ] Available balance in SmartWallet increases
 - [ ] Success notification displays
 - [ ] Tile becomes available for new building
 
@@ -440,10 +493,12 @@
 - [ ] UI shows total APY
 - [ ] UI shows estimated impermanent loss (IL)
 - [ ] UI shows 0.05% building placement fee
-- [ ] User confirms transaction (gasless)
+- [ ] User confirms transaction (gasless via session key)
+- [ ] SmartWallet executes: transfer tokens from SmartWallet to Aerodrome pool
+- [ ] SmartWallet receives LP tokens/NFT (held in user's SmartWallet)
+- [ ] DefiCityCore records building placement (bookkeeping only)
 - [ ] Building appears on map
-- [ ] Liquidity added to Aerodrome pool
-- [ ] User receives LP tokens/NFT (tracked internally)
+- [ ] Assets remain in user's control (via SmartWallet → Aerodrome)
 
 **Priority:** P0 (Critical)
 **Estimated:** 13 story points
@@ -487,9 +542,11 @@
 - [ ] Shows pending trading fees (in LP tokens)
 - [ ] Shows pending AERO rewards
 - [ ] Shows total value in USD
-- [ ] Transaction is gasless
-- [ ] Fees and AERO claimed from Aerodrome
-- [ ] Available balance increases
+- [ ] Transaction is gasless (via session key)
+- [ ] SmartWallet executes: claim fees and AERO rewards from Aerodrome
+- [ ] Rewards transferred to user's SmartWallet
+- [ ] DefiCityCore updates accounting records
+- [ ] Available balance in SmartWallet increases
 - [ ] LP position remains active
 - [ ] Success notification displays
 - [ ] Balance updates in real-time
@@ -513,10 +570,12 @@
   - Asset breakdown (how much of each token returned)
   - Current IL percentage
   - Warning about IL if > 2%
-- [ ] Transaction is gasless
-- [ ] Liquidity removed from Aerodrome
-- [ ] Both assets returned to available balance
+- [ ] Transaction is gasless (via session key)
+- [ ] SmartWallet executes: remove liquidity from Aerodrome
+- [ ] Both assets returned to user's SmartWallet
+- [ ] DefiCityCore updates accounting records (removes building)
 - [ ] Building removed from map
+- [ ] Available balance in SmartWallet increases
 - [ ] Success notification displays
 - [ ] Tile becomes available
 
@@ -544,10 +603,12 @@
 - [ ] UI shows current jackpot ($1M+) from Megapot
 - [ ] UI shows responsible gaming warning
 - [ ] UI shows: "DefiCity earns referral fee"
-- [ ] User confirms transaction (gasless)
+- [ ] User confirms transaction (gasless via session key)
+- [ ] SmartWallet executes: transfer USDC to Megapot and purchase tickets
+- [ ] DefiCityCore records building placement (bookkeeping only)
 - [ ] Building appears on map
 - [ ] Megapot.purchaseTickets() called with referrer=DefiCity
-- [ ] User owns tickets on Megapot contract
+- [ ] User owns tickets on Megapot contract (via SmartWallet)
 
 **Priority:** P1 (High)
 **Estimated:** 8 story points
@@ -654,21 +715,25 @@
 ### US-027: Create Session Key for Gasless Gameplay
 
 **As a** DefiCity user
-**I want** to create a session key
-**So that** I can play the game without approving every transaction
+**I want** to create a session key for my SmartWallet
+**So that** I can authorize game actions without approving every transaction
 
 **Acceptance Criteria:**
 - [ ] User clicks "Enable Gasless Gameplay" button
 - [ ] Shows explanation modal:
-  - "Session key allows gasless transactions"
+  - "Session key authorizes your SmartWallet to execute game actions"
+  - "You retain full custody - game cannot access funds without authorization"
   - "Valid for 24 hours"
-  - "Limited to 1000 USDC/day"
-  - "Only works with DefiCity contracts"
-- [ ] User approves session key creation (one-time approval)
+  - "Limited to 1000 USDC/day in transaction value"
+  - "Only works with approved DefiCity contracts"
+  - "Session key allows SmartWallet to interact with DeFi protocols"
+- [ ] User approves session key creation in SmartWallet (one-time approval)
+- [ ] Session key registered on user's SmartWallet contract
 - [ ] Session key generated and stored (encrypted in localStorage)
 - [ ] UI shows "Gasless Enabled" indicator
 - [ ] UI shows expiry time (24h countdown)
 - [ ] All gameplay actions now gasless (place, harvest, demolish, buy lottery)
+- [ ] SmartWallet executes actions using session key authorization
 
 **Priority:** P0 (Critical)
 **Estimated:** 8 story points
@@ -1122,11 +1187,27 @@ For a user story to be considered "Done":
 
 ## Notes
 
+### Architecture
+- **Self-Custodial Design:** Users maintain full custody of all assets in their SmartWallet at all times
+- **SmartWallet:** ERC-4337 Account Abstraction wallet owned and controlled by the user
+- **DefiCityCore:** Only performs bookkeeping and accounting - NEVER holds user funds
+- **Asset Flow:** User EOA → User's SmartWallet → DeFi Protocols (Aave/Aerodrome/Megapot)
+- **Game Contracts:** Only track game state, buildings, and stats - pure accounting layer
+- **Session Keys:** Authorize SmartWallet to execute game actions without repeated approvals
+
+### Assets & Protocols
 - **Multi-Asset Support:** All building types except Lottery support USDC, USDT, ETH, WBTC
 - **Lottery USDC-Only:** Megapot integration only accepts USDC deposits
+- **SmartWallet Holds All Tokens:** Whether idle or invested in DeFi protocols
+- **Direct Access:** Users can always interact with their SmartWallet directly (bypass game UI)
+
+### Transactions
 - **Gasless Gameplay:** All gameplay actions (place, harvest, demolish, buy lottery) are gasless via session keys
 - **Regular Transactions:** Deposits and withdrawals are NOT gasless (user pays gas)
+- **SmartWallet Execution:** All DeFi interactions executed by user's SmartWallet, not game contracts
 - **No Unlock Requirements:** All 4 building types available from start (no progression system)
+
+### Fees
 - **Building Fee:** 0.05% fee on building placement (collected by DefiCity)
 - **Megapot Referral:** DefiCity earns referral fees when users buy lottery tickets
 

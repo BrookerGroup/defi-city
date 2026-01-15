@@ -1,10 +1,42 @@
-# DefiCity - Technical Design Document
+# DefiCity - Technical Design Document (v1.0 - DEPRECATED)
 
 **Project:** DefiCity - DeFi City Builder Game
-**Version:** 2.0
+**Version:** 1.0 (DEPRECATED - See v2.0)
 **Date:** 2026-01-14
-**Status:** Development Phase
+**Status:** Superseded by v2.0 Self-Custodial Architecture
 **Author:** Technical Team
+
+---
+
+## ⚠️ IMPORTANT NOTICE: ARCHITECTURE CHANGE
+
+**This document describes the OLD v1.0 custodial architecture which has been superseded.**
+
+**For the NEW v2.0 self-custodial architecture, see:**
+- **[ARCHITECTURE_V2.md](./ARCHITECTURE_V2.md)** - Complete v2.0 architecture documentation
+- **[USER_STORIES.md](./USER_STORIES.md)** - Updated user stories for v2.0
+
+### Key Differences Between v1.0 and v2.0
+
+| Aspect | v1.0 (This Document) | v2.0 (New) |
+|--------|---------------------|------------|
+| **Asset Custody** | DefiCityCore holds user tokens | User's SmartWallet holds tokens |
+| **Trust Model** | Users must trust game contracts | Users own SmartWallet (self-custodial) |
+| **Strategy Contracts** | Required (Aave/Aerodrome/Megapot) | Removed (direct protocol interaction) |
+| **Deposits** | User → Core contract | User → User's SmartWallet |
+| **DeFi Interactions** | Core → Strategy → Protocol | SmartWallet → Protocol (direct) |
+| **Withdrawals** | Core transfers to user | SmartWallet transfers to user |
+| **Game Role** | Holds and manages funds | Bookkeeping only (accounting) |
+
+### Migration Path
+
+The v2.0 architecture maintains the same user-facing functionality but with completely different backend implementation:
+- Same frontend UI and UX
+- Same building types and game mechanics
+- Different smart contract architecture
+- Significantly improved security and trust model
+
+**Continue reading this document for historical reference only. All new development should follow [ARCHITECTURE_V2.md](./ARCHITECTURE_V2.md).**
 
 ---
 
