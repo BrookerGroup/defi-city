@@ -30,39 +30,49 @@
 
 ### Contract Hierarchy
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    User's SmartWallet                       │
-│              (DefiCitySmartWallet.sol)                      │
-│  - ERC-4337 Account Abstraction                            │
-│  - Holds ALL user tokens                                   │
-│  - Executes DeFi interactions                              │
-│  - Manages session keys                                    │
-└────────────┬────────────────────────────────────────────────┘
-             │ executeFromGame() via session key
-             ↓
-┌─────────────────────────────────────────────────────────────┐
-│              Game Contracts (Bookkeeping Only)              │
-│                                                             │
-│  ┌────────────────────┐        ┌──────────────────────┐   │
-│  │  DefiCityCore      │←───────│  BuildingManager     │   │
-│  │  (State Storage)   │        │  (Logic)             │   │
-│  └────────────────────┘        └──────────────────────┘   │
-│           ↑                              ↑                  │
-│           │                              │                  │
-│  ┌────────┴────────┐          ┌────────┴──────────┐       │
-│  │  FeeManager     │          │  EmergencyManager │       │
-│  │  (Fees)         │          │  (Pause/Recover)  │       │
-│  └─────────────────┘          └───────────────────┘       │
-└─────────────────────────────────────────────────────────────┘
-             │ direct interaction
-             ↓
-┌─────────────────────────────────────────────────────────────┐
-│              DeFi Protocols (External)                      │
-│  - Aave V3 Pool                                            │
-│  - Aerodrome Router & Gauge                                │
-│  - Megapot Lottery                                         │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph User["👤 User Layer"]
+        EOA[User EOA<br/>MetaMask]
+    end
+
+    subgraph Wallet["🏦 Custody Layer (User-Owned)"]
+        SW[DefiCitySmartWallet<br/>ERC-4337 AA<br/>• Holds ALL tokens<br/>• Session keys<br/>• Owner: User EOA]
+        Factory[SmartWalletFactory<br/>• Deploys wallets<br/>• CREATE2]
+    end
+
+    subgraph Game["🎮 Game Layer (Bookkeeping Only)"]
+        Core[DefiCityCore<br/>• State storage<br/>• NO tokens<br/>• Immutable]
+        BM[BuildingManager<br/>• Game logic<br/>• Swappable]
+        FM[FeeManager<br/>• Fee calc<br/>• Swappable]
+        EM[EmergencyManager<br/>• Pause/unpause<br/>• Swappable]
+    end
+
+    subgraph DeFi["💎 DeFi Protocols"]
+        Aave[Aave V3<br/>Supply/Borrow]
+        Aero[Aerodrome<br/>LP Pools]
+        Mega[Megapot<br/>Lottery]
+    end
+
+    EOA -->|owns| SW
+    EOA -->|Town Hall placement| Factory
+    Factory -.->|deploys| SW
+
+    SW -->|executeFromGame<br/>via session key| Core
+    SW -->|direct calls| Aave
+    SW -->|direct calls| Aero
+    SW -->|direct calls| Mega
+
+    BM -->|prepares calldata| SW
+    Core <-->|state queries| BM
+    Core <--> FM
+    Core <--> EM
+
+    style SW fill:#90EE90
+    style Core fill:#87CEEB
+    style Aave fill:#FFD700
+    style Aero fill:#FFD700
+    style Mega fill:#FFD700
 ```
 
 ### Key Principles
@@ -83,6 +93,248 @@
 4. **Direct Protocol Interaction**
    - No strategy contracts
    - SmartWallet calls Aave/Aerodrome/Megapot directly
+
+---
+
+## Flow Diagrams
+
+### 1. Town Hall Deployment Flow (Wallet Creation)
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as Frontend
+    participant Factory as SmartWalletFactory
+    participant SW as SmartWallet
+    participant Core as DefiCityCore
+    participant Paymaster as Paymaster
+
+    User->>UI: Click "Place Town Hall"
+    UI->>UI: Check if wallet exists
+    alt No wallet exists
+        UI->>Factory: computeWalletAddress(userEOA)
+        Factory-->>UI: Predicted address
+        UI->>User: Show: "Your wallet: 0xABC..."
+        User->>UI: Confirm placement
+
+        UI->>Paymaster: Request gas sponsorship
+        Paymaster-->>UI: Approved (gasless)
+
+        UI->>Factory: deployWallet(userEOA)
+        Factory->>SW: Deploy with CREATE2
+        activate SW
+        Factory->>Factory: userWallets[EOA] = SW
+        Factory-->>UI: Wallet deployed ✓
+
+        SW->>Core: registerWallet()
+        Core->>Core: userSmartWallets[EOA] = SW
+        Core->>Core: Record Town Hall building
+        Core-->>SW: Registered ✓
+
+        SW-->>UI: Town Hall placed
+        deactivate SW
+        UI->>User: Show Town Hall on map 🏛️
+    else Wallet exists
+        UI->>User: Error: "Town Hall already placed"
+    end
+```
+
+### 2. DeFi Building Placement Flow (e.g., Bank Building)
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as Frontend
+    participant SW as SmartWallet
+    participant BM as BuildingManager
+    participant Aave as Aave V3
+    participant Core as DefiCityCore
+
+    User->>UI: Click "Place Bank"<br/>100 USDC supply
+    UI->>BM: prepareBankBuilding(SW, USDC, 100, x, y)
+    BM-->>UI: [approve, supply, record]
+
+    Note over UI: User has session key active
+
+    UI->>SW: executeFromGameBatch([targets], [data])
+    activate SW
+
+    SW->>SW: Validate session key
+    SW->>SW: Check daily limit
+    SW->>SW: Track spending
+
+    rect rgb(200, 220, 240)
+        Note over SW,Aave: Execute DeFi interactions
+        SW->>Aave: USDC.approve(AavePool, 100)
+        Aave-->>SW: Approved ✓
+        SW->>Aave: Pool.supply(USDC, 100, SW, 0)
+        Aave->>SW: Transfer aUSDC (interest-bearing)
+        Aave-->>SW: Supplied ✓
+    end
+
+    SW->>Core: recordBuildingPlacement(BANK, USDC, 100, x, y)
+    Core->>Core: buildings[id] = Building{...}
+    Core->>Core: gridBuildings[x][y] = id
+    Core-->>SW: Recorded ✓
+
+    deactivate SW
+    SW-->>UI: Transaction complete
+    UI->>User: Show Bank on map 🏦
+```
+
+### 3. Session Key Flow
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as Frontend
+    participant SW as SmartWallet
+    participant SessionKey as Session Key
+    participant Game as Game Backend
+
+    User->>UI: Click "Enable Gasless Gameplay"
+    UI->>UI: Generate session key pair
+    UI->>User: Show terms:<br/>• Valid 24h<br/>• 1000 USDC limit<br/>• Approved targets only
+    User->>UI: Approve
+
+    UI->>SW: createSessionKey(key, validUntil, dailyLimit)
+    activate SW
+    SW->>SW: sessionKeys[key] = SessionKeyInfo{...}
+    SW-->>UI: Session key created ✓
+    deactivate SW
+
+    UI->>UI: Store session key (encrypted)
+    UI->>User: Show "Gasless Enabled ⚡"
+
+    loop Every game action
+        User->>UI: Place/Harvest/Demolish
+        UI->>SessionKey: Sign UserOperation
+        SessionKey-->>UI: Signature
+        UI->>Game: Submit UserOp (gasless)
+        Game->>SW: executeFromGame(target, data)
+        activate SW
+        SW->>SW: Validate session key<br/>• Not expired?<br/>• Not revoked?<br/>• Under daily limit?
+        alt Valid
+            SW->>SW: Execute action
+            SW->>SW: Track spending
+            SW-->>Game: Success ✓
+        else Invalid
+            SW-->>Game: Revert ❌
+        end
+        deactivate SW
+        Game-->>UI: Result
+        UI->>User: Update UI
+    end
+
+    alt User wants to revoke
+        User->>UI: Click "Revoke Session Key"
+        UI->>SW: revokeSessionKey(key)
+        SW->>SW: sessionKeys[key].revoked = true
+        SW-->>UI: Revoked ✓
+        UI->>User: "Gasless Disabled"
+    end
+```
+
+### 4. Asset Flow Diagram
+
+```mermaid
+graph LR
+    subgraph "User's Control"
+        EOA[👤 User EOA<br/>MetaMask]
+        SW[🏦 SmartWallet<br/>ALL tokens here]
+    end
+
+    subgraph "DeFi Protocols"
+        Aave[Aave V3<br/>aTokens]
+        Aero[Aerodrome<br/>LP tokens]
+        Mega[Megapot<br/>Lottery tickets]
+    end
+
+    subgraph "Game (NO tokens)"
+        Core[DefiCityCore<br/>Bookkeeping ONLY]
+    end
+
+    EOA -->|1. Deposit<br/>User pays gas| SW
+    SW -->|2. Supply<br/>Gasless| Aave
+    SW -->|2. Add Liquidity<br/>Gasless| Aero
+    SW -->|2. Buy Tickets<br/>Gasless| Mega
+
+    Aave -.->|aTokens in| SW
+    Aero -.->|LP tokens in| SW
+    Mega -.->|Tickets owned by| SW
+
+    Aave -->|3. Harvest<br/>Gasless| SW
+    Aero -->|3. Harvest<br/>Gasless| SW
+
+    SW -->|4. Withdraw<br/>User pays gas| EOA
+
+    SW -.->|Record actions| Core
+
+    style SW fill:#90EE90
+    style Core fill:#87CEEB
+    style Aave fill:#FFD700
+    style Aero fill:#FFD700
+    style Mega fill:#FFD700
+
+    Note1[All assets in SmartWallet<br/>User always in control]
+    style Note1 fill:#FFF3CD
+```
+
+### 5. Complete User Journey
+
+```mermaid
+flowchart TD
+    Start([👤 User Signs Up]) --> NoWallet{Has<br/>SmartWallet?}
+
+    NoWallet -->|No| TownHall[🏛️ Place Town Hall]
+    TownHall --> Deploy[Factory deploys SmartWallet]
+    Deploy --> WalletCreated[✅ SmartWallet Created<br/>User is owner]
+
+    NoWallet -->|Yes| HasWallet[User has wallet]
+    WalletCreated --> HasWallet
+
+    HasWallet --> CheckBalance{Has<br/>balance?}
+
+    CheckBalance -->|No| Deposit[💰 Deposit to SmartWallet<br/>User pays gas]
+    Deposit --> HasBalance[Balance > 0]
+
+    CheckBalance -->|Yes| HasBalance
+
+    HasBalance --> SessionKey{Session key<br/>active?}
+
+    SessionKey -->|No| CreateKey[⚡ Create Session Key<br/>One-time setup]
+    CreateKey --> Gasless[Gasless gameplay enabled]
+
+    SessionKey -->|Yes| Gasless
+
+    Gasless --> Actions[Game Actions<br/>All gasless]
+
+    Actions --> Bank[🏦 Place Bank<br/>Supply to Aave]
+    Actions --> Shop[🏪 Place Shop<br/>Add Aerodrome LP]
+    Actions --> Lottery[🎰 Place Lottery<br/>Buy Megapot tickets]
+
+    Bank --> Harvest1[🌾 Harvest interest]
+    Shop --> Harvest2[🌾 Harvest fees + AERO]
+    Lottery --> CheckWin[🎁 Check winnings]
+
+    Harvest1 --> Grow[💰 Balance grows]
+    Harvest2 --> Grow
+    CheckWin --> Grow
+
+    Grow --> Continue{Continue<br/>playing?}
+    Continue -->|Yes| Actions
+    Continue -->|No| Withdraw[🏧 Withdraw to EOA<br/>User pays gas]
+
+    Withdraw --> End([✅ End])
+
+    style Start fill:#E7F3FF
+    style WalletCreated fill:#90EE90
+    style Gasless fill:#FFE5B4
+    style Bank fill:#FFD700
+    style Shop fill:#FFD700
+    style Lottery fill:#FFD700
+    style End fill:#E7F3FF
+```
 
 ---
 
@@ -1525,6 +1777,113 @@ struct UserOperation {
     bytes paymasterAndData;       // Paymaster signature
     bytes signature;              // Session key signature
 }
+```
+
+### State Management Diagram
+
+```mermaid
+classDiagram
+    class SmartWalletFactory {
+        +mapping userWallets
+        +uint256 totalWallets
+        +deployWallet(owner)
+        +computeWalletAddress()
+        +getWallet(user)
+    }
+
+    class DefiCitySmartWallet {
+        +address owner
+        +mapping sessionKeys
+        +mapping whitelistedTargets
+        +executeFromGame(target, data)
+        +createSessionKey()
+        +revokeSessionKey()
+        +emergencyWithdraw()
+    }
+
+    class DefiCityCore {
+        +mapping userSmartWallets
+        +mapping buildings
+        +mapping userStats
+        +registerWallet()
+        +recordBuildingPlacement()
+        +recordHarvest()
+        +recordDemolition()
+    }
+
+    class Building {
+        +uint256 id
+        +address owner
+        +address smartWallet
+        +uint256 buildingType
+        +address asset
+        +uint256 amount
+        +bool active
+    }
+
+    class SessionKeyInfo {
+        +uint256 validUntil
+        +uint256 dailyLimit
+        +uint256 spentToday
+        +uint256 lastResetTime
+        +bool revoked
+    }
+
+    SmartWalletFactory --> DefiCitySmartWallet : deploys
+    DefiCitySmartWallet --> DefiCityCore : registers with
+    DefiCityCore --> Building : stores
+    DefiCitySmartWallet --> SessionKeyInfo : manages
+```
+
+### Contract State Changes
+
+```mermaid
+stateDiagram-v2
+    [*] --> NoWallet: User signs up
+
+    NoWallet --> WalletDeployed: Place Town Hall
+    state WalletDeployed {
+        [*] --> FactoryCreates
+        FactoryCreates --> WalletRegistered
+        WalletRegistered --> [*]
+    }
+
+    WalletDeployed --> EmptyWallet: Wallet ready
+    EmptyWallet --> HasBalance: User deposits tokens
+
+    HasBalance --> NoSessionKey: Ready to play
+    NoSessionKey --> SessionKeyActive: Create session key
+
+    SessionKeyActive --> BuildingPlaced: Place DeFi building
+    state BuildingPlaced {
+        [*] --> ApproveTokens
+        ApproveTokens --> InteractDeFi
+        InteractDeFi --> RecordInCore
+        RecordInCore --> [*]
+    }
+
+    BuildingPlaced --> ActiveBuilding: Building on map
+
+    ActiveBuilding --> HarvestRewards: Harvest
+    HarvestRewards --> ActiveBuilding: Building still active
+
+    ActiveBuilding --> Demolished: Demolish building
+    Demolished --> HasBalance: Funds returned to wallet
+
+    HasBalance --> Withdrawn: Withdraw to EOA
+    Withdrawn --> EmptyWallet: Can deposit again
+
+    SessionKeyActive --> SessionKeyRevoked: Revoke key
+    SessionKeyRevoked --> NoSessionKey: Gasless disabled
+
+    state SessionKeyActive {
+        [*] --> ValidKey
+        ValidKey --> SpendingTracked: Each action
+        SpendingTracked --> ValidKey: Under limit
+        SpendingTracked --> LimitExceeded: Over limit
+        LimitExceeded --> ValidKey: Next day reset
+        ValidKey --> Expired: 24h passed
+    }
 ```
 
 ---
