@@ -3,7 +3,8 @@
 import { usePrivy } from '@privy-io/react-auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Wallet, Mail, Chrome, Loader2 } from 'lucide-react'
+import { Wallet, Mail, Loader2 } from 'lucide-react'
+import { FaGoogle, FaTwitter, FaDiscord, FaApple } from 'react-icons/fa'
 
 export function WelcomeScreen() {
   const { ready, login } = usePrivy()
@@ -52,7 +53,7 @@ export function WelcomeScreen() {
               onClick={login}
             >
               <Wallet className="mr-3 h-5 w-5" />
-              Connect MetaMask
+              Connect Wallet
             </Button>
 
             <Button
@@ -61,17 +62,55 @@ export function WelcomeScreen() {
               onClick={login}
             >
               <Mail className="mr-3 h-5 w-5" />
-              Connect with Email
+              Continue with Email
             </Button>
 
-            <Button
-              variant="outline"
-              className="w-full justify-start h-12"
-              onClick={login}
-            >
-              <Chrome className="mr-3 h-5 w-5" />
-              Continue with Google
-            </Button>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2">
+              <Button
+                variant="outline"
+                className="h-12"
+                onClick={login}
+                title="Google"
+              >
+                <FaGoogle className="h-5 w-5" />
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-12"
+                onClick={login}
+                title="Twitter"
+              >
+                <FaTwitter className="h-5 w-5" />
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-12"
+                onClick={login}
+                title="Discord"
+              >
+                <FaDiscord className="h-5 w-5" />
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-12"
+                onClick={login}
+                title="Apple"
+              >
+                <FaApple className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
 
           <p className="text-xs text-center text-muted-foreground pt-4">

@@ -59,14 +59,14 @@ Buildings, stats, game state (accounting records)
 **So that** I can start exploring DefiCity and create my city
 
 **Acceptance Criteria:**
-- [ ] User can sign up with email (passwordless login)
-- [ ] User can sign up with social accounts (Google, Twitter, Discord)
-- [ ] Signup creates user profile only (NO wallet yet)
-- [ ] User sees welcome screen: "Place your Town Hall to create your wallet"
-- [ ] No manual private key management required
-- [ ] Signup flow takes less than 1 minute
-- [ ] SmartWallet will be created when user places Town Hall building
-- [ ] User can explore game and tutorial without wallet
+- [x] User can sign up with email (passwordless login)
+- [x] User can sign up with social accounts (Google, Twitter, Discord)
+- [x] Signup creates user profile only (NO wallet yet)
+- [x] User sees welcome screen: "Place your Town Hall to create your wallet"
+- [x] No manual private key management required
+- [x] Signup flow takes less than 1 minute
+- [x] SmartWallet will be created when user places Town Hall building
+- [x] User can explore game and tutorial without wallet
 
 **Priority:** P0 (Critical)
 **Estimated:** 3 story points (reduced - simpler flow)
@@ -83,13 +83,13 @@ Buildings, stats, game state (accounting records)
 **So that** I can access my city and buildings without re-entering credentials
 
 **Acceptance Criteria:**
-- [ ] User can login with email (passwordless)
-- [ ] User can login with social accounts
-- [ ] Login uses passkey authentication (biometrics/PIN)
-- [ ] Previous session is restored (city state, buildings)
-- [ ] Smart wallet reconnects automatically
-- [ ] Login takes less than 10 seconds
-- [ ] "Remember me" option available
+- [x] User can login with email (passwordless)
+- [x] User can login with social accounts
+- [x] Login uses passkey authentication (biometrics/PIN)
+- [x] Previous session is restored (city state, buildings)
+- [x] Smart wallet reconnects automatically
+- [x] Login takes less than 10 seconds
+- [x] "Remember me" option available
 
 **Priority:** P0 (Critical)
 **Estimated:** 3 story points

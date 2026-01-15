@@ -232,7 +232,7 @@
 ### Frontend Tasks
 
 #### FE-001: Setup Next.js 14 Project
-- **Status:** 🔵 TODO
+- **Status:** ✅ COMPLETED
 - **Assignee:** FS1
 - **Priority:** P0 (Critical)
 - **Estimated:** 2 days
@@ -245,15 +245,15 @@
   - Add shadcn/ui components
   - Configure environment variables
 - **Acceptance Criteria:**
-  - [ ] Next.js project runs successfully
-  - [ ] Tailwind CSS works
-  - [ ] TypeScript configured
-  - [ ] shadcn/ui installed
-  - [ ] Basic routing works
-  - [ ] Dev server runs without errors
+  - [x] Next.js project runs successfully
+  - [x] Tailwind CSS works
+  - [x] TypeScript configured
+  - [x] shadcn/ui installed
+  - [x] Basic routing works
+  - [x] Dev server runs without errors
 
 #### FE-002: Setup Web3 Integration (Wagmi + Viem)
-- **Status:** 🔵 TODO
+- **Status:** ✅ COMPLETED
 - **Assignee:** FS1
 - **Priority:** P0 (Critical)
 - **Estimated:** 3 days
@@ -266,15 +266,15 @@
   - Setup contract ABIs
   - Create multi-asset token hooks (USDC, USDT, ETH, WBTC)
 - **Acceptance Criteria:**
-  - [ ] Can connect wallet
-  - [ ] Can switch to Base Sepolia
-  - [ ] Contract hooks work
-  - [ ] Can read contract data
-  - [ ] Can send transactions
-  - [ ] Multi-asset token support
+  - [x] Can connect wallet
+  - [x] Can switch to Base Sepolia
+  - [x] Contract hooks work
+  - [x] Can read contract data
+  - [x] Can send transactions
+  - [x] Multi-asset token support
 
 #### FE-003: Create Basic Layout & Navigation
-- **Status:** 🔵 TODO
+- **Status:** ✅ COMPLETED
 - **Assignee:** FS2
 - **Priority:** P1 (High)
 - **Estimated:** 2 days
@@ -287,11 +287,11 @@
   - Add wallet address display
   - Add network indicator
 - **Acceptance Criteria:**
-  - [ ] Header displays correctly
-  - [ ] Navigation works
-  - [ ] Wallet connection button functional
-  - [ ] Responsive on mobile/tablet/desktop
-  - [ ] Network indicator shows Base Sepolia
+  - [x] Header displays correctly
+  - [x] Navigation works
+  - [x] Wallet connection button functional
+  - [x] Responsive on mobile/tablet/desktop
+  - [x] Network indicator shows Base Sepolia
 
 #### FE-004: Create Multi-Asset Wallet Dashboard
 - **Status:** 🔵 TODO

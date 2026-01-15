@@ -1,7 +1,7 @@
 'use client'
 
 import { PrivyProvider as PrivyProviderBase } from '@privy-io/react-auth'
-import { sepolia } from 'viem/chains'
+import { baseSepolia } from 'viem/chains'
 import { PRIVY_APP_ID } from '@/lib/constants'
 import { useSyncExternalStore } from 'react'
 
@@ -53,14 +53,21 @@ export function PrivyProvider({ children }: { children: React.ReactNode }) {
           theme: 'dark',
           accentColor: '#676FFF',
           logo: '/logo.png',
+          showWalletLoginFirst: false,
         },
-        loginMethods: ['email', 'wallet', 'google'],
-        defaultChain: sepolia,
-        supportedChains: [sepolia],
+        // Login methods - email, social, wallet
+        loginMethods: ['email', 'wallet', 'google', 'twitter', 'discord', 'apple'],
+        defaultChain: baseSepolia,
+        supportedChains: [baseSepolia],
+        // Embedded wallets config
         embeddedWallets: {
           ethereum: {
             createOnLogin: 'users-without-wallets',
           },
+        },
+        // MFA/Passkey config for returning users
+        mfa: {
+          noPromptOnMfaRequired: false,
         },
       }}
     >

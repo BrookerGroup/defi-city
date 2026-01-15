@@ -1,11 +1,11 @@
 import { http, createConfig } from 'wagmi'
-import { sepolia } from 'wagmi/chains'
+import { baseSepolia } from 'wagmi/chains'
 import { RPC_URL } from './constants'
 
 export const config = createConfig({
-  chains: [sepolia],
+  chains: [baseSepolia],
   transports: {
-    [sepolia.id]: http(RPC_URL),
+    [baseSepolia.id]: http(RPC_URL),
   },
   ssr: true,
 })
