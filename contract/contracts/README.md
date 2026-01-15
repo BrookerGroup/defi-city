@@ -209,36 +209,11 @@ WalletFactory:
 
 ## Documentation
 
-### 📚 Comprehensive Guides
+### 📚 Related Documents
 
-1. **[AA_ARCHITECTURE.md](../docs/AA_ARCHITECTURE.md)**
-   - Complete ERC-4337 architecture
-   - Component roles and responsibilities
-   - Transaction lifecycle
-   - Design patterns
-   - Future improvements
-
-2. **[SECURITY.md](../docs/SECURITY.md)**
-   - Critical security requirements
-   - Common attack vectors
-   - Protection mechanisms
-   - Testing strategies
-   - Audit checklist
-
-3. **[DEPLOYMENT.md](../docs/DEPLOYMENT.md)**
-   - Step-by-step deployment guide
-   - Network configuration
-   - Verification process
-   - Bundler setup
-   - Monitoring
-
-4. **[USAGE_EXAMPLES.md](../docs/USAGE_EXAMPLES.md)**
-   - Wallet creation
-   - Deposit & withdraw
-   - Aave integration
-   - Uniswap V3 LP
-   - Batch operations
-   - Frontend integration
+- **[ERC-4337 Guide (Thai)](../../docs/ERC4337_GUIDE.md)** - Complete Account Abstraction tutorial
+- **[PRD](../../docs/PRD.md)** - Product Requirements Document
+- **[Audit Report](../../docs/AUDIT_REPORT.md)** - Security audit findings and fixes
 
 ---
 
@@ -374,10 +349,8 @@ MIT License - see [LICENSE](../LICENSE) file
 
 ## Support
 
-- Documentation: [docs/](../docs/)
+- Documentation: [docs/](../../docs/)
 - Issues: [GitHub Issues](https://github.com/your-repo/issues)
-- Discord: [Join our Discord](https://discord.gg/your-server)
-- Email: support@example.com
 
 ---
 

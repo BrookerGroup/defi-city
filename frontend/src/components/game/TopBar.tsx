@@ -5,7 +5,7 @@ import { useSmartWallet } from '@/hooks'
 import { formatEther } from 'viem'
 import { ConnectButton } from '@/components/wallet'
 import { Badge } from '@/components/ui/badge'
-import { Coins, Diamond } from 'lucide-react'
+import { Diamond } from 'lucide-react'
 
 export function TopBar() {
   const { user, authenticated } = usePrivy()

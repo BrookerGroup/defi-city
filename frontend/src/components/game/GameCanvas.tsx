@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as PIXI from 'pixi.js'
 import { useGameStore } from '@/store/gameStore'
-import { Building, BUILDING_INFO, BuildingType, GRID_SIZE, TILE_SIZE } from '@/types'
+import { Building, BUILDING_INFO, GRID_SIZE, TILE_SIZE } from '@/types'
 import { BuildingModal } from './BuildingModal'
 import { BuildingInfo } from './BuildingInfo'
 import { toast } from 'sonner'
@@ -18,6 +18,69 @@ const isoToCart = (isoX: number, isoY: number) => ({
   x: Math.floor((isoX / (TILE_SIZE / 2) + isoY / (TILE_SIZE / 4)) / 2),
   y: Math.floor((isoY / (TILE_SIZE / 4) - isoX / (TILE_SIZE / 2)) / 2),
 })
+
+// Draw single tile - moved outside component
+const drawTile = (
+  graphics: PIXI.Graphics,
+  x: number,
+  y: number,
+  color: number,
+  alpha: number = 1
+) => {
+  const halfWidth = TILE_SIZE / 2
+  const halfHeight = TILE_SIZE / 4
+
+  graphics
+    .poly([
+      { x: x, y: y - halfHeight },
+      { x: x + halfWidth, y: y },
+      { x: x, y: y + halfHeight },
+      { x: x - halfWidth, y: y },
+    ])
+    .fill({ color, alpha })
+    .stroke({ color: 0x3a3a5e, width: 1, alpha: 0.5 })
+}
+
+// Draw grid - moved outside component
+const drawGrid = (container: PIXI.Container) => {
+  const graphics = new PIXI.Graphics()
+
+  for (let x = 0; x < GRID_SIZE; x++) {
+    for (let y = 0; y < GRID_SIZE; y++) {
+      const iso = cartToIso(x, y)
+      drawTile(graphics, iso.x, iso.y, 0x2a2a4e, 0.5)
+    }
+  }
+
+  container.addChild(graphics)
+}
+
+// Create building sprite - moved outside component
+const createBuildingSprite = (building: Building) => {
+  const info = BUILDING_INFO[building.type]
+  const container = new PIXI.Container()
+
+  // Building base
+  const base = new PIXI.Graphics()
+  base.roundRect(-25, -40, 50, 50, 5)
+  base.fill({ color: info.color })
+  base.stroke({ color: 0xffffff, width: 2, alpha: 0.3 })
+
+  // Icon text
+  const text = new PIXI.Text({
+    text: info.icon,
+    style: {
+      fontSize: 28,
+    },
+  })
+  text.anchor.set(0.5)
+  text.y = -15
+
+  container.addChild(base)
+  container.addChild(text)
+
+  return container
+}
 
 export function GameCanvas() {
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -34,8 +97,6 @@ export function GameCanvas() {
     removeBuilding,
     selectBuildingType,
     isPositionOccupied,
-    cameraPosition,
-    setCameraPosition,
     zoom,
     setZoom,
   } = useGameStore()
@@ -112,42 +173,6 @@ export function GameCanvas() {
     }
   }, [])
 
-  // Draw grid
-  const drawGrid = (container: PIXI.Container) => {
-    const graphics = new PIXI.Graphics()
-
-    for (let x = 0; x < GRID_SIZE; x++) {
-      for (let y = 0; y < GRID_SIZE; y++) {
-        const iso = cartToIso(x, y)
-        drawTile(graphics, iso.x, iso.y, 0x2a2a4e, 0.5)
-      }
-    }
-
-    container.addChild(graphics)
-  }
-
-  // Draw single tile
-  const drawTile = (
-    graphics: PIXI.Graphics,
-    x: number,
-    y: number,
-    color: number,
-    alpha: number = 1
-  ) => {
-    const halfWidth = TILE_SIZE / 2
-    const halfHeight = TILE_SIZE / 4
-
-    graphics
-      .poly([
-        { x: x, y: y - halfHeight },
-        { x: x + halfWidth, y: y },
-        { x: x, y: y + halfHeight },
-        { x: x - halfWidth, y: y },
-      ])
-      .fill({ color, alpha })
-      .stroke({ color: 0x3a3a5e, width: 1, alpha: 0.5 })
-  }
-
   // Update buildings display
   useEffect(() => {
     if (!buildingsContainerRef.current) return
@@ -172,33 +197,6 @@ export function GameCanvas() {
       }
     })
   }, [buildings])
-
-  // Create building sprite
-  const createBuildingSprite = (building: Building) => {
-    const info = BUILDING_INFO[building.type]
-    const container = new PIXI.Container()
-
-    // Building base
-    const base = new PIXI.Graphics()
-    base.roundRect(-25, -40, 50, 50, 5)
-    base.fill({ color: info.color })
-    base.stroke({ color: 0xffffff, width: 2, alpha: 0.3 })
-
-    // Icon text
-    const text = new PIXI.Text({
-      text: info.icon,
-      style: {
-        fontSize: 28,
-      },
-    })
-    text.anchor.set(0.5)
-    text.y = -15
-
-    container.addChild(base)
-    container.addChild(text)
-
-    return container
-  }
 
   // Handle mouse move for hover effect
   useEffect(() => {

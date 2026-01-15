@@ -3,16 +3,18 @@
 import { PrivyProvider as PrivyProviderBase } from '@privy-io/react-auth'
 import { sepolia } from 'viem/chains'
 import { PRIVY_APP_ID } from '@/lib/constants'
-import { useEffect, useState } from 'react'
+import { useSyncExternalStore } from 'react'
+
+// Subscribe to nothing - just for hydration safety
+const emptySubscribe = () => () => {}
+const getSnapshot = () => true
+const getServerSnapshot = () => false
 
 export function PrivyProvider({ children }: { children: React.ReactNode }) {
-  const [mounted, setMounted] = useState(false)
+  // Use useSyncExternalStore for hydration-safe mounted check
+  const mounted = useSyncExternalStore(emptySubscribe, getSnapshot, getServerSnapshot)
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  // Skip rendering on server or if not mounted
+  // Skip rendering on server
   if (!mounted) {
     return <>{children}</>
   }

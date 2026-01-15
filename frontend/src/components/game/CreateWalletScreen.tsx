@@ -5,48 +5,58 @@ import { useSmartWallet } from '@/hooks'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { Loader2, CheckCircle2, Circle, ExternalLink } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Loader2, CheckCircle2, Circle, ExternalLink, AlertCircle } from 'lucide-react'
+import { useEffect, useRef, useMemo } from 'react'
+
+// Move StepIcon outside of component to avoid re-creating on each render
+function StepIcon({ done, active }: { done: boolean; active: boolean }) {
+  if (done) return <CheckCircle2 className="h-5 w-5 text-green-500" />
+  if (active) return <Loader2 className="h-5 w-5 animate-spin text-primary" />
+  return <Circle className="h-5 w-5 text-muted-foreground" />
+}
 
 export function CreateWalletScreen() {
   const { user } = usePrivy()
   const eoaAddress = user?.wallet?.address as `0x${string}` | undefined
-  const { walletAddress, hasWallet, isLoading, isCreating, createWallet } = useSmartWallet(eoaAddress)
+  const { walletAddress, hasWallet, isLoading, isCreating, createWallet, createError } = useSmartWallet(eoaAddress)
 
-  const [progress, setProgress] = useState(0)
-  const [steps, setSteps] = useState({
-    deploying: false,
-    permissions: false,
-    finalizing: false,
-  })
+  // Auto-create wallet on first load
+  const hasAttemptedCreate = useRef(false)
 
   useEffect(() => {
-    if (isCreating) {
-      setSteps((s) => ({ ...s, deploying: true }))
-      setProgress(25)
+    // Auto-create wallet when:
+    // 1. Not loading
+    // 2. User has EOA address
+    // 3. No wallet exists yet
+    // 4. Not currently creating
+    // 5. Haven't attempted to create yet
+    if (!isLoading && eoaAddress && !hasWallet && !isCreating && !hasAttemptedCreate.current) {
+      hasAttemptedCreate.current = true
+      createWallet()
+    }
+  }, [isLoading, eoaAddress, hasWallet, isCreating, createWallet])
 
-      const timer1 = setTimeout(() => {
-        setSteps((s) => ({ ...s, permissions: true }))
-        setProgress(50)
-      }, 2000)
-
-      const timer2 = setTimeout(() => {
-        setSteps((s) => ({ ...s, finalizing: true }))
-        setProgress(75)
-      }, 4000)
-
-      return () => {
-        clearTimeout(timer1)
-        clearTimeout(timer2)
+  // Derive progress and steps from state instead of using effects
+  const { progress, steps } = useMemo(() => {
+    if (hasWallet && walletAddress) {
+      return {
+        progress: 100,
+        steps: { deploying: true, permissions: true, finalizing: true },
       }
     }
-  }, [isCreating])
 
-  useEffect(() => {
-    if (hasWallet && walletAddress) {
-      setProgress(100)
+    if (isCreating) {
+      return {
+        progress: 50,
+        steps: { deploying: true, permissions: true, finalizing: false },
+      }
     }
-  }, [hasWallet, walletAddress])
+
+    return {
+      progress: 10,
+      steps: { deploying: true, permissions: false, finalizing: false },
+    }
+  }, [isCreating, hasWallet, walletAddress])
 
   if (isLoading) {
     return (
@@ -59,39 +69,44 @@ export function CreateWalletScreen() {
     )
   }
 
-  const StepIcon = ({ done, active }: { done: boolean; active: boolean }) => {
-    if (done) return <CheckCircle2 className="h-5 w-5 text-green-500" />
-    if (active) return <Loader2 className="h-5 w-5 animate-spin text-primary" />
-    return <Circle className="h-5 w-5 text-muted-foreground" />
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-muted p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-4">
           <div className="text-6xl">🏗️</div>
           <CardTitle className="text-2xl">
-            {hasWallet ? 'Smart Wallet Ready!' : 'Create Your Smart Wallet'}
+            {hasWallet ? 'Smart Wallet Ready!' : 'Creating Your Smart Wallet'}
           </CardTitle>
           <CardDescription>
             {hasWallet
               ? 'Your city awaits!'
-              : 'Set up your wallet to start building your city'}
+              : 'Setting up your wallet to start building your city'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {!hasWallet && !isCreating && (
+          {/* Error state */}
+          {createError && !isCreating && !hasWallet && (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground text-center">
-                A Smart Wallet allows you to interact with DeFi protocols directly from the game.
-              </p>
-              <Button onClick={createWallet} className="w-full h-12">
-                Create Smart Wallet
+              <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0" />
+                <p className="text-sm text-destructive">
+                  {createError.message || 'Failed to create wallet. Please try again.'}
+                </p>
+              </div>
+              <Button
+                onClick={() => {
+                  hasAttemptedCreate.current = false
+                  createWallet()
+                }}
+                className="w-full h-12"
+              >
+                Try Again
               </Button>
             </div>
           )}
 
-          {(isCreating || hasWallet) && (
+          {/* Creating or success state */}
+          {(isCreating || hasWallet || (!createError && !hasWallet && !isLoading)) && (
             <div className="space-y-4">
               <Progress value={progress} className="h-2" />
 

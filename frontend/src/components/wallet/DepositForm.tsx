@@ -18,7 +18,7 @@ export function DepositForm({ smartWalletAddress, onSuccess }: DepositFormProps)
   const { user } = usePrivy()
   const eoaAddress = user?.wallet?.address as `0x${string}` | undefined
   const { formatted: eoaBalance } = useWalletBalance(eoaAddress)
-  const { deposit, isPending, isConfirming, reset } = useDeposit(smartWalletAddress)
+  const { deposit, isPending, isConfirming } = useDeposit(smartWalletAddress)
 
   const handleDeposit = () => {
     if (!amount || parseFloat(amount) <= 0) return
