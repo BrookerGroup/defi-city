@@ -7,29 +7,9 @@ import "../core/DefiCityCore.sol";
 
 /**
  * @title WalletFactory
- * @notice Factory contract for deploying SmartWallet contracts using CREATE2
- * @dev This factory:
- *      - Deploys wallets deterministically (same owner + salt = same address)
- *      - Allows counterfactual wallet addresses (know address before deployment)
- *      - Prevents duplicate deployments
- *      - Maintains a registry of deployed wallets
- *
- * CREATE2 Benefits:
- * - Deterministic addresses: getAddress(owner, salt) returns the same address always
- * - Users can receive funds before wallet is deployed
- * - First UserOp can deploy + execute in one transaction
- * - No need to deploy upfront (gas savings)
- *
- * Architecture:
- * - Uses CREATE2 opcode for deterministic deployment
- * - Salt allows multiple wallets per owner
- * - Registry pattern for easy lookup
- * - Can be used in UserOp.initCode for counterfactual deployment
- *
- * Gas Optimization:
- * - Checks if wallet exists before deploying (saves gas on re-deployments)
- * - Uses immutable EntryPoint for gas savings
- * - Efficient address computation
+ * @notice Factory for deterministic SmartWallet deployment using CREATE2
+ * @dev Deploys wallets with deterministic addresses and maintains registry.
+ *      Supports counterfactual addresses and prevents duplicate deployments.
  */
 contract WalletFactory {
     // ============ State Variables ============
@@ -82,24 +62,12 @@ contract WalletFactory {
     // ============ Factory Functions ============
 
     /**
-     * @notice Create a new SmartWallet using CREATE2
+     * @notice Creates a new SmartWallet using CREATE2 deterministic deployment
+     * @dev Computes address, checks existence, deploys if needed, and registers in Core.
+     *      Salt 0 = default wallet, salt > 0 = additional wallets.
      * @param owner Address of the wallet owner
      * @param salt Salt for CREATE2 (use 0 for default wallet)
      * @return wallet Address of the deployed wallet
-     *
-     * @dev This function:
-     *      1. Computes the deterministic address
-     *      2. Checks if wallet already exists at that address
-     *      3. If not, deploys using CREATE2
-     *      4. Updates registry
-     *
-     * Usage:
-     * - Direct call: factory.createWallet(owner, 0)
-     * - Via UserOp initCode: factory + abi.encode(createWallet(owner, 0))
-     *
-     * Salt Strategy:
-     * - salt = 0: Default wallet for owner (one per owner)
-     * - salt > 0: Additional wallets (owner can have multiple)
      */
     function createWallet(address owner, uint256 salt) external virtual returns (SmartWallet wallet) {
         if (owner == address(0)) revert InvalidOwner();
@@ -134,18 +102,11 @@ contract WalletFactory {
     }
 
     /**
-     * @notice Get the deterministic address for a wallet
+     * @notice Computes the deterministic wallet address for given owner and salt
+     * @dev Enables counterfactual addresses - users can know their wallet address before deployment.
      * @param owner Address of the wallet owner
      * @param salt Salt for CREATE2
      * @return Address where the wallet will be (or is) deployed
-     *
-     * @dev This allows users to know their wallet address BEFORE deployment.
-     *      They can receive funds at this address even if wallet doesn't exist yet.
-     *
-     * CREATE2 address formula:
-     * address = keccak256(0xff ++ factory ++ salt ++ keccak256(initCode))[12:]
-     *
-     * Where initCode = creationCode + constructor arguments
      */
     function getAddress(address owner, uint256 salt) public view returns (address) {
         // Compute the initCode hash
@@ -234,58 +195,6 @@ contract WalletFactory {
      */
     function getTotalWallets() external view returns (uint256) {
         return totalWallets;
-    }
-
-    // ============ Game-Specific Functions ============
-
-    /**
-     * @notice Create wallet and place Town Hall in one transaction
-     * @param owner Address of the wallet owner (caller's EOA)
-     * @param x Grid X coordinate for Town Hall
-     * @param y Grid Y coordinate for Town Hall
-     * @return wallet Address of the created SmartWallet
-     * @return buildingId ID of the Town Hall building
-     *
-     * @dev This is the entry point for new players:
-     *      1. User connects with EOA (MetaMask)
-     *      2. User clicks "Create Town Hall"
-     *      3. EOA calls this function directly (no UserOperation)
-     *      4. Creates SmartWallet + Town Hall in single transaction
-     *
-     * Epic 3 Support: US-009 (Place Town Hall)
-     * This function combines wallet creation and Town Hall placement
-     * to provide seamless onboarding experience.
-     */
-    function createTownHall(
-        address owner,
-        uint256 x,
-        uint256 y
-    ) external returns (SmartWallet wallet, uint256 buildingId) {
-        if (owner == address(0)) revert InvalidOwner();
-
-        // Check if user already has a wallet (prevent multiple Town Halls)
-        if (core.hasWallet(owner)) {
-            revert WalletAlreadyExists();
-        }
-
-        // 1. Create SmartWallet
-        wallet = this.createWallet(owner, 0);
-
-        // 2. Place Town Hall building
-        // Prepare metadata
-        bytes memory metadata = abi.encode("First Town Hall");
-
-        // Call Core to record Town Hall placement
-        // Factory has special permission to create Town Hall
-        buildingId = core.recordTownHallPlacement(
-            owner,
-            address(wallet),
-            x,
-            y,
-            metadata
-        );
-
-        return (wallet, buildingId);
     }
 
     // ============ Advanced Functions ============

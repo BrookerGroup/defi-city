@@ -14,37 +14,9 @@ import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 
 /**
  * @title SmartWallet
- * @notice Production-grade ERC-4337 compliant Smart Wallet with Session Keys
- * @dev This wallet implements:
- *      - ERC-4337 Account Abstraction (validateUserOp)
- *      - Single owner authentication
- *      - Session keys for gasless gameplay (Epic 7 support)
- *      - Execute and batch execute functions
- *      - Gas deposit management
- *      - ETH, ERC20, ERC721, ERC1155 support
- *      - Secure withdraw mechanisms
- *      - Integration with DefiCityCore for building management
- *
- * Architecture:
- * - Owner: EOA that controls the wallet
- * - EntryPoint: ERC-4337 singleton that validates and executes UserOps
- * - Session Keys: Temporary keys with spending limits and target whitelisting
- * - DefiCityCore: Game bookkeeping contract
- * - Nonce: Managed by EntryPoint (not by wallet)
- * - Gas: Paid from wallet's deposit in EntryPoint
- *
- * Security Features:
- * - ReentrancyGuard on all state-changing functions
- * - Signature validation using ECDSA
- * - EntryPoint authorization checks
- * - Session key time limits and spending limits
- * - Whitelisted target contracts for session keys
- * - Event logging for all critical operations
- *
- * Epic Support:
- * - Epic 3: Town Hall registration (US-009, US-010)
- * - Epic 4: Bank building operations (US-011, US-012, US-015)
- * - Epic 7: Gasless gameplay via session keys
+ * @notice ERC-4337 compliant Smart Wallet with session key support for gasless gameplay
+ * @dev Implements ERC-4337 Account Abstraction with single owner authentication,
+ *      session keys with spending limits, batch execution, and multi-token support.
  */
 contract SmartWallet is
     IAccount,
@@ -55,6 +27,21 @@ contract SmartWallet is
 {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
+
+    // ============ Constants ============
+
+    /// @notice Estimated ETH price in USD (6 decimals) for session key limits
+    /// @dev In production, use Chainlink oracle
+    uint256 public constant ETH_PRICE_USD = 2000 * 1e6;
+
+    /// @notice Seconds in a day (for session key time windows)
+    uint256 public constant SECONDS_PER_DAY = 1 days;
+
+    /// @notice Minimum session key validity period (1 hour)
+    uint256 public constant MIN_SESSION_VALIDITY = 1 hours;
+
+    /// @notice Maximum session key validity period (30 days)
+    uint256 public constant MAX_SESSION_VALIDITY = 30 days;
 
     // ============ State Variables ============
 
@@ -67,13 +54,16 @@ contract SmartWallet is
     /// @notice DefiCityCore contract for game bookkeeping
     DefiCityCore public immutable core;
 
-    /// @notice Session key information
+    /// @notice Emergency pause state
+    bool public paused;
+
+    /// @notice Session key information with rolling 24-hour window tracking
     struct SessionKeyInfo {
         bool active;              // Is session key active
         uint256 validUntil;       // Expiration timestamp
-        uint256 dailyLimit;       // Daily spending limit in USD value
-        uint256 spentToday;       // Amount spent today
-        uint256 lastResetDay;     // Last day counter was reset
+        uint256 dailyLimit;       // Spending limit per 24-hour window (USD, 6 decimals)
+        uint256 windowStart;      // Start of current 24-hour window
+        uint256 spentInWindow;    // Amount spent in current window
     }
 
     /// @notice Session key address → SessionKeyInfo
@@ -128,6 +118,11 @@ contract SmartWallet is
     error DailyLimitExceeded();
     error TargetNotWhitelisted();
     error InvalidCore();
+    error InvalidValidityPeriod();
+
+    // Pause errors
+    error WalletPaused();
+    error WalletNotPaused();
 
     // ============ Modifiers ============
 
@@ -157,6 +152,15 @@ contract SmartWallet is
         if (msg.sender != address(entryPoint) && msg.sender != owner) {
             revert OnlyEntryPointOrOwner();
         }
+        _;
+    }
+
+    /**
+     * @notice Ensure wallet is not paused
+     * @dev Emergency circuit breaker
+     */
+    modifier whenNotPaused() {
+        if (paused) revert WalletPaused();
         _;
     }
 
@@ -244,44 +248,32 @@ contract SmartWallet is
     // ============ Execution Functions ============
 
     /**
-     * @notice Execute a single transaction
+     * @notice Executes a single transaction from the wallet
+     * @dev Can be called via UserOp (by EntryPoint) or directly by owner. Protected by pause mechanism.
      * @param dest Target contract address
      * @param value Amount of ETH to send
      * @param func Calldata for the function call
-     * @dev Can be called via UserOp (by EntryPoint) or directly by owner
-     *
-     * Examples:
-     * - Deposit to Aave: execute(aavePool, 0, depositCalldata)
-     * - Swap on Uniswap: execute(uniswapRouter, 0, swapCalldata)
-     * - Transfer ERC20: execute(token, 0, transferCalldata)
-     * - Send ETH: execute(recipient, amount, "")
      */
     function execute(
         address dest,
         uint256 value,
         bytes calldata func
-    ) external override onlyEntryPointOrOwner nonReentrant {
+    ) external override onlyEntryPointOrOwner nonReentrant whenNotPaused {
         _call(dest, value, func);
     }
 
     /**
-     * @notice Execute multiple transactions in a batch
+     * @notice Executes multiple transactions in a single batch
+     * @dev All arrays must have equal length. Reverts if any call fails. Protected by pause mechanism.
      * @param dest Array of target addresses
      * @param value Array of ETH values
      * @param func Array of calldata
-     * @dev All arrays must have the same length. Reverts if any call fails.
-     *
-     * Use cases:
-     * - Build multiple Yield Farms in one transaction
-     * - Approve + deposit in one go
-     * - Withdraw from multiple protocols
-     * - Complex DeFi strategies
      */
     function executeBatch(
         address[] calldata dest,
         uint256[] calldata value,
         bytes[] calldata func
-    ) external override onlyEntryPointOrOwner nonReentrant {
+    ) external override onlyEntryPointOrOwner nonReentrant whenNotPaused {
         if (dest.length != value.length || dest.length != func.length) {
             revert ArrayLengthMismatch();
         }
@@ -451,34 +443,62 @@ contract SmartWallet is
         return address(entryPoint);
     }
 
-    // ============ Session Key Management (Epic 7) ============
+    // ============ Session Key Management ============
 
     /**
-     * @notice Create a session key for gasless gameplay
-     * @param sessionKey Address of the session key (backend server key)
+     * @notice Creates a session key for gasless gameplay with spending limits
+     * @dev Only owner can create. Validates expiration and enforces min/max validity period.
+     * @param sessionKey Address of the session key (typically backend server key)
      * @param validUntil Expiration timestamp
-     * @param dailyLimit Daily spending limit in USD value (6 decimals)
-     * @dev Only owner can create session keys
-     *
-     * Epic 7 Support: Gasless gameplay
-     * Session keys enable the game server to execute transactions on behalf
-     * of the user without requiring signatures for each action.
+     * @param dailyLimit Spending limit per 24-hour rolling window in USD (6 decimals)
      */
     function createSessionKey(
         address sessionKey,
         uint256 validUntil,
         uint256 dailyLimit
-    ) external onlyOwner {
+    ) external onlyOwner whenNotPaused {
         if (sessionKey == address(0)) revert InvalidSessionKey();
+        if (sessionKey == owner) revert InvalidSessionKey(); // Can't make owner a session key
         if (validUntil <= block.timestamp) revert SessionKeyExpired();
+
+        // Validate validity period
+        uint256 validityDuration = validUntil - block.timestamp;
+        if (validityDuration < MIN_SESSION_VALIDITY) revert InvalidValidityPeriod();
+        if (validityDuration > MAX_SESSION_VALIDITY) revert InvalidValidityPeriod();
 
         sessionKeys[sessionKey] = SessionKeyInfo({
             active: true,
             validUntil: validUntil,
             dailyLimit: dailyLimit,
-            spentToday: 0,
-            lastResetDay: block.timestamp / 1 days
+            windowStart: block.timestamp,
+            spentInWindow: 0
         });
+
+        emit SessionKeyCreated(sessionKey, validUntil, dailyLimit);
+    }
+
+    /**
+     * @notice Updates an existing active session key's parameters
+     * @dev Only owner can update. Validates expiration and enforces min/max validity period.
+     * @param sessionKey Address of the session key to update
+     * @param validUntil New expiration timestamp
+     * @param dailyLimit New spending limit in USD (6 decimals)
+     */
+    function updateSessionKey(
+        address sessionKey,
+        uint256 validUntil,
+        uint256 dailyLimit
+    ) external onlyOwner whenNotPaused {
+        SessionKeyInfo storage session = sessionKeys[sessionKey];
+        if (!session.active) revert SessionKeyNotActive();
+        if (validUntil <= block.timestamp) revert SessionKeyExpired();
+
+        uint256 validityDuration = validUntil - block.timestamp;
+        if (validityDuration < MIN_SESSION_VALIDITY) revert InvalidValidityPeriod();
+        if (validityDuration > MAX_SESSION_VALIDITY) revert InvalidValidityPeriod();
+
+        session.validUntil = validUntil;
+        session.dailyLimit = dailyLimit;
 
         emit SessionKeyCreated(sessionKey, validUntil, dailyLimit);
     }
@@ -519,42 +539,28 @@ contract SmartWallet is
     }
 
     /**
-     * @notice Execute from game server using session key
-     * @param targets Array of target addresses
+     * @notice Executes batch transactions using session key authentication from game server
+     * @dev Validates session key, checks rolling window spending limit, and verifies whitelisted targets.
+     *      Enables gasless gameplay by allowing backend to execute on behalf of user.
+     * @param targets Array of target contract addresses
      * @param values Array of ETH values
      * @param datas Array of calldata
-     * @dev Called by game server with session key signature
-     *
-     * Epic 4 Support: Building operations (US-011, US-012, US-015)
-     * Epic 7 Support: Gasless gameplay
-     *
-     * Security checks:
-     * 1. Session key must be active
-     * 2. Session key must not be expired
-     * 3. Daily spending limit must not be exceeded
-     * 4. All targets must be whitelisted
-     *
-     * Flow for placing a Bank building:
-     * 1. User authorizes action in game UI
-     * 2. Game server calls this function with session key
-     * 3. This function executes: [approve, supply, recordBuilding]
-     * 4. All actions happen in one transaction (gasless for user)
      */
     function executeFromGame(
         address[] calldata targets,
         uint256[] calldata values,
         bytes[] calldata datas
-    ) external nonReentrant {
+    ) external nonReentrant whenNotPaused {
         // 1. Validate session key
         SessionKeyInfo storage session = sessionKeys[msg.sender];
         if (!session.active) revert SessionKeyNotActive();
         if (block.timestamp > session.validUntil) revert SessionKeyExpired();
 
-        // 2. Reset daily counter if new day
-        uint256 currentDay = block.timestamp / 1 days;
-        if (currentDay > session.lastResetDay) {
-            session.spentToday = 0;
-            session.lastResetDay = currentDay;
+        // 2. Check if we need to start a new 24-hour window
+        if (block.timestamp >= session.windowStart + SECONDS_PER_DAY) {
+            // Start new window
+            session.windowStart = block.timestamp;
+            session.spentInWindow = 0;
         }
 
         // 3. Validate array lengths
@@ -574,13 +580,13 @@ contract SmartWallet is
             totalValue += _estimateValue(targets[i], values[i], datas[i]);
         }
 
-        // 5. Check daily limit
-        if (session.spentToday + totalValue > session.dailyLimit) {
+        // 5. Check window limit
+        if (session.spentInWindow + totalValue > session.dailyLimit) {
             revert DailyLimitExceeded();
         }
 
         // 6. Update spending
-        session.spentToday += totalValue;
+        session.spentInWindow += totalValue;
 
         // 7. Execute batch
         for (uint256 i = 0; i < targets.length; i++) {
@@ -590,25 +596,20 @@ contract SmartWallet is
     }
 
     /**
-     * @notice Estimate USD value of a transaction (simplified)
+     * @notice Estimates USD value of a transaction for spending limit tracking
+     * @dev Simplified estimation using constant ETH price. Production should use Chainlink oracles.
      * @param target Target contract
      * @param value ETH value
      * @param data Calldata
      * @return Estimated USD value (6 decimals)
-     * @dev In production, use Chainlink oracles for accurate pricing
-     *
-     * Simplified estimation:
-     * - ETH value → convert using hardcoded price
-     * - ERC20 transfers → parse amount from calldata
-     * - Complex DeFi → conservative estimate
      */
     function _estimateValue(
         address target,
         uint256 value,
         bytes memory data
-    ) internal view returns (uint256) {
-        // ETH value (assuming $2000/ETH for simplicity)
-        uint256 ethValue = (value * 2000 * 1e6) / 1e18;
+    ) internal pure returns (uint256) {
+        // ETH value (using constant)
+        uint256 ethValue = (value * ETH_PRICE_USD) / 1e18;
 
         // If calling ERC20 transfer/approve, try to parse amount
         // This is a simplified version - production should use oracles
@@ -630,6 +631,24 @@ contract SmartWallet is
     }
 
     // ============ Emergency Functions ============
+
+    /**
+     * @notice Emergency pause to disable all execute and session key operations
+     * @dev Only owner can pause. Owner can still transfer ownership and unpause when paused.
+     */
+    function pause() external onlyOwner {
+        if (paused) revert WalletPaused();
+        paused = true;
+    }
+
+    /**
+     * @notice Unpause the wallet
+     * @dev Only owner can unpause
+     */
+    function unpause() external onlyOwner {
+        if (!paused) revert WalletNotPaused();
+        paused = false;
+    }
 
     /**
      * @notice Emergency function to recover stuck tokens

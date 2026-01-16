@@ -1,12 +1,12 @@
 'use client'
 
 import { usePrivy } from '@privy-io/react-auth'
-import { useSmartWallet } from '@/hooks'
+import { useHasWallet } from '@/hooks/useContracts'
 import {
   GameCanvas,
   TopBar,
   BottomBar,
-  CreateWalletScreen,
+  CreateTownHallModal,
 } from '@/components/game'
 import { WalletInfo, DepositForm, WithdrawForm } from '@/components/wallet'
 import { useState } from 'react'
@@ -15,11 +15,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 
 export default function AppPage() {
-  const { ready, authenticated } = usePrivy()
-  const { user } = usePrivy()
-  const eoaAddress = user?.wallet?.address as `0x${string}` | undefined
-  const { hasWallet, walletAddress, isLoading } = useSmartWallet(eoaAddress)
+  const { ready, authenticated, user } = usePrivy()
+  const eoaAddress = user?.wallet?.address
+  const { hasWallet, loading: walletLoading } = useHasWallet(eoaAddress)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showTownHallModal, setShowTownHallModal] = useState(false)
+  const [walletAddress, setWalletAddress] = useState<string | null>(null)
 
   // Not ready yet
   if (!ready) {
@@ -33,24 +34,68 @@ export default function AppPage() {
     )
   }
 
-  // Authenticated but no smart wallet - show create wallet screen
-  if (authenticated && !isLoading && !hasWallet) {
-    return <CreateWalletScreen />
-  }
-
-  // Loading wallet status (only if authenticated)
-  if (authenticated && isLoading) {
+  // Loading wallet status
+  if (walletLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
         <div className="flex items-center gap-3 text-white">
           <Loader2 className="h-8 w-8 animate-spin" />
-          <span className="text-xl font-bold">Loading your city...</span>
+          <span className="text-xl font-bold">Checking your city...</span>
         </div>
       </div>
     )
   }
 
-  // Show game (works with or without authentication)
+  // User needs to create Town Hall
+  if (authenticated && !hasWallet) {
+    return (
+      <>
+        <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
+          <TopBar />
+
+          {/* Welcome Message */}
+          <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+            <div className="text-center space-y-6 pointer-events-auto max-w-2xl px-8">
+              <div className="text-8xl mb-4">🏛️</div>
+              <h1 className="text-5xl font-bold bg-gradient-to-r from-amber-400 via-orange-500 to-amber-400 bg-clip-text text-transparent">
+                Welcome to DefiCity!
+              </h1>
+              <p className="text-xl text-slate-300">
+                Start your journey by creating your Town Hall
+              </p>
+              <button
+                onClick={() => setShowTownHallModal(true)}
+                className="px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-2xl shadow-orange-500/30"
+              >
+                Create Town Hall
+              </button>
+            </div>
+          </div>
+
+          {/* Faded game canvas in background */}
+          <div className="opacity-30">
+            <GameCanvas />
+          </div>
+
+          <BottomBar />
+        </main>
+
+        {/* Town Hall Modal */}
+        <CreateTownHallModal
+          isOpen={showTownHallModal}
+          onClose={() => setShowTownHallModal(false)}
+          onSuccess={(wallet, buildingId) => {
+            setWalletAddress(wallet)
+            setShowTownHallModal(false)
+            // Refresh page to show game with wallet
+            window.location.reload()
+          }}
+        />
+      </>
+    )
+  }
+
+  // Show game (user has wallet)
   return (
     <main className="relative min-h-screen overflow-hidden">
       <TopBar />
@@ -83,8 +128,8 @@ export default function AppPage() {
               <WalletInfo />
             </TabsContent>
             <TabsContent value="actions" className="mt-4 space-y-4">
-              <DepositForm smartWalletAddress={walletAddress} />
-              <WithdrawForm smartWalletAddress={walletAddress} />
+              <DepositForm smartWalletAddress={(walletAddress as `0x${string}`) || null} />
+              <WithdrawForm smartWalletAddress={(walletAddress as `0x${string}`) || null} />
             </TabsContent>
           </Tabs>
         </div>

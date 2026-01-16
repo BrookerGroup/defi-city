@@ -4,25 +4,21 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "../factory/WalletFactory.sol";
 
 /**
  * @title DefiCityCore
- * @notice Core bookkeeping contract - NEVER holds user tokens
- * @dev All token custody is in user's SmartWallet
- *
- * Architecture:
- * - This contract ONLY tracks game state (buildings, stats, etc.)
- * - It NEVER calls transferFrom() or holds tokens
- * - All DeFi interactions happen via user's SmartWallet
- * - This is purely an accounting/bookkeeping layer
- *
- * Epic Support:
- * - Epic 1: User registration
- * - Epic 2: Portfolio tracking (accounting only)
- * - Epic 3: Town Hall registration
- * - Epic 4: Bank building tracking
+ * @notice Core bookkeeping contract for DefiCity game state management
+ * @dev This contract tracks buildings, user statistics, and portfolio data
+ *      All token custody is handled by user's SmartWallet
+ *      This contract NEVER holds user tokens
  */
 contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
+
+    // ============ Constants ============
+
+    /// @notice Maximum fee in basis points (1% = 100 bps)
+    uint256 public constant MAX_FEE_BPS = 100;
 
     // ============ State Variables ============
 
@@ -35,11 +31,16 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
     /// @notice User EOA → SmartWallet mapping
     mapping(address => address) public userSmartWallets;
 
+    /// @notice SmartWallet → User EOA reverse mapping
+    mapping(address => address) public walletToOwner;
+
     /// @notice Module addresses (swappable for upgrades)
     address public buildingManager;
     address public feeManager;
     address public emergencyManager;
-    address public walletFactory;
+
+    /// @notice WalletFactory address
+    WalletFactory public walletFactory;
 
     /// @notice Building counter
     uint256 public buildingIdCounter;
@@ -146,29 +147,19 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
     // ============ Modifiers ============
 
     /**
-     * @notice Ensure caller is a registered SmartWallet
-     * @dev Only SmartWallets can call building functions
+     * @notice Restricts function access to registered SmartWallets only
+     * @dev Validates msg.sender using walletToOwner mapping
      */
     modifier onlyUserWallet() {
-        // msg.sender must be a registered SmartWallet
-        bool isRegistered = false;
-
-        // Find the owner of this SmartWallet
-        address walletOwner = address(0);
-        for (uint256 i = 0; i < 1000; i++) {
-            // Simple iteration (gas inefficient but works for MVP)
-            // TODO: Optimize with reverse mapping
-            if (userSmartWallets[msg.sender] == msg.sender) {
-                isRegistered = true;
-                walletOwner = msg.sender;
-                break;
-            }
-        }
-
-        if (!isRegistered) revert OnlyUserWallet();
+        address walletOwner = walletToOwner[msg.sender];
+        if (walletOwner == address(0)) revert OnlyUserWallet();
         _;
     }
 
+    /**
+     * @notice Restricts function access to authorized modules
+     * @dev Allows BuildingManager, FeeManager, or EmergencyManager
+     */
     modifier onlyModules() {
         if (msg.sender != buildingManager &&
             msg.sender != feeManager &&
@@ -185,16 +176,13 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
         treasury = _treasury;
     }
 
-    // ============ Wallet Registration (Epic 3: Town Hall) ============
+    // ============ Wallet Registration ============
 
     /**
-     * @notice Register user's SmartWallet
-     * @dev Called once when user places Town Hall
+     * @notice Registers a SmartWallet for a user
+     * @dev Only callable by WalletFactory. Updates both forward and reverse mappings.
      * @param user User's EOA address
      * @param smartWallet Address of user's SmartWallet
-     *
-     * Epic 3 Support: US-009 (Place Town Hall)
-     * This function is called by SmartWallet after deployment
      */
     function registerWallet(
         address user,
@@ -202,62 +190,48 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
     ) external nonReentrant whenNotPaused {
         if (user == address(0) || smartWallet == address(0)) revert InvalidOwner();
         if (userSmartWallets[user] != address(0)) revert WalletAlreadyRegistered();
+        if (msg.sender != address(walletFactory)) revert OnlyModules();
 
         userSmartWallets[user] = smartWallet;
+        walletToOwner[smartWallet] = user;
         userStats[user].cityCreatedAt = block.timestamp;
 
         emit WalletRegistered(user, smartWallet);
     }
 
-    // ============ Building Management (Epic 3 & 4) ============
+    // ============ Building Management ============
 
     /**
-     * @notice Record Town Hall placement (called by Factory)
-     * @dev Special function for initial Town Hall creation
-     *      This is called by WalletFactory.createTownHall()
-     *      and does NOT require call from SmartWallet
-     *
-     * Epic 3 Support: US-009 (Place Town Hall - First Building)
-     *
-     * Flow:
-     * 1. User connects EOA to game
-     * 2. User clicks "Create Town Hall"
-     * 3. EOA calls Factory.createTownHall()
-     * 4. Factory creates SmartWallet
-     * 5. Factory calls this function to record Town Hall
-     *
-     * @param user User's EOA address
-     * @param smartWallet User's SmartWallet address
+     * @notice Creates SmartWallet and places Town Hall as the first building
+     * @dev Entry point for new players. Wallet creation and Town Hall placement in single transaction.
      * @param x Grid X coordinate
      * @param y Grid Y coordinate
-     * @param metadata Extra data
+     * @return walletAddress Address of the created SmartWallet
      * @return buildingId ID of the Town Hall building
      */
-    function recordTownHallPlacement(
-        address user,
-        address smartWallet,
+    function createTownHall(
         uint256 x,
-        uint256 y,
-        bytes calldata metadata
-    ) external nonReentrant whenNotPaused returns (uint256 buildingId) {
-        // Only factory can call this function
-        if (msg.sender != walletFactory) revert OnlyModules();
+        uint256 y
+    ) external nonReentrant whenNotPaused returns (address walletAddress, uint256 buildingId) {
+        address user = msg.sender;
 
-        // Verify wallet is registered
-        address userWallet = userSmartWallets[user];
-        if (userWallet == address(0)) revert WalletNotRegistered();
-        if (userWallet != smartWallet) revert OnlyUserWallet();
+        // Check if user already has a wallet
+        if (userSmartWallets[user] != address(0)) revert WalletAlreadyRegistered();
 
         // Check grid position
         if (gridBuildings[x][y] != 0) revert GridOccupied();
 
-        // Create building
+        // 1. Create SmartWallet via Factory
+        SmartWallet wallet = walletFactory.createWallet(user, 0);
+        walletAddress = address(wallet);
+
+        // 2. Create Town Hall building
         buildingId = ++buildingIdCounter;
 
         buildings[buildingId] = Building({
             id: buildingId,
             owner: user,
-            smartWallet: smartWallet,
+            smartWallet: walletAddress,
             buildingType: "townhall",
             asset: address(0),
             amount: 0,
@@ -265,7 +239,7 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
             coordinateX: x,
             coordinateY: y,
             active: true,
-            metadata: metadata
+            metadata: abi.encode("First Town Hall")
         });
 
         userBuildings[user].push(buildingId);
@@ -275,7 +249,7 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
         emit BuildingPlaced(
             buildingId,
             user,
-            smartWallet,
+            walletAddress,
             "townhall",
             address(0),
             0,
@@ -283,29 +257,20 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
             y
         );
 
-        return buildingId;
+        return (walletAddress, buildingId);
     }
 
     /**
-     * @notice Record building placement
-     * @dev Called BY user's SmartWallet after DeFi interaction
-     *
-     * Epic 3 Support: US-009 (Town Hall)
-     * Epic 4 Support: US-011, US-012 (Bank buildings)
-     *
-     * Flow:
-     * 1. User initiates building placement via frontend
-     * 2. BuildingManager prepares DeFi calldata
-     * 3. SmartWallet executes DeFi interaction (e.g., Aave supply)
-     * 4. SmartWallet calls this function to record in Core
-     *
+     * @notice Records building placement on the grid after DeFi interaction
+     * @dev Called by user's SmartWallet after executing DeFi operations (e.g., Aave supply)
      * @param user User's EOA address
-     * @param buildingType Type of building (flexible string, e.g., "bank", "shop", "lottery")
-     * @param asset Asset address
-     * @param amount Amount invested
+     * @param buildingType Type of building (e.g., "bank", "shop", "lottery")
+     * @param asset Asset address used for the building
+     * @param amount Amount invested in the building
      * @param x Grid X coordinate
      * @param y Grid Y coordinate
-     * @param metadata Extra data (e.g., Aave mode, LP pair)
+     * @param metadata Extra data (e.g., Aave mode, LP pair information)
+     * @return buildingId The ID of the newly created building
      */
     function recordBuildingPlacement(
         address user,
@@ -364,14 +329,11 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
     }
 
     /**
-     * @notice Record harvest
-     * @dev Called BY user's SmartWallet after claiming rewards
-     *
-     * Epic 4 Support: US-015 (Harvest Bank Rewards)
-     *
+     * @notice Records harvest of rewards from a building
+     * @dev Called by user's SmartWallet after claiming rewards from DeFi protocols
      * @param user User's EOA address
-     * @param buildingId Building ID
-     * @param yieldAmount Amount harvested
+     * @param buildingId Building ID to harvest from
+     * @param yieldAmount Amount of rewards harvested
      */
     function recordHarvest(
         address user,
@@ -392,11 +354,10 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
     }
 
     /**
-     * @notice Record building demolition
-     * @dev Called BY user's SmartWallet after withdrawing from DeFi
-     *
+     * @notice Records building demolition and clears grid position
+     * @dev Called by user's SmartWallet after withdrawing funds from DeFi protocols
      * @param user User's EOA address
-     * @param buildingId Building ID
+     * @param buildingId Building ID to demolish
      * @param returnedAmount Amount returned from DeFi protocol
      */
     function recordDemolition(
@@ -423,15 +384,11 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
         emit BuildingDemolished(buildingId, user, returnedAmount);
     }
 
-    // ============ Portfolio Tracking (Epic 2) ============
+    // ============ Portfolio Tracking ============
 
     /**
-     * @notice Record deposit for analytics
-     * @dev Called when user transfers to their SmartWallet
-     *
-     * Epic 2 Support: US-005 (Deposit)
-     * This is for accounting/analytics only - tokens go to SmartWallet
-     *
+     * @notice Records deposit for analytics and leaderboard tracking
+     * @dev Called by user's SmartWallet. Tracks lifetime deposit statistics only - tokens stay in SmartWallet.
      * @param user User's EOA address
      * @param asset Asset address
      * @param amount Amount deposited
@@ -440,12 +397,11 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
         address user,
         address asset,
         uint256 amount
-    ) external nonReentrant whenNotPaused {
+    ) external nonReentrant whenNotPaused onlyUserWallet {
+        // Verify caller is user's SmartWallet
         address smartWallet = userSmartWallets[user];
         if (smartWallet == address(0)) revert WalletNotRegistered();
-
-        // Can be called by anyone for now (permissionless accounting)
-        // TODO: Add access control if needed
+        if (msg.sender != smartWallet) revert OnlyUserWallet();
 
         userStats[user].totalDeposited += amount;
 
@@ -453,11 +409,8 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
     }
 
     /**
-     * @notice Record withdrawal for analytics
-     * @dev Called when user withdraws from SmartWallet to EOA
-     *
-     * Epic 2 Support: US-007 (Withdraw)
-     *
+     * @notice Records withdrawal for analytics and leaderboard tracking
+     * @dev Called by user's SmartWallet. Tracks lifetime withdrawal statistics.
      * @param user User's EOA address
      * @param asset Asset address
      * @param amount Amount withdrawn
@@ -466,9 +419,11 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
         address user,
         address asset,
         uint256 amount
-    ) external nonReentrant whenNotPaused {
+    ) external nonReentrant whenNotPaused onlyUserWallet {
+        // Verify caller is user's SmartWallet
         address smartWallet = userSmartWallets[user];
         if (smartWallet == address(0)) revert WalletNotRegistered();
+        if (msg.sender != smartWallet) revert OnlyUserWallet();
 
         userStats[user].totalWithdrawn += amount;
 
@@ -541,8 +496,8 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
     // ============ Admin Functions ============
 
     /**
-     * @notice Set module addresses
-     * @dev Allows upgrading game logic without redeploying Core
+     * @notice Sets module addresses for game logic components
+     * @dev Enables upgrading modules without redeploying Core contract
      * @param _buildingManager BuildingManager address
      * @param _feeManager FeeManager address
      * @param _emergencyManager EmergencyManager address
@@ -552,6 +507,10 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
         address _feeManager,
         address _emergencyManager
     ) external onlyOwner {
+        if (_buildingManager == address(0)) revert InvalidOwner();
+        if (_feeManager == address(0)) revert InvalidOwner();
+        if (_emergencyManager == address(0)) revert InvalidOwner();
+
         buildingManager = _buildingManager;
         feeManager = _feeManager;
         emergencyManager = _emergencyManager;
@@ -560,35 +519,38 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
     }
 
     /**
-     * @notice Set WalletFactory address
-     * @param _walletFactory WalletFactory address
+     * @notice Sets WalletFactory address for wallet creation
      * @dev Required for Town Hall creation flow
+     * @param _walletFactory WalletFactory address
      */
-    function setWalletFactory(address _walletFactory) external onlyOwner {
+    function setWalletFactory(WalletFactory _walletFactory) external onlyOwner {
+        if (address(_walletFactory) == address(0)) revert InvalidOwner();
         walletFactory = _walletFactory;
-        emit FactoryUpdated(_walletFactory);
+        emit FactoryUpdated(address(_walletFactory));
     }
 
     /**
-     * @notice Add supported asset
+     * @notice Adds an asset to the supported assets list
      * @param asset Asset address to add
      */
     function addSupportedAsset(address asset) external onlyOwner {
+        if (asset == address(0)) revert InvalidOwner();
         supportedAssets[asset] = true;
         emit AssetAdded(asset);
     }
 
     /**
-     * @notice Remove supported asset
+     * @notice Removes an asset from the supported assets list
      * @param asset Asset address to remove
      */
     function removeSupportedAsset(address asset) external onlyOwner {
+        if (asset == address(0)) revert InvalidOwner();
         supportedAssets[asset] = false;
         emit AssetRemoved(asset);
     }
 
     /**
-     * @notice Update treasury address
+     * @notice Updates the treasury address for protocol fees
      * @param _treasury New treasury address
      */
     function setTreasury(address _treasury) external onlyOwner {
