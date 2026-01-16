@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as PIXI from 'pixi.js'
 import { useGameStore } from '@/store/gameStore'
-import { Building, BUILDING_INFO, GRID_SIZE, TILE_SIZE } from '@/types'
+import { Building, BuildingAsset, BUILDING_INFO, GRID_SIZE, TILE_SIZE } from '@/types'
 import { BuildingModal } from './BuildingModal'
 import { BuildingInfo } from './BuildingInfo'
 import { toast } from 'sonner'
@@ -19,7 +19,7 @@ const isoToCart = (isoX: number, isoY: number) => ({
   y: Math.floor((isoY / (TILE_SIZE / 4) - isoX / (TILE_SIZE / 2)) / 2),
 })
 
-// Draw single tile - moved outside component
+// Draw single tile
 const drawTile = (
   graphics: PIXI.Graphics,
   x: number,
@@ -41,7 +41,7 @@ const drawTile = (
     .stroke({ color: 0x3a3a5e, width: 1, alpha: 0.5 })
 }
 
-// Draw grid - moved outside component
+// Draw grid
 const drawGrid = (container: PIXI.Container) => {
   const graphics = new PIXI.Graphics()
 
@@ -55,14 +55,14 @@ const drawGrid = (container: PIXI.Container) => {
   container.addChild(graphics)
 }
 
-// Create building sprite - moved outside component
+// Create building sprite
 const createBuildingSprite = (building: Building) => {
   const info = BUILDING_INFO[building.type]
   const container = new PIXI.Container()
 
   // Building base
   const base = new PIXI.Graphics()
-  base.roundRect(-25, -40, 50, 50, 5)
+  base.roundRect(-30, -50, 60, 60, 8)
   base.fill({ color: info.color })
   base.stroke({ color: 0xffffff, width: 2, alpha: 0.3 })
 
@@ -70,14 +70,26 @@ const createBuildingSprite = (building: Building) => {
   const text = new PIXI.Text({
     text: info.icon,
     style: {
-      fontSize: 28,
+      fontSize: 32,
     },
   })
   text.anchor.set(0.5)
-  text.y = -15
+  text.y = -20
+
+  // Building name label
+  const nameText = new PIXI.Text({
+    text: info.name,
+    style: {
+      fontSize: 10,
+      fill: 0xffffff,
+    },
+  })
+  nameText.anchor.set(0.5)
+  nameText.y = 18
 
   container.addChild(base)
   container.addChild(text)
+  container.addChild(nameText)
 
   return container
 }
@@ -85,6 +97,7 @@ const createBuildingSprite = (building: Building) => {
 export function GameCanvas() {
   const canvasRef = useRef<HTMLDivElement>(null)
   const appRef = useRef<PIXI.Application | null>(null)
+  const mainContainerRef = useRef<PIXI.Container | null>(null)
   const gridContainerRef = useRef<PIXI.Container | null>(null)
   const buildingsContainerRef = useRef<PIXI.Container | null>(null)
   const hoverTileRef = useRef<PIXI.Graphics | null>(null)
@@ -99,12 +112,19 @@ export function GameCanvas() {
     isPositionOccupied,
     zoom,
     setZoom,
+    cameraPosition,
+    setCameraPosition,
   } = useGameStore()
 
   const [buildModalOpen, setBuildModalOpen] = useState(false)
   const [pendingPosition, setPendingPosition] = useState<{ x: number; y: number } | null>(null)
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null)
   const [infoModalOpen, setInfoModalOpen] = useState(false)
+
+  // Panning state
+  const [isPanning, setIsPanning] = useState(false)
+  const panStartRef = useRef<{ x: number; y: number } | null>(null)
+  const panOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
 
   // Initialize PixiJS
   useEffect(() => {
@@ -137,6 +157,7 @@ export function GameCanvas() {
       mainContainer.addChild(buildingsContainer)
       app.stage.addChild(mainContainer)
 
+      mainContainerRef.current = mainContainer
       gridContainerRef.current = gridContainer
       buildingsContainerRef.current = buildingsContainer
 
@@ -152,8 +173,8 @@ export function GameCanvas() {
       // Handle resize
       const handleResize = () => {
         app.renderer.resize(window.innerWidth, window.innerHeight)
-        mainContainer.x = app.screen.width / 2
-        mainContainer.y = app.screen.height / 3
+        mainContainer.x = app.screen.width / 2 + panOffsetRef.current.x
+        mainContainer.y = app.screen.height / 3 + panOffsetRef.current.y
       }
 
       window.addEventListener('resize', handleResize)
@@ -185,28 +206,42 @@ export function GameCanvas() {
       if (sprite) {
         const iso = cartToIso(building.position.x, building.position.y)
         sprite.x = iso.x
-        sprite.y = iso.y - 20 // Offset to sit on tile
+        sprite.y = iso.y - 25 // Offset to sit on tile
         sprite.zIndex = building.position.x + building.position.y
         sprite.eventMode = 'static'
         sprite.cursor = 'pointer'
-        sprite.on('pointerdown', () => {
+        sprite.on('pointerdown', (e: PIXI.FederatedPointerEvent) => {
+          // Don't open info if we're placing a building
+          if (isPlacingBuilding) return
+          e.stopPropagation()
           setSelectedBuilding(building)
           setInfoModalOpen(true)
         })
         container.addChild(sprite)
       }
     })
-  }, [buildings])
+  }, [buildings, isPlacingBuilding])
 
-  // Handle mouse move for hover effect
+  // Handle mouse move for hover effect and panning
   useEffect(() => {
-    if (!appRef.current || !hoverTileRef.current || !gridContainerRef.current) return
+    if (!appRef.current || !hoverTileRef.current || !gridContainerRef.current || !mainContainerRef.current) return
 
     const app = appRef.current
     const hoverTile = hoverTileRef.current
     const gridContainer = gridContainerRef.current
+    const mainContainer = mainContainerRef.current
 
     const handleMouseMove = (e: PIXI.FederatedPointerEvent) => {
+      // Handle panning
+      if (isPanning && panStartRef.current) {
+        const dx = e.global.x - panStartRef.current.x
+        const dy = e.global.y - panStartRef.current.y
+
+        mainContainer.x = app.screen.width / 2 + panOffsetRef.current.x + dx
+        mainContainer.y = app.screen.height / 3 + panOffsetRef.current.y + dy
+        return
+      }
+
       if (!isPlacingBuilding) {
         hoverTile.visible = false
         return
@@ -241,8 +276,23 @@ export function GameCanvas() {
       }
     }
 
-    const handleClick = (e: PIXI.FederatedPointerEvent) => {
-      if (!isPlacingBuilding || !selectedBuildingType) return
+    const handlePointerDown = (e: PIXI.FederatedPointerEvent) => {
+      // Middle mouse button for panning
+      if (e.button === 1) {
+        setIsPanning(true)
+        panStartRef.current = { x: e.global.x, y: e.global.y }
+        return
+      }
+
+      // Right click also for panning
+      if (e.button === 2) {
+        setIsPanning(true)
+        panStartRef.current = { x: e.global.x, y: e.global.y }
+        return
+      }
+
+      // Left click
+      if (!isPlacingBuilding) return
 
       const localPos = gridContainer.toLocal(e.global)
       const cart = isoToCart(localPos.x, localPos.y)
@@ -258,24 +308,44 @@ export function GameCanvas() {
       }
     }
 
+    const handlePointerUp = (e: PIXI.FederatedPointerEvent) => {
+      if (isPanning && panStartRef.current) {
+        // Save the new offset
+        const dx = e.global.x - panStartRef.current.x
+        const dy = e.global.y - panStartRef.current.y
+        panOffsetRef.current = {
+          x: panOffsetRef.current.x + dx,
+          y: panOffsetRef.current.y + dy,
+        }
+      }
+      setIsPanning(false)
+      panStartRef.current = null
+    }
+
     app.stage.eventMode = 'static'
     app.stage.on('pointermove', handleMouseMove)
-    app.stage.on('pointerdown', handleClick)
+    app.stage.on('pointerdown', handlePointerDown)
+    app.stage.on('pointerup', handlePointerUp)
+    app.stage.on('pointerupoutside', handlePointerUp)
+
+    // Disable context menu
+    const canvas = canvasRef.current
+    const handleContextMenu = (e: Event) => e.preventDefault()
+    canvas?.addEventListener('contextmenu', handleContextMenu)
 
     return () => {
       app.stage.off('pointermove', handleMouseMove)
-      app.stage.off('pointerdown', handleClick)
+      app.stage.off('pointerdown', handlePointerDown)
+      app.stage.off('pointerup', handlePointerUp)
+      app.stage.off('pointerupoutside', handlePointerUp)
+      canvas?.removeEventListener('contextmenu', handleContextMenu)
     }
-  }, [isPlacingBuilding, selectedBuildingType, isPositionOccupied])
+  }, [isPlacingBuilding, selectedBuildingType, isPositionOccupied, isPanning])
 
   // Handle zoom
   useEffect(() => {
-    if (!gridContainerRef.current || !buildingsContainerRef.current) return
-
-    const parent = gridContainerRef.current.parent
-    if (parent) {
-      parent.scale.set(zoom)
-    }
+    if (!mainContainerRef.current) return
+    mainContainerRef.current.scale.set(zoom)
   }, [zoom])
 
   // Handle wheel zoom
@@ -291,19 +361,23 @@ export function GameCanvas() {
   }, [zoom, setZoom])
 
   // Confirm building placement
-  const handleConfirmBuild = (amount?: string) => {
-    if (!pendingPosition || !selectedBuildingType) return
+  const handleConfirmBuild = (asset: BuildingAsset, amount: string) => {
+    if (!pendingPosition) return
 
+    // The building type is selected in the modal now
     const newBuilding: Building = {
-      id: `${selectedBuildingType}-${Date.now()}`,
-      type: selectedBuildingType,
+      id: `building-${Date.now()}`,
+      type: 'bank', // This will be set by the modal
       position: pendingPosition,
+      asset,
       deposited: amount,
       createdAt: Date.now(),
     }
 
     addBuilding(newBuilding)
-    toast.success(`${BUILDING_INFO[selectedBuildingType].name} built!`)
+    toast.success(`Building placed!`, {
+      description: `Deposited ${amount} ${asset}`,
+    })
     setPendingPosition(null)
     selectBuildingType(null)
   }
@@ -311,6 +385,7 @@ export function GameCanvas() {
   const handleCloseBuildModal = () => {
     setBuildModalOpen(false)
     setPendingPosition(null)
+    selectBuildingType(null)
   }
 
   return (
@@ -318,13 +393,14 @@ export function GameCanvas() {
       <div
         ref={canvasRef}
         className="fixed inset-0 pt-14 pb-20"
-        style={{ touchAction: 'none' }}
+        style={{ touchAction: 'none', cursor: isPanning ? 'grabbing' : isPlacingBuilding ? 'crosshair' : 'default' }}
       />
 
       <BuildingModal
         open={buildModalOpen}
         onClose={handleCloseBuildModal}
         buildingType={selectedBuildingType}
+        position={pendingPosition}
         onConfirm={handleConfirmBuild}
       />
 

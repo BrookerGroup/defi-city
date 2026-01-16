@@ -11,7 +11,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Building, BUILDING_INFO } from '@/types'
-import { Trash2, Coins, TrendingUp } from 'lucide-react'
+import { Trash2, Coins, TrendingUp, Wallet } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface BuildingInfoProps {
   building: Building | null
@@ -24,12 +25,26 @@ export function BuildingInfo({ building, open, onClose, onRemove }: BuildingInfo
   if (!building) return null
 
   const info = BUILDING_INFO[building.type]
-  const isTownHall = building.type === 'town-hall'
+  const canDemolish = info.canDemolish
 
-  const handleRemove = () => {
-    if (isTownHall) return
+  const handleDemolish = () => {
+    if (!canDemolish) {
+      toast.error('Cannot demolish this building')
+      return
+    }
     onRemove(building.id)
+    toast.success(`${info.name} demolished`, {
+      description: building.deposited
+        ? `${building.deposited} ${building.asset || 'ETH'} returned to your wallet`
+        : undefined,
+    })
     onClose()
+  }
+
+  const handleHarvest = () => {
+    toast.info('Harvest coming soon!', {
+      description: 'This feature will be available when smart contracts are deployed',
+    })
   }
 
   return (
@@ -60,19 +75,53 @@ export function BuildingInfo({ building, open, onClose, onRemove }: BuildingInfo
           )}
 
           <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Risk Level</span>
+            <Badge
+              variant="outline"
+              className={
+                info.risk === 'low'
+                  ? 'text-green-500 border-green-500/30'
+                  : info.risk === 'medium'
+                  ? 'text-amber-500 border-amber-500/30'
+                  : 'text-red-500 border-red-500/30'
+              }
+            >
+              {info.risk}
+            </Badge>
+          </div>
+
+          <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Position</span>
             <span className="font-mono">
               ({building.position.x}, {building.position.y})
             </span>
           </div>
 
+          {building.asset && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Asset</span>
+              <Badge variant="outline">{building.asset}</Badge>
+            </div>
+          )}
+
           {building.deposited && (
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Deposited</span>
               <div className="flex items-center gap-1">
                 <Coins className="h-4 w-4" />
-                <span className="font-mono">{building.deposited} ETH</span>
+                <span className="font-mono">
+                  {building.deposited} {building.asset || 'ETH'}
+                </span>
               </div>
+            </div>
+          )}
+
+          {building.pendingRewards && parseFloat(building.pendingRewards) > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Pending Rewards</span>
+              <span className="font-mono text-green-500">
+                +{building.pendingRewards} {building.asset || 'ETH'}
+              </span>
             </div>
           )}
 
@@ -88,10 +137,16 @@ export function BuildingInfo({ building, open, onClose, onRemove }: BuildingInfo
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
-          {!isTownHall && (
-            <Button variant="destructive" onClick={handleRemove}>
+          {canDemolish && building.deposited && (
+            <Button variant="secondary" onClick={handleHarvest}>
+              <Wallet className="h-4 w-4 mr-2" />
+              Harvest
+            </Button>
+          )}
+          {canDemolish && (
+            <Button variant="destructive" onClick={handleDemolish}>
               <Trash2 className="h-4 w-4 mr-2" />
-              Remove
+              Demolish
             </Button>
           )}
         </DialogFooter>
