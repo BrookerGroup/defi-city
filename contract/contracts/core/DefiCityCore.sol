@@ -187,7 +187,7 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
     function registerWallet(
         address user,
         address smartWallet
-    ) external nonReentrant whenNotPaused {
+    ) external whenNotPaused {
         if (user == address(0) || smartWallet == address(0)) revert InvalidOwner();
         if (userSmartWallets[user] != address(0)) revert WalletAlreadyRegistered();
         if (msg.sender != address(walletFactory)) revert OnlyModules();
