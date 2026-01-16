@@ -7,12 +7,12 @@ const strategies = [
   {
     type: 'bank' as const,
     name: 'Bank',
-    protocol: 'Aave V3',
+    category: 'Lending Protocol',
     description: 'Deposit your crypto into battle-tested lending pools. Your assets work for you around the clock.',
     features: [
       'Supply USDC, ETH, BTC, USDT',
       'Withdraw anytime',
-      'Billions in protocol TVL'
+      'Industry-leading security'
     ],
     risk: 'Conservative',
     riskColor: '#10B981'
@@ -20,7 +20,7 @@ const strategies = [
   {
     type: 'shop' as const,
     name: 'Shop',
-    protocol: 'Aerodrome',
+    category: 'DEX Liquidity',
     description: 'Provide liquidity to decentralized exchanges. Earn from every trade that passes through.',
     features: [
       'Liquidity provision',
@@ -33,8 +33,8 @@ const strategies = [
   {
     type: 'lottery' as const,
     name: 'Lottery',
-    protocol: 'Megapot',
-    description: 'Try your luck with provably fair lottery. Chainlink VRF ensures transparent, random draws.',
+    category: 'Prize Games',
+    description: 'Try your luck with provably fair lottery. Verifiable randomness ensures transparent draws.',
     features: [
       'Verifiable randomness',
       'Transparent draws',
@@ -89,7 +89,7 @@ export function StrategiesSection() {
                       {strategy.name}
                     </h3>
                     <p className="text-xs text-slate-500 mt-1">
-                      Powered by {strategy.protocol}
+                      {strategy.category}
                     </p>
                   </div>
                 </div>

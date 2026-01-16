@@ -115,9 +115,7 @@ export function ConceptSection() {
             </div>
             <div className="text-slate-500">=</div>
             <div className="text-slate-300 font-medium">
-              <span className="text-emerald-400">Aave</span> +{' '}
-              <span className="text-cyan-400">Aerodrome</span> +{' '}
-              <span className="text-purple-400">Megapot</span>
+              <span className="text-amber-400">Best DeFi Protocols</span>
             </div>
           </div>
         </motion.div>

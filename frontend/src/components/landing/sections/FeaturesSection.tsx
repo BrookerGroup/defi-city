@@ -38,7 +38,7 @@ const features = [
   {
     icon: Globe,
     title: 'Battle-Tested Protocols',
-    description: 'Built on Aave, Aerodrome, and Megapot. Proven protocols with billions in value.',
+    description: 'Built on industry-leading DeFi protocols. Proven systems with billions in value secured.',
     color: '#F97316'
   }
 ]

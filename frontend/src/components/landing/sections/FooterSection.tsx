@@ -37,10 +37,9 @@ export function FooterSection() {
         {/* Protocol credits */}
         <div className="text-center mb-8">
           <p className="text-slate-400 text-sm">
-            Powered by{' '}
-            <span className="text-emerald-400">Aave V3</span>,{' '}
-            <span className="text-cyan-400">Aerodrome</span> &{' '}
-            <span className="text-purple-400">Megapot</span>
+            Built on the{' '}
+            <span className="text-amber-400">Best DeFi Protocols</span>{' '}
+            in the Industry
           </p>
         </div>
 
