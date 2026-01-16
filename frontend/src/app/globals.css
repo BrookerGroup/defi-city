@@ -123,3 +123,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .bg-gradient-radial {
+    background-image: radial-gradient(var(--tw-gradient-stops));
+  }
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+}

@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "../wallet/SmartWallet.sol";
 import "../interfaces/IEntryPoint.sol";
+import "../core/DefiCityCore.sol";
 
 /**
  * @title WalletFactory
@@ -36,6 +37,9 @@ contract WalletFactory {
     /// @notice The ERC-4337 EntryPoint contract
     IEntryPoint public immutable entryPoint;
 
+    /// @notice DefiCityCore contract for game bookkeeping
+    DefiCityCore public immutable core;
+
     /// @notice Mapping from owner address to their wallet address (for salt=0)
     mapping(address => address) public walletsByOwner;
 
@@ -65,11 +69,14 @@ contract WalletFactory {
     /**
      * @notice Initialize the factory
      * @param _entryPoint Address of the ERC-4337 EntryPoint
-     * @dev EntryPoint address is immutable and shared across all wallets
+     * @param _core Address of the DefiCityCore contract
+     * @dev EntryPoint and Core addresses are immutable and shared across all wallets
      */
-    constructor(IEntryPoint _entryPoint) {
+    constructor(IEntryPoint _entryPoint, DefiCityCore _core) {
         if (address(_entryPoint) == address(0)) revert InvalidEntryPoint();
+        if (address(_core) == address(0)) revert InvalidOwner();  // Reuse error for invalid core
         entryPoint = _entryPoint;
+        core = _core;
     }
 
     // ============ Factory Functions ============
@@ -108,9 +115,12 @@ contract WalletFactory {
         }
 
         // 3. Deploy wallet using CREATE2
-        wallet = new SmartWallet{salt: bytes32(salt)}(entryPoint, owner);
+        wallet = new SmartWallet{salt: bytes32(salt)}(entryPoint, owner, core);
 
-        // 4. Update registry
+        // 4. Register wallet in DefiCityCore
+        core.registerWallet(owner, address(wallet));
+
+        // 5. Update local registry
         if (salt == 0) {
             // Register as default wallet for owner
             walletsByOwner[owner] = address(wallet);
@@ -142,7 +152,7 @@ contract WalletFactory {
         bytes32 initCodeHash = keccak256(
             abi.encodePacked(
                 type(SmartWallet).creationCode,
-                abi.encode(entryPoint, owner)
+                abi.encode(entryPoint, owner, core)
             )
         );
 
