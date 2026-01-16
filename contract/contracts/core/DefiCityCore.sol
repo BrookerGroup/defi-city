@@ -39,6 +39,7 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
     address public buildingManager;
     address public feeManager;
     address public emergencyManager;
+    address public walletFactory;
 
     /// @notice Building counter
     uint256 public buildingIdCounter;
@@ -122,6 +123,7 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
         address feeManager,
         address emergencyManager
     );
+    event FactoryUpdated(address walletFactory);
 
     event AssetAdded(address indexed asset);
     event AssetRemoved(address indexed asset);
@@ -208,6 +210,81 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
     }
 
     // ============ Building Management (Epic 3 & 4) ============
+
+    /**
+     * @notice Record Town Hall placement (called by Factory)
+     * @dev Special function for initial Town Hall creation
+     *      This is called by WalletFactory.createTownHall()
+     *      and does NOT require call from SmartWallet
+     *
+     * Epic 3 Support: US-009 (Place Town Hall - First Building)
+     *
+     * Flow:
+     * 1. User connects EOA to game
+     * 2. User clicks "Create Town Hall"
+     * 3. EOA calls Factory.createTownHall()
+     * 4. Factory creates SmartWallet
+     * 5. Factory calls this function to record Town Hall
+     *
+     * @param user User's EOA address
+     * @param smartWallet User's SmartWallet address
+     * @param x Grid X coordinate
+     * @param y Grid Y coordinate
+     * @param metadata Extra data
+     * @return buildingId ID of the Town Hall building
+     */
+    function recordTownHallPlacement(
+        address user,
+        address smartWallet,
+        uint256 x,
+        uint256 y,
+        bytes calldata metadata
+    ) external nonReentrant whenNotPaused returns (uint256 buildingId) {
+        // Only factory can call this function
+        if (msg.sender != walletFactory) revert OnlyModules();
+
+        // Verify wallet is registered
+        address userWallet = userSmartWallets[user];
+        if (userWallet == address(0)) revert WalletNotRegistered();
+        if (userWallet != smartWallet) revert OnlyUserWallet();
+
+        // Check grid position
+        if (gridBuildings[x][y] != 0) revert GridOccupied();
+
+        // Create building
+        buildingId = ++buildingIdCounter;
+
+        buildings[buildingId] = Building({
+            id: buildingId,
+            owner: user,
+            smartWallet: smartWallet,
+            buildingType: "townhall",
+            asset: address(0),
+            amount: 0,
+            placedAt: block.timestamp,
+            coordinateX: x,
+            coordinateY: y,
+            active: true,
+            metadata: metadata
+        });
+
+        userBuildings[user].push(buildingId);
+        gridBuildings[x][y] = buildingId;
+        userStats[user].buildingCount++;
+
+        emit BuildingPlaced(
+            buildingId,
+            user,
+            smartWallet,
+            "townhall",
+            address(0),
+            0,
+            x,
+            y
+        );
+
+        return buildingId;
+    }
 
     /**
      * @notice Record building placement
@@ -480,6 +557,16 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
         emergencyManager = _emergencyManager;
 
         emit ModulesUpdated(_buildingManager, _feeManager, _emergencyManager);
+    }
+
+    /**
+     * @notice Set WalletFactory address
+     * @param _walletFactory WalletFactory address
+     * @dev Required for Town Hall creation flow
+     */
+    function setWalletFactory(address _walletFactory) external onlyOwner {
+        walletFactory = _walletFactory;
+        emit FactoryUpdated(_walletFactory);
     }
 
     /**

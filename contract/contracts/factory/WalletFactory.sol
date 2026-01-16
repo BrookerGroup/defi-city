@@ -236,6 +236,58 @@ contract WalletFactory {
         return totalWallets;
     }
 
+    // ============ Game-Specific Functions ============
+
+    /**
+     * @notice Create wallet and place Town Hall in one transaction
+     * @param owner Address of the wallet owner (caller's EOA)
+     * @param x Grid X coordinate for Town Hall
+     * @param y Grid Y coordinate for Town Hall
+     * @return wallet Address of the created SmartWallet
+     * @return buildingId ID of the Town Hall building
+     *
+     * @dev This is the entry point for new players:
+     *      1. User connects with EOA (MetaMask)
+     *      2. User clicks "Create Town Hall"
+     *      3. EOA calls this function directly (no UserOperation)
+     *      4. Creates SmartWallet + Town Hall in single transaction
+     *
+     * Epic 3 Support: US-009 (Place Town Hall)
+     * This function combines wallet creation and Town Hall placement
+     * to provide seamless onboarding experience.
+     */
+    function createTownHall(
+        address owner,
+        uint256 x,
+        uint256 y
+    ) external returns (SmartWallet wallet, uint256 buildingId) {
+        if (owner == address(0)) revert InvalidOwner();
+
+        // Check if user already has a wallet (prevent multiple Town Halls)
+        if (core.hasWallet(owner)) {
+            revert WalletAlreadyExists();
+        }
+
+        // 1. Create SmartWallet
+        wallet = this.createWallet(owner, 0);
+
+        // 2. Place Town Hall building
+        // Prepare metadata
+        bytes memory metadata = abi.encode("First Town Hall");
+
+        // Call Core to record Town Hall placement
+        // Factory has special permission to create Town Hall
+        buildingId = core.recordTownHallPlacement(
+            owner,
+            address(wallet),
+            x,
+            y,
+            metadata
+        );
+
+        return (wallet, buildingId);
+    }
+
     // ============ Advanced Functions ============
 
     /**
