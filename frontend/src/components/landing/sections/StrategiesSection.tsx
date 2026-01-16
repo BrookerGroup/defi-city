@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { PixelCard, BuildingIcon } from '../pixel'
+import { Tractor, Factory, Store, Lock, TowerControl, Pickaxe } from 'lucide-react'
 
 const strategies = [
   {
@@ -129,6 +130,70 @@ export function StrategiesSection() {
             </PixelCard>
           ))}
         </div>
+
+        {/* Coming Soon Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mt-16"
+        >
+          <div className="text-center mb-8">
+            <h3
+              className="text-xl font-bold text-teal-400 mb-2"
+              style={{ fontFamily: '"Press Start 2P", monospace' }}
+            >
+              And Many More...
+            </h3>
+            <p className="text-sm text-slate-400">
+              These are just the beginning. More buildings are coming to expand your city.
+            </p>
+          </div>
+
+          {/* Coming soon buildings grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {[
+              { icon: Tractor, name: 'Farm', desc: 'Yield Farming', color: '#22C55E' },
+              { icon: Factory, name: 'Factory', desc: 'Auto-Compound', color: '#6366F1' },
+              { icon: Store, name: 'Market', desc: 'Spot Trading', color: '#EC4899' },
+              { icon: Lock, name: 'Vault', desc: 'Secure Savings', color: '#F59E0B' },
+              { icon: TowerControl, name: 'Tower', desc: 'Leverage', color: '#EF4444' },
+              { icon: Pickaxe, name: 'Mine', desc: 'Staking', color: '#8B5CF6' },
+            ].map((building, index) => (
+              <motion.div
+                key={building.name}
+                initial={{ opacity: 0, scale: 0.8 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: index * 0.1 }}
+                className="relative p-4 border-2 border-slate-700 bg-slate-800/50 text-center group hover:border-slate-600 transition-colors"
+              >
+                <div
+                  className="inline-flex p-3 border-2 mb-3"
+                  style={{
+                    borderColor: building.color,
+                    backgroundColor: `${building.color}15`
+                  }}
+                >
+                  <building.icon className="w-6 h-6" style={{ color: building.color }} />
+                </div>
+                <h4
+                  className="text-xs font-bold text-white mb-1"
+                  style={{ fontFamily: '"Press Start 2P", monospace' }}
+                >
+                  {building.name}
+                </h4>
+                <p className="text-xs text-slate-500">{building.desc}</p>
+                <div className="absolute top-2 right-2">
+                  <span className="text-[8px] px-1 py-0.5 bg-teal-500/20 text-teal-400 border border-teal-500/30">
+                    SOON
+                  </span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
 
         {/* Disclaimer */}
         <motion.p

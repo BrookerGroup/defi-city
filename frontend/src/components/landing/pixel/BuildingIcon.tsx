@@ -29,22 +29,40 @@ export function BuildingIcon({ type, size = 64, animated = true }: BuildingIconP
   }
 
   const { colors } = buildings[type]
-  const pixelSize = size / 16
 
-  const Wrapper = animated ? motion.svg : 'svg'
-  const animationProps = animated ? {
-    animate: { y: [0, -3, 0] },
-    transition: { duration: 2, repeat: Infinity, ease: 'easeInOut' }
-  } : {}
+  if (animated) {
+    return (
+      <motion.svg
+        width={size}
+        height={size}
+        viewBox="0 0 16 16"
+        style={{ imageRendering: 'pixelated' }}
+        animate={{ y: [0, -3, 0] }}
+        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' as const }}
+      >
+        <BuildingContent type={type} colors={colors} />
+      </motion.svg>
+    )
+  }
 
   return (
-    <Wrapper
+    <svg
       width={size}
       height={size}
       viewBox="0 0 16 16"
       style={{ imageRendering: 'pixelated' }}
-      {...animationProps}
     >
+      <BuildingContent type={type} colors={colors} />
+    </svg>
+  )
+}
+
+function BuildingContent({ type, colors }: {
+  type: 'townhall' | 'bank' | 'shop' | 'lottery'
+  colors: { roof: string; wall: string; accent: string; window: string }
+}) {
+  return (
+    <>
       {/* Building base/foundation */}
       <rect x="2" y="14" width="12" height="2" fill={colors.accent} />
 
@@ -113,6 +131,6 @@ export function BuildingIcon({ type, size = 64, animated = true }: BuildingIconP
         animate={{ opacity: [0.3, 1, 0.3] }}
         transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
       />
-    </Wrapper>
+    </>
   )
 }
