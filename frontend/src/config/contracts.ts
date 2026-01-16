@@ -3,20 +3,16 @@
  * Contains contract addresses and ABIs for DefiCity
  */
 
-// Contract addresses (update after deployment)
+// Contract addresses - Base Sepolia Testnet
 export const CONTRACTS = {
-  // Base Sepolia Testnet
   baseSepolia: {
-    WALLET_FACTORY: process.env.NEXT_PUBLIC_FACTORY_ADDRESS || '',
-    DEFICITY_CORE: process.env.NEXT_PUBLIC_CORE_ADDRESS || '',
-    BUILDING_MANAGER: process.env.NEXT_PUBLIC_BUILDING_MANAGER_ADDRESS || '',
-    ENTRY_POINT: process.env.NEXT_PUBLIC_ENTRY_POINT_ADDRESS || '',
+    WALLET_FACTORY: '0xD7e5Ef23F53c98a01b63e99A91e1547229579c7A',
+    DEFICITY_CORE: '0xaDc51D79177BA89E1b3c99994F95E5A825194e59',
+    ENTRY_POINT: '0x4290Cd4e3c7a781856c507EeaA02A4F8192d0922',
   },
-  // Local Development (Hardhat)
   localhost: {
     WALLET_FACTORY: '',
     DEFICITY_CORE: '',
-    BUILDING_MANAGER: '',
     ENTRY_POINT: '',
   }
 } as const;
@@ -24,11 +20,15 @@ export const CONTRACTS = {
 // Minimal ABIs for required functions
 export const ABIS = {
   WALLET_FACTORY: [
-    // createTownHall - Main onboarding function
-    'function createTownHall(address owner, uint256 x, uint256 y) external returns (address wallet, uint256 buildingId)',
+    // createWallet - Main wallet creation function
+    'function createWallet(address owner, uint256 salt) external returns (address wallet)',
+    // createOrGetWallet - Convenience function (recommended)
+    'function createOrGetWallet(address owner) external returns (address wallet)',
     // View functions
     'function walletsByOwner(address owner) external view returns (address)',
+    'function getAddress(address owner, uint256 salt) external view returns (address)',
     'function isWalletDeployed(address owner, uint256 salt) external view returns (bool)',
+    'function getWalletByOwner(address owner) external view returns (address)',
     // Events
     'event WalletCreated(address indexed wallet, address indexed owner, uint256 salt, uint256 walletNumber)',
   ],

@@ -1,10 +1,8 @@
 export type BuildingType =
-  | 'town-hall'
-  | 'yield-farm'
-  | 'staking-camp'
-  | 'lp-mine'
-  | 'castle'
+  | 'townhall'
+  | 'bank'
   | 'shop'
+  | 'lottery'
 
 export interface Building {
   id: string
@@ -17,68 +15,79 @@ export interface Building {
 export interface BuildingInfo {
   type: BuildingType
   name: string
-  icon: string
-  protocol: string
+  category: string
   description: string
-  apy?: string
-  minDeposit?: string
-  color: number
+  features: string[]
+  risk: string
+  riskColor: string
+  colors: {
+    roof: string
+    wall: string
+    accent: string
+    window: string
+  }
 }
 
 export const BUILDING_INFO: Record<BuildingType, BuildingInfo> = {
-  'town-hall': {
-    type: 'town-hall',
+  townhall: {
+    type: 'townhall',
     name: 'Town Hall',
-    icon: '🏛️',
-    protocol: 'Smart Wallet',
-    description: 'Your portfolio overview',
-    color: 0x8B7355,
+    category: 'Portfolio Hub',
+    description: 'Your city headquarters. View all assets and manage your portfolio from here.',
+    features: ['Portfolio overview', 'Asset management', 'City statistics'],
+    risk: 'None',
+    riskColor: '#10B981',
+    colors: {
+      roof: '#F59E0B',
+      wall: '#FCD34D',
+      accent: '#B45309',
+      window: '#0F172A'
+    }
   },
-  'yield-farm': {
-    type: 'yield-farm',
-    name: 'Yield Farm',
-    icon: '🌾',
-    protocol: 'Aave V3',
-    description: 'USDC Lending',
-    apy: '3-8%',
-    minDeposit: '10 USDC',
-    color: 0x90EE90,
+  bank: {
+    type: 'bank',
+    name: 'Bank',
+    category: 'Lending Protocol',
+    description: 'Deposit your crypto into battle-tested lending pools. Your assets work for you around the clock.',
+    features: ['Supply USDC, ETH, BTC, USDT', 'Withdraw anytime', 'Industry-leading security'],
+    risk: 'Conservative',
+    riskColor: '#10B981',
+    colors: {
+      roof: '#10B981',
+      wall: '#34D399',
+      accent: '#059669',
+      window: '#0F172A'
+    }
   },
-  'staking-camp': {
-    type: 'staking-camp',
-    name: 'Staking Camp',
-    icon: '🪵',
-    protocol: 'Lido',
-    description: 'ETH Staking',
-    apy: '3-5%',
-    minDeposit: '0.01 ETH',
-    color: 0xDEB887,
-  },
-  'lp-mine': {
-    type: 'lp-mine',
-    name: 'LP Mine',
-    icon: '⛏️',
-    protocol: 'Uniswap V3',
-    description: 'Liquidity Pool',
-    apy: '5-20%',
-    minDeposit: '100 USDC',
-    color: 0x708090,
-  },
-  'castle': {
-    type: 'castle',
-    name: 'Castle',
-    icon: '🏰',
-    protocol: 'Governance',
-    description: 'veToken Locking',
-    apy: '+25% boost',
-    color: 0x4169E1,
-  },
-  'shop': {
+  shop: {
     type: 'shop',
     name: 'Shop',
-    icon: '🏪',
-    protocol: 'DEX Aggregator',
-    description: 'Token Swaps',
-    color: 0xFFD700,
+    category: 'DEX Liquidity',
+    description: 'Provide liquidity to decentralized exchanges. Earn from every trade that passes through.',
+    features: ['Liquidity provision', 'Trading rewards', 'Protocol rewards'],
+    risk: 'Moderate',
+    riskColor: '#F59E0B',
+    colors: {
+      roof: '#06B6D4',
+      wall: '#67E8F9',
+      accent: '#0891B2',
+      window: '#0F172A'
+    }
   },
+  lottery: {
+    type: 'lottery',
+    name: 'Lottery',
+    category: 'Prize Games',
+    description: 'Try your luck with provably fair lottery. Verifiable randomness ensures transparent draws.',
+    features: ['Verifiable randomness', 'Transparent draws', 'Prize pool jackpots'],
+    risk: 'High Variance',
+    riskColor: '#EF4444',
+    colors: {
+      roof: '#A855F7',
+      wall: '#C084FC',
+      accent: '#7C3AED',
+      window: '#0F172A'
+    }
+  }
 }
+

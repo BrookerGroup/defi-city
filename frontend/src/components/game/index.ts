@@ -1,4 +1,6 @@
 export { GameCanvas } from './GameCanvas'
+export { PixelGameCanvas } from './PixelGameCanvas'
+export { IsometricGameCanvas } from './IsometricGameCanvas'
 export { TopBar } from './TopBar'
 export { BottomBar } from './BottomBar'
 export { BuildingModal } from './BuildingModal'

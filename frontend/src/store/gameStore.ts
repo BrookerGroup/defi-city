@@ -1,6 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { Building, BuildingType, GRID_SIZE } from '@/types'
+import { Building, BuildingType, GRID_SIZE, BUILDING_INFO } from '@/types'
+
+// Valid building types for filtering old data
+const VALID_TYPES = Object.keys(BUILDING_INFO) as BuildingType[]
 
 interface GameState {
   buildings: Building[]
@@ -22,15 +25,8 @@ interface GameState {
 }
 
 const initialState = {
-  buildings: [
-    {
-      id: 'town-hall-1',
-      type: 'town-hall' as BuildingType,
-      position: { x: Math.floor(GRID_SIZE / 2), y: Math.floor(GRID_SIZE / 2) },
-      createdAt: Date.now(),
-    },
-  ],
-  selectedBuildingType: null,
+  buildings: [] as Building[],
+  selectedBuildingType: null as BuildingType | null,
   isPlacingBuilding: false,
   cameraPosition: { x: 0, y: 0 },
   zoom: 1,
@@ -85,10 +81,22 @@ export const useGameStore = create<GameState>()(
       reset: () => set(initialState),
     }),
     {
-      name: 'defi-city-game',
+      name: 'defi-city-game-v2', // New version to clear old data
       partialize: (state) => ({
-        buildings: state.buildings,
+        buildings: state.buildings.filter(b => VALID_TYPES.includes(b.type)),
       }),
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<GameState> | undefined
+        if (!persisted?.buildings) {
+          return currentState
+        }
+        // Filter out buildings with invalid types
+        const validBuildings = persisted.buildings.filter(b => VALID_TYPES.includes(b.type))
+        return {
+          ...currentState,
+          buildings: validBuildings,
+        }
+      },
     }
   )
 )

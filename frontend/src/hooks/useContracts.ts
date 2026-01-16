@@ -6,12 +6,15 @@
 import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import { useWallets } from '@privy-io/react-auth';
-import { CONTRACTS, ABIS } from '@/config/contracts';
+import { CONTRACTS, ABIS, SUPPORTED_CHAINS } from '@/config/contracts';
 
-// Get current network (for now, hardcoded to localhost for development)
+// Get current network
 const getCurrentNetwork = () => {
-  return 'localhost'; // Change to 'baseSepolia' for testnet
+  return 'baseSepolia';
 };
+
+// Base Sepolia Chain ID
+const TARGET_CHAIN_ID = SUPPORTED_CHAINS.baseSepolia.id; // 84532
 
 /**
  * Hook to get contract instances
@@ -33,17 +36,40 @@ export function useContractInstances() {
   useEffect(() => {
     async function initContracts() {
       if (!wallets || wallets.length === 0) {
+        console.log('No wallets available yet');
         return;
       }
 
       try {
-        const embeddedWallet = wallets.find(
-          (wallet) => wallet.walletClientType === 'privy'
+        // Try to find the Privy embedded wallet first, then fall back to any available wallet
+        let wallet = wallets.find(
+          (w) => w.walletClientType === 'privy'
         );
 
-        if (!embeddedWallet) return;
+        // If no embedded wallet, use the first available wallet
+        if (!wallet && wallets.length > 0) {
+          wallet = wallets[0];
+          console.log('Using external wallet:', wallet.walletClientType);
+        }
 
-        const ethereumProvider = await embeddedWallet.getEthereumProvider();
+        if (!wallet) {
+          console.log('No wallet found');
+          return;
+        }
+
+        console.log('Initializing contracts with wallet:', wallet.address, wallet.walletClientType);
+
+        // Switch to Base Sepolia using Privy's best practice method
+        try {
+          console.log('Switching to Base Sepolia (Chain ID:', TARGET_CHAIN_ID, ')...');
+          await wallet.switchChain(TARGET_CHAIN_ID);
+          console.log('Successfully switched to Base Sepolia');
+        } catch (switchError) {
+          console.error('Error switching chain:', switchError);
+          // Continue anyway - the chain might already be correct
+        }
+
+        const ethereumProvider = await wallet.getEthereumProvider();
         const provider = new ethers.BrowserProvider(ethereumProvider);
         const signer = await provider.getSigner();
 
@@ -68,6 +94,7 @@ export function useContractInstances() {
           signer
         );
 
+        console.log('Contracts initialized successfully');
         setContracts({
           factory,
           core,
@@ -195,7 +222,8 @@ export function useCreateTownHall() {
     y: number
   ): Promise<{ success: boolean; walletAddress?: string; buildingId?: number }> => {
     if (!factory) {
-      setError('Factory contract not initialized');
+      setError('Please connect your wallet first. Make sure you are logged in.');
+      console.error('Factory contract not initialized - wallet may not be connected');
       return { success: false };
     }
 
@@ -204,6 +232,21 @@ export function useCreateTownHall() {
 
     try {
       console.log('Creating Town Hall at position:', x, y);
+      console.log('User address:', userAddress);
+      console.log('Factory address:', await factory.getAddress());
+
+      // First, try to estimate gas to see if the transaction will fail
+      try {
+        const gasEstimate = await factory.createTownHall.estimateGas(userAddress, x, y);
+        console.log('Gas estimate:', gasEstimate.toString());
+      } catch (estimateError: any) {
+        console.error('Gas estimation failed:', estimateError);
+        // Try to get more details about why it failed
+        if (estimateError.data) {
+          console.error('Error data:', estimateError.data);
+        }
+        throw new Error(`Transaction will fail: ${estimateError.reason || estimateError.message}`);
+      }
 
       const tx = await factory.createTownHall(userAddress, x, y);
       console.log('Transaction sent:', tx.hash);
@@ -223,7 +266,22 @@ export function useCreateTownHall() {
       };
     } catch (err: any) {
       console.error('Error creating Town Hall:', err);
-      setError(err.message || 'Failed to create Town Hall');
+
+      // Parse error message for better user experience
+      let errorMessage = 'Failed to create Town Hall';
+      if (err.reason) {
+        errorMessage = err.reason;
+      } else if (err.message) {
+        if (err.message.includes('insufficient funds')) {
+          errorMessage = 'Insufficient ETH for gas. Please add ETH to your wallet on Base Sepolia.';
+        } else if (err.message.includes('user rejected')) {
+          errorMessage = 'Transaction was rejected by user.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+
+      setError(errorMessage);
       setLoading(false);
       return { success: false };
     }

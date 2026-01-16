@@ -178,17 +178,23 @@ export function GameCanvas() {
     const info = BUILDING_INFO[building.type]
     const container = new PIXI.Container()
 
+    // Convert hex color string to number
+    const roofColor = parseInt(info.colors.roof.replace('#', ''), 16)
+    const wallColor = parseInt(info.colors.wall.replace('#', ''), 16)
+
     // Building base
     const base = new PIXI.Graphics()
     base.roundRect(-25, -40, 50, 50, 5)
-    base.fill({ color: info.color })
-    base.stroke({ color: 0xffffff, width: 2, alpha: 0.3 })
+    base.fill({ color: wallColor })
+    base.stroke({ color: roofColor, width: 2, alpha: 0.8 })
 
-    // Icon text
+    // Building name text
     const text = new PIXI.Text({
-      text: info.icon,
+      text: info.name.charAt(0),
       style: {
-        fontSize: 28,
+        fontSize: 24,
+        fill: roofColor,
+        fontWeight: 'bold',
       },
     })
     text.anchor.set(0.5)

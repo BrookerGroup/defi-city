@@ -4,8 +4,6 @@ import { usePrivy } from '@privy-io/react-auth'
 import { useSmartWallet } from '@/hooks'
 import { formatEther } from 'viem'
 import { ConnectButton } from '@/components/wallet'
-import { Badge } from '@/components/ui/badge'
-import { Coins, Diamond } from 'lucide-react'
 
 export function TopBar() {
   const { user, authenticated } = usePrivy()
@@ -22,37 +20,74 @@ export function TopBar() {
   }
 
   return (
-    <div className="fixed top-0 left-0 right-0 h-14 bg-background/80 backdrop-blur-sm border-b z-50">
+    <div
+      className="fixed top-0 left-0 right-0 h-16 z-50 border-b-2"
+      style={{
+        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+        borderColor: '#475569',
+        backdropFilter: 'blur(8px)',
+      }}
+    >
       <div className="h-full max-w-screen-2xl mx-auto px-4 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <span className="text-2xl">🏙️</span>
-          <span className="font-bold text-lg hidden sm:block">DeFi City</span>
+          <div
+            className="px-3 py-1.5 border-2"
+            style={{
+              borderColor: '#F59E0B',
+              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              boxShadow: '3px 3px 0px #B45309'
+            }}
+          >
+            <span
+              className="text-amber-400 text-sm font-bold tracking-wide"
+              style={{ fontFamily: '"Press Start 2P", monospace' }}
+            >
+              DEFICITY
+            </span>
+          </div>
         </div>
 
         {/* Resources */}
         {authenticated && (
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-full">
-              <span className="text-lg">💰</span>
-              <span className="font-mono text-sm">0.00 USDC</span>
+          <div className="flex items-center gap-3">
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 border-2"
+              style={{
+                borderColor: '#10B981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              }}
+            >
+              <span className="text-emerald-400" style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '8px' }}>ETH</span>
+              <span className="font-mono text-sm text-emerald-300">{formatBalance(balance)}</span>
             </div>
-            <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-full">
-              <span className="text-lg">◇</span>
-              <span className="font-mono text-sm">{formatBalance(balance)} ETH</span>
-            </div>
-            <div className="hidden md:flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-full">
-              <Diamond className="h-4 w-4 text-purple-400" />
-              <span className="font-mono text-sm">0 Points</span>
+            <div
+              className="hidden md:flex items-center gap-2 px-3 py-1.5 border-2"
+              style={{
+                borderColor: '#06B6D4',
+                backgroundColor: 'rgba(6, 182, 212, 0.1)',
+              }}
+            >
+              <span className="text-cyan-400" style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '8px' }}>USDC</span>
+              <span className="font-mono text-sm text-cyan-300">0.00</span>
             </div>
           </div>
         )}
 
-        {/* Wallet */}
+        {/* Network & Wallet */}
         <div className="flex items-center gap-3">
-          <Badge variant="outline" className="hidden sm:flex">
-            Sepolia
-          </Badge>
+          <div
+            className="hidden sm:flex px-2 py-1 border-2 text-xs"
+            style={{
+              fontFamily: '"Press Start 2P", monospace',
+              fontSize: '8px',
+              borderColor: '#8B5CF6',
+              backgroundColor: 'rgba(139, 92, 246, 0.1)',
+              color: '#A78BFA'
+            }}
+          >
+            Base Sepolia
+          </div>
           <ConnectButton />
         </div>
       </div>
