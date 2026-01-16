@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as PIXI from 'pixi.js'
 import { useGameStore } from '@/store/gameStore'
-import { Building, BuildingAsset, BUILDING_INFO, GRID_SIZE, TILE_SIZE } from '@/types'
+import { Building, BuildingAsset, BuildingType, BUILDING_INFO, GRID_SIZE, TILE_SIZE } from '@/types'
 import { BuildingModal } from './BuildingModal'
 import { BuildingInfo } from './BuildingInfo'
 import { toast } from 'sonner'
@@ -112,8 +112,6 @@ export function GameCanvas() {
     isPositionOccupied,
     zoom,
     setZoom,
-    cameraPosition,
-    setCameraPosition,
   } = useGameStore()
 
   const [buildModalOpen, setBuildModalOpen] = useState(false)
@@ -143,6 +141,12 @@ export function GameCanvas() {
 
       canvasRef.current?.appendChild(app.canvas)
       appRef.current = app
+
+      // Enable pointer events on canvas element only (parent has pointer-events: none)
+      if (app.canvas instanceof HTMLCanvasElement) {
+        app.canvas.style.pointerEvents = 'auto'
+        app.canvas.style.touchAction = 'none'
+      }
 
       // Create containers
       const mainContainer = new PIXI.Container()
@@ -334,10 +338,12 @@ export function GameCanvas() {
     canvas?.addEventListener('contextmenu', handleContextMenu)
 
     return () => {
-      app.stage.off('pointermove', handleMouseMove)
-      app.stage.off('pointerdown', handlePointerDown)
-      app.stage.off('pointerup', handlePointerUp)
-      app.stage.off('pointerupoutside', handlePointerUp)
+      if (app.stage) {
+        app.stage.off('pointermove', handleMouseMove)
+        app.stage.off('pointerdown', handlePointerDown)
+        app.stage.off('pointerup', handlePointerUp)
+        app.stage.off('pointerupoutside', handlePointerUp)
+      }
       canvas?.removeEventListener('contextmenu', handleContextMenu)
     }
   }, [isPlacingBuilding, selectedBuildingType, isPositionOccupied, isPanning])
@@ -361,21 +367,21 @@ export function GameCanvas() {
   }, [zoom, setZoom])
 
   // Confirm building placement
-  const handleConfirmBuild = (asset: BuildingAsset, amount: string) => {
+  const handleConfirmBuild = (buildingType: BuildingType, asset: BuildingAsset, amount: string) => {
     if (!pendingPosition) return
 
-    // The building type is selected in the modal now
     const newBuilding: Building = {
       id: `building-${Date.now()}`,
-      type: 'bank', // This will be set by the modal
+      type: buildingType,
       position: pendingPosition,
       asset,
       deposited: amount,
       createdAt: Date.now(),
     }
 
+    const buildingInfo = BUILDING_INFO[buildingType]
     addBuilding(newBuilding)
-    toast.success(`Building placed!`, {
+    toast.success(`${buildingInfo.name} placed!`, {
       description: `Deposited ${amount} ${asset}`,
     })
     setPendingPosition(null)
@@ -392,8 +398,11 @@ export function GameCanvas() {
     <>
       <div
         ref={canvasRef}
-        className="fixed inset-0 pt-14 pb-20"
-        style={{ touchAction: 'none', cursor: isPanning ? 'grabbing' : isPlacingBuilding ? 'crosshair' : 'default' }}
+        className="fixed inset-0 pt-14 pb-20 z-0"
+        style={{
+          cursor: isPanning ? 'grabbing' : isPlacingBuilding ? 'crosshair' : 'default',
+          pointerEvents: 'none'
+        }}
       />
 
       <BuildingModal

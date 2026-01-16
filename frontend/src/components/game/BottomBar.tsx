@@ -1,7 +1,7 @@
 'use client'
 
 import { useGameStore } from '@/store/gameStore'
-import { BUILDING_INFO, PLACEABLE_BUILDINGS } from '@/types'
+import { BUILDING_INFO, PLACEABLE_BUILDINGS, BuildingType } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -11,13 +11,14 @@ export function BottomBar() {
 
   const hasTownHall = buildings.some(b => b.type === 'town-hall')
 
-  const handleSelectBuilding = () => {
-    // Toggle placing mode - building type will be selected in modal
-    if (isPlacingBuilding) {
+  const handleSelectBuilding = (type: BuildingType) => {
+    // Toggle placing mode for the selected building type
+    if (isPlacingBuilding && selectedBuildingType === type) {
+      // Clicking the same building again cancels placement
       selectBuildingType(null)
     } else {
-      // Use a placeholder to indicate we want to place a building
-      selectBuildingType('bank') // Will be overridden by modal selection
+      // Select this building type for placement
+      selectBuildingType(type)
     }
   }
 
@@ -50,9 +51,12 @@ export function BottomBar() {
           return (
             <Button
               key={type}
-              variant="ghost"
-              className="flex flex-col items-center justify-center h-16 w-16 sm:w-auto sm:px-4 relative"
-              onClick={handleSelectBuilding}
+              variant={selectedBuildingType === type ? 'default' : 'ghost'}
+              className={cn(
+                'flex flex-col items-center justify-center h-16 w-16 sm:w-auto sm:px-4 relative',
+                selectedBuildingType === type && 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+              )}
+              onClick={() => handleSelectBuilding(type)}
             >
               <span className="text-2xl">{info.icon}</span>
               <span className="text-xs mt-1 hidden sm:block">{info.name}</span>
@@ -64,29 +68,6 @@ export function BottomBar() {
             </Button>
           )
         })}
-
-        <div className="w-px h-10 bg-border" />
-
-        {/* Place Building Button */}
-        <Button
-          variant={isPlacingBuilding ? 'default' : 'outline'}
-          className={cn(
-            'gap-2',
-            isPlacingBuilding && 'ring-2 ring-primary ring-offset-2 ring-offset-background animate-pulse'
-          )}
-          onClick={handleSelectBuilding}
-        >
-          {isPlacingBuilding ? (
-            <>
-              <span>Click on grid...</span>
-            </>
-          ) : (
-            <>
-              <span className="text-lg">+</span>
-              <span className="hidden sm:inline">Build</span>
-            </>
-          )}
-        </Button>
       </div>
     </div>
   )

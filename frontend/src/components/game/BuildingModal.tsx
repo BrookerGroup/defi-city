@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -29,7 +29,7 @@ interface BuildingModalProps {
   onClose: () => void
   buildingType: BuildingType | null
   position: { x: number; y: number } | null
-  onConfirm: (asset: BuildingAsset, amount: string) => void
+  onConfirm: (buildingType: BuildingType, asset: BuildingAsset, amount: string) => void
 }
 
 export function BuildingModal({
@@ -43,7 +43,9 @@ export function BuildingModal({
   const [selectedAsset, setSelectedAsset] = useState<BuildingAsset | null>(null)
   const [amount, setAmount] = useState('')
   const [isAssetSelectorOpen, setIsAssetSelectorOpen] = useState(false)
-  const [step, setStep] = useState<'select-building' | 'configure'>('select-building')
+  const [step, setStep] = useState<'select-building' | 'configure'>(
+    buildingType ? 'configure' : 'select-building'
+  )
 
   const { user } = usePrivy()
   const eoaAddress = user?.wallet?.address as `0x${string}` | undefined
@@ -83,6 +85,18 @@ export function BuildingModal({
   const isAmountValid = amountUSD >= minDeposit
   const hasEnoughBalance = selectedAsset ? parseFloat(amount || '0') <= parseFloat(getBalance(selectedAsset)) : false
 
+  // Sync state when modal opens
+  useEffect(() => {
+    if (open && buildingType) {
+      setSelectedType(buildingType)
+      setStep('configure')
+      const buildingInfo = BUILDING_INFO[buildingType]
+      if (buildingInfo.supportedAssets.length > 0) {
+        setSelectedAsset(buildingInfo.supportedAssets[0])
+      }
+    }
+  }, [open, buildingType])
+
   const handleSelectBuilding = (type: BuildingType) => {
     setSelectedType(type)
     const buildingInfo = BUILDING_INFO[type]
@@ -94,8 +108,8 @@ export function BuildingModal({
   }
 
   const handleConfirm = () => {
-    if (!selectedAsset || !amount || !isAmountValid || !hasEnoughBalance) return
-    onConfirm(selectedAsset, amount)
+    if (!selectedType || !selectedAsset || !amount || !isAmountValid || !hasEnoughBalance) return
+    onConfirm(selectedType, selectedAsset, amount)
     handleClose()
   }
 

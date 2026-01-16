@@ -8,21 +8,27 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { LayoutDashboard, Map, Building2, Settings } from 'lucide-react'
 
+type View = 'dashboard' | 'map' | 'buildings' | 'settings'
+
 type NavItem = {
   label: string
   icon: React.ReactNode
-  href: string
-  active?: boolean
+  view: View
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" />, href: '#dashboard' },
-  { label: 'Map', icon: <Map className="h-4 w-4" />, href: '#map', active: true },
-  { label: 'Buildings', icon: <Building2 className="h-4 w-4" />, href: '#buildings' },
-  { label: 'Settings', icon: <Settings className="h-4 w-4" />, href: '#settings' },
+  { label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" />, view: 'dashboard' },
+  { label: 'Map', icon: <Map className="h-4 w-4" />, view: 'map' },
+  { label: 'Buildings', icon: <Building2 className="h-4 w-4" />, view: 'buildings' },
+  { label: 'Settings', icon: <Settings className="h-4 w-4" />, view: 'settings' },
 ]
 
-export function TopBar() {
+interface TopBarProps {
+  currentView?: View
+  onViewChange?: (view: View) => void
+}
+
+export function TopBar({ currentView = 'map', onViewChange }: TopBarProps) {
   const { user, authenticated } = usePrivy()
   const eoaAddress = user?.wallet?.address as `0x${string}` | undefined
   const { balance, walletAddress } = useSmartWallet(eoaAddress)
@@ -59,15 +65,13 @@ export function TopBar() {
             {navItems.map((item) => (
               <Button
                 key={item.label}
-                variant={item.active ? 'secondary' : 'ghost'}
+                variant={currentView === item.view ? 'secondary' : 'ghost'}
                 size="sm"
                 className="gap-2"
-                asChild
+                onClick={() => onViewChange?.(item.view)}
               >
-                <a href={item.href}>
-                  {item.icon}
-                  <span className="hidden lg:inline">{item.label}</span>
-                </a>
+                {item.icon}
+                <span className="hidden lg:inline">{item.label}</span>
               </Button>
             ))}
           </nav>

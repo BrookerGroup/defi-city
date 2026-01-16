@@ -47,7 +47,7 @@ export function PortfolioDashboard() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-3">
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -113,7 +113,7 @@ export function PortfolioDashboard() {
       {/* Asset Cards */}
       <div>
         <h3 className="text-lg font-semibold mb-4">Assets</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-3">
           {portfolio.assets.map(asset => (
             <AssetCard key={asset.symbol} asset={asset} formatUSD={formatUSD} />
           ))}
