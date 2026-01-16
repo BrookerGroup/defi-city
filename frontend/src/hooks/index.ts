@@ -1,6 +1,8 @@
 export { useSmartWallet } from './useSmartWallet'
 export { useDeposit } from './useDeposit'
+export { useDepositToken } from './useDepositToken'
 export { useWithdraw } from './useWithdraw'
 export { useWalletBalance } from './useWalletBalance'
 export { useTokenBalance, useMultiTokenBalance } from './useTokenBalance'
 export type { TokenSymbol } from './useTokenBalance'
+export type { DepositTokenSymbol } from './useDepositToken'

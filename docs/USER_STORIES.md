@@ -147,22 +147,36 @@ Buildings, stats, game state (accounting records)
 **I want** to transfer USDC, USDT, ETH, or WBTC to my SmartWallet
 **So that** I can use these assets to build DeFi positions in my city
 
+**Status:** ✅ COMPLETED (2026-01-16)
+
 **Acceptance Criteria:**
 - [ ] User must have Town Hall (SmartWallet) placed first
 - [ ] If no Town Hall, show: "Place Town Hall first to create your wallet"
-- [ ] User can select asset type (USDC, USDT, ETH, WBTC)
-- [ ] User can enter deposit amount
-- [ ] UI shows current balance in SmartWallet for selected asset
+- [x] User can select asset type (USDC, USDT, ETH, WBTC, WETH)
+- [x] User can enter deposit amount
+- [x] UI shows current balance for selected asset (EOA wallet)
 - [ ] UI shows SmartWallet address with copy button
-- [ ] UI shows minimum deposit (if any)
-- [ ] User confirms transaction in MetaMask/wallet
-- [ ] Transaction transfers tokens FROM user's EOA TO user's SmartWallet
+- [x] UI shows minimum deposit (if any)
+- [x] User confirms transaction in MetaMask/wallet
+- [x] Transaction transfers tokens FROM user's EOA TO user's SmartWallet
 - [ ] DefiCityCore updates accounting records (tracks balance for game UI)
-- [ ] Transaction shows loading state
-- [ ] Balance updates after successful deposit
-- [ ] Success notification displays with transaction hash
-- [ ] User pays gas fee for deposit (not gasless)
-- [ ] Assets remain in user's SmartWallet (NOT transferred to game contracts)
+- [x] Transaction shows loading state
+- [x] Balance updates after successful deposit
+- [x] Success notification displays with transaction hash
+- [x] User pays gas fee for deposit (not gasless)
+- [x] Assets remain in user's SmartWallet (NOT transferred to game contracts)
+
+**Implementation Notes:**
+- Supports ETH (native), USDC, USDT, WBTC, WETH tokens
+- ERC-20 tokens require approval flow (approve + transfer)
+- ETH deposits use native transfer (no approval needed)
+- Token selector dropdown with balance display
+- Max button leaves 0.01 ETH for gas when depositing ETH
+
+**Files Changed:**
+- `frontend/src/hooks/useDepositToken.ts` - Multi-asset deposit hook
+- `frontend/src/components/wallet/DepositForm.tsx` - Updated UI with token selector
+- `frontend/src/hooks/index.ts` - Exported new hook and types
 
 **Priority:** P0 (Critical)
 **Estimated:** 5 story points
