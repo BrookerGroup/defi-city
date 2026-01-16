@@ -10,6 +10,7 @@ import {
   CreateWalletScreen,
 } from '@/components/game'
 import { WalletInfo, DepositForm, WithdrawForm } from '@/components/wallet'
+import { PortfolioDashboard } from '@/components/dashboard'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -64,11 +65,15 @@ export default function Home() {
         }`}
       >
         <div className="p-4 space-y-4">
-          <Tabs defaultValue="wallet" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs defaultValue="portfolio" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
               <TabsTrigger value="wallet">Wallet</TabsTrigger>
               <TabsTrigger value="actions">Actions</TabsTrigger>
             </TabsList>
+            <TabsContent value="portfolio" className="mt-4">
+              <PortfolioDashboard />
+            </TabsContent>
             <TabsContent value="wallet" className="mt-4">
               <WalletInfo />
             </TabsContent>
