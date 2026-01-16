@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 interface IsometricBuildingProps {
   type: 'townhall' | 'bank' | 'shop' | 'lottery'
@@ -19,38 +19,42 @@ export function IsometricBuilding({
   const [randomFloat] = useState(() => Math.random() * 10)
 
   const sizeClasses = {
-    sm: 'w-16 h-20',
-    md: 'w-24 h-32',
-    lg: 'w-32 h-40'
+    sm: 'w-20 h-20',
+    md: 'w-28 h-28',
+    lg: 'w-36 h-36'
   }
 
   const buildingStyles = {
     townhall: {
-      primary: 'from-amber-400 to-amber-600',
-      secondary: 'from-amber-500 to-amber-700',
-      accent: 'from-yellow-300 to-yellow-500',
-      glow: 'shadow-amber-500/50',
+      roof: '#FFD700',
+      wall: '#DBA514',
+      door: '#8B4513',
+      window: '#87CEEB',
+      shadow: '#4A3F35',
       icon: '🏛️'
     },
     bank: {
-      primary: 'from-emerald-400 to-emerald-600',
-      secondary: 'from-emerald-500 to-emerald-700',
-      accent: 'from-green-300 to-green-500',
-      glow: 'shadow-emerald-500/50',
+      roof: '#2E8B57',
+      wall: '#3CB371',
+      door: '#1C5D39',
+      window: '#90EE90',
+      shadow: '#1F4D2F',
       icon: '🏦'
     },
     shop: {
-      primary: 'from-cyan-400 to-cyan-600',
-      secondary: 'from-cyan-500 to-cyan-700',
-      accent: 'from-blue-300 to-blue-500',
-      glow: 'shadow-cyan-500/50',
+      roof: '#4682B4',
+      wall: '#5F9EA0',
+      door: '#2F5F7F',
+      window: '#87CEEB',
+      shadow: '#2C3E50',
       icon: '🏪'
     },
     lottery: {
-      primary: 'from-purple-400 to-purple-600',
-      secondary: 'from-purple-500 to-purple-700',
-      accent: 'from-pink-300 to-pink-500',
-      glow: 'shadow-purple-500/50',
+      roof: '#9370DB',
+      wall: '#BA55D3',
+      door: '#663399',
+      window: '#DDA0DD',
+      shadow: '#4B0082',
       icon: '🎰'
     }
   }
@@ -59,25 +63,22 @@ export function IsometricBuilding({
 
   return (
     <motion.div
-      className={`relative ${sizeClasses[size]} cursor-pointer group`}
-      initial={{ opacity: 0, y: 50, rotateX: -20 }}
+      className={`relative ${sizeClasses[size]} cursor-pointer group pixel-art`}
+      initial={{ opacity: 0, scale: 0.5 }}
       animate={{
         opacity: 1,
-        y: 0,
-        rotateX: 0
+        scale: 1
       }}
       transition={{
-        duration: 0.8,
+        duration: 0.5,
         delay,
-        ease: [0.25, 0.46, 0.45, 0.94]
+        ease: "backOut"
       }}
-      style={{ transformStyle: 'preserve-3d' }}
     >
-      {/* Floating animation */}
+      {/* Gentle bounce animation */}
       <motion.div
         animate={{
-          y: [0, -12, 0],
-          rotateZ: [-1, 1, -1],
+          y: [0, -4, 0],
         }}
         transition={{
           duration: floatSpeed,
@@ -86,85 +87,101 @@ export function IsometricBuilding({
           delay: randomFloat
         }}
         className="relative w-full h-full"
-        style={{ transformStyle: 'preserve-3d' }}
       >
-        {/* Building structure - isometric view */}
-        <div className="absolute inset-0" style={{
-          transform: 'rotateX(60deg) rotateZ(-45deg)',
-          transformStyle: 'preserve-3d'
-        }}>
-          {/* Main building face */}
-          <div className={`absolute bottom-0 w-full h-3/4 bg-gradient-to-br ${style.primary}
-            rounded-t-lg shadow-2xl ${style.glow} group-hover:scale-105 transition-transform`}
-            style={{ transformStyle: 'preserve-3d' }}
+        {/* Pixel art building - Top-down 2D style like Gather Town */}
+        <div className="absolute inset-0 flex flex-col items-center justify-end">
+
+          {/* Roof - Triangle */}
+          <div className="relative w-full h-1/3 flex justify-center">
+            <div
+              className="w-0 h-0 border-l-[40px] border-r-[40px] border-b-[30px] border-l-transparent border-r-transparent"
+              style={{
+                borderBottomColor: style.roof,
+                filter: 'drop-shadow(2px 2px 0px rgba(0,0,0,0.3))'
+              }}
+            />
+          </div>
+
+          {/* Building body - Rectangular with pixel edges */}
+          <div
+            className="relative w-4/5 h-2/3 rounded-sm"
+            style={{
+              backgroundColor: style.wall,
+              border: `2px solid ${style.shadow}`,
+              boxShadow: `4px 4px 0px ${style.shadow}`
+            }}
           >
-            {/* Windows/details */}
-            <div className="absolute inset-2 grid grid-cols-2 gap-1 p-1">
-              {[...Array(4)].map((_, i) => (
+            {/* Door */}
+            <div
+              className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/4 h-2/5 rounded-t-sm"
+              style={{ backgroundColor: style.door }}
+            />
+
+            {/* Windows */}
+            <div className="absolute top-2 left-2 right-2 grid grid-cols-2 gap-2">
+              {[...Array(2)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="bg-yellow-200/40 rounded-sm"
+                  className="aspect-square rounded-sm"
+                  style={{ backgroundColor: style.window }}
                   animate={{
-                    opacity: [0.4, 0.8, 0.4],
+                    opacity: [0.6, 1, 0.6],
                   }}
                   transition={{
                     duration: 2,
                     repeat: Infinity,
-                    delay: i * 0.3
+                    delay: i * 0.5
                   }}
                 />
               ))}
             </div>
+
+            {/* Pixel detail lines */}
+            <div
+              className="absolute left-0 top-1/4 w-full h-px"
+              style={{ backgroundColor: style.shadow, opacity: 0.3 }}
+            />
+            <div
+              className="absolute left-0 top-1/2 w-full h-px"
+              style={{ backgroundColor: style.shadow, opacity: 0.3 }}
+            />
           </div>
 
-          {/* Roof */}
-          <div className={`absolute -top-2 w-full h-4 bg-gradient-to-br ${style.accent}
-            rounded-t-xl shadow-lg transform -translate-z-2`}
-            style={{ transform: 'translateZ(2px)' }}
-          />
+          {/* Icon above building */}
+          <motion.div
+            className="absolute -top-8 left-1/2 -translate-x-1/2 text-4xl filter drop-shadow-md"
+            animate={{
+              scale: [1, 1.15, 1],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          >
+            {style.icon}
+          </motion.div>
 
-          {/* Side face */}
-          <div className={`absolute right-0 bottom-0 w-2 h-3/4 bg-gradient-to-br ${style.secondary} opacity-70`}
-            style={{ transform: 'translateX(100%) rotateY(90deg)', transformOrigin: 'left' }}
+          {/* Sparkle effect on hover */}
+          <motion.div
+            className="absolute -inset-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+            style={{
+              background: `radial-gradient(circle, ${style.window}40 0%, transparent 70%)`
+            }}
           />
         </div>
-
-        {/* Floating icon above building */}
-        <motion.div
-          className="absolute -top-6 left-1/2 -translate-x-1/2 text-3xl drop-shadow-lg"
-          animate={{
-            y: [0, -4, 0],
-            scale: [1, 1.1, 1],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        >
-          {style.icon}
-        </motion.div>
-
-        {/* Glow effect */}
-        <motion.div
-          className={`absolute -inset-4 bg-gradient-radial from-white/20 to-transparent rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity`}
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.3, 0.6, 0.3],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-          }}
-        />
       </motion.div>
 
-      {/* Shadow */}
+      {/* Pixel shadow */}
       <motion.div
-        className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-3/4 h-2 bg-black/20 rounded-full blur-md"
+        className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4/5 h-2 rounded-full"
+        style={{
+          backgroundColor: '#00000040',
+          filter: 'blur(4px)'
+        }}
         animate={{
-          scale: [1, 0.9, 1],
-          opacity: [0.2, 0.3, 0.2],
+          scale: [1, 0.95, 1],
+          opacity: [0.3, 0.4, 0.3],
         }}
         transition={{
           duration: floatSpeed,

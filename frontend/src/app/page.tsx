@@ -1,7 +1,7 @@
 'use client'
 
-import { WelcomeScreen } from '@/components/game'
+import { LandingPage } from '@/components/landing'
 
 export default function Home() {
-  return <WelcomeScreen />
+  return <LandingPage />
 }
