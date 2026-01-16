@@ -6,9 +6,11 @@ import type { DepositTokenSymbol } from '@/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowDownToLine, Loader2, ChevronDown, Check, AlertCircle } from 'lucide-react'
+import { ArrowDownToLine, Loader2, ChevronDown, Check, AlertCircle, Copy, ExternalLink, Building2 } from 'lucide-react'
 import { usePrivy } from '@privy-io/react-auth'
 import { TOKEN_ADDRESSES, ZERO_ADDRESS } from '@/lib/constants'
+import { useGameStore } from '@/store/gameStore'
+import { toast } from 'sonner'
 
 // Token configuration with display info
 const SUPPORTED_TOKENS: {
@@ -36,6 +38,18 @@ export function DepositForm({ smartWalletAddress, onSuccess }: DepositFormProps)
 
   const { user } = usePrivy()
   const eoaAddress = user?.wallet?.address as `0x${string}` | undefined
+
+  // Check if user has Town Hall (SmartWallet)
+  const { buildings } = useGameStore()
+  const hasTownHall = buildings.some(b => b.type === 'town-hall')
+
+  // Copy address to clipboard
+  const copyAddress = () => {
+    if (smartWalletAddress) {
+      navigator.clipboard.writeText(smartWalletAddress)
+      toast.success('Address copied!')
+    }
+  }
 
   // Get native ETH balance
   const { formatted: ethBalance } = useWalletBalance(eoaAddress)
@@ -138,6 +152,37 @@ export function DepositForm({ smartWalletAddress, onSuccess }: DepositFormProps)
     return `Deposit ${selectedToken}`
   }
 
+  // If no Town Hall, show message to place one first
+  if (!hasTownHall) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <ArrowDownToLine className="h-5 w-5" />
+            Deposit Funds
+          </CardTitle>
+          <CardDescription>Transfer assets to your Smart Wallet</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-6 space-y-4">
+            <div className="w-16 h-16 mx-auto rounded-full bg-amber-500/10 flex items-center justify-center">
+              <Building2 className="h-8 w-8 text-amber-500" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Place Town Hall First</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                You need to place a Town Hall to create your Smart Wallet before you can deposit funds.
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Click the &quot;Build&quot; button below and select an empty tile to place your Town Hall.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -148,6 +193,36 @@ export function DepositForm({ smartWalletAddress, onSuccess }: DepositFormProps)
         <CardDescription>Transfer assets to your Smart Wallet</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* SmartWallet Address Display */}
+        {smartWalletAddress && (
+          <div className="p-3 bg-muted/50 rounded-md space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Deposit to Smart Wallet</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="text-xs bg-background px-2 py-1 rounded flex-1 truncate">
+                {smartWalletAddress}
+              </code>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={copyAddress}
+              >
+                <Copy className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={() => window.open(`https://sepolia.basescan.org/address/${smartWalletAddress}`, '_blank')}
+              >
+                <ExternalLink className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Token Selector */}
         <div className="space-y-2">
           <label className="text-sm text-muted-foreground">Asset</label>

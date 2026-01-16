@@ -147,24 +147,30 @@ Buildings, stats, game state (accounting records)
 **I want** to transfer USDC, USDT, ETH, or WBTC to my SmartWallet
 **So that** I can use these assets to build DeFi positions in my city
 
-**Status:** ✅ COMPLETED (2026-01-16)
+**Status:** 🟡 IN PROGRESS (Frontend done, waiting for Smart Contracts)
 
 **Acceptance Criteria:**
-- [ ] User must have Town Hall (SmartWallet) placed first
-- [ ] If no Town Hall, show: "Place Town Hall first to create your wallet"
+- [x] User must have Town Hall (SmartWallet) placed first
+- [x] If no Town Hall, show: "Place Town Hall first to create your wallet"
 - [x] User can select asset type (USDC, USDT, ETH, WBTC, WETH)
 - [x] User can enter deposit amount
 - [x] UI shows current balance for selected asset (EOA wallet)
-- [ ] UI shows SmartWallet address with copy button
+- [x] UI shows SmartWallet address with copy button
 - [x] UI shows minimum deposit (if any)
 - [x] User confirms transaction in MetaMask/wallet
 - [x] Transaction transfers tokens FROM user's EOA TO user's SmartWallet
-- [ ] DefiCityCore updates accounting records (tracks balance for game UI)
+- [ ] DefiCityCore updates accounting records (tracks balance for game UI) - **Requires SC**
 - [x] Transaction shows loading state
 - [x] Balance updates after successful deposit
 - [x] Success notification displays with transaction hash
 - [x] User pays gas fee for deposit (not gasless)
 - [x] Assets remain in user's SmartWallet (NOT transferred to game contracts)
+
+**Remaining Work:**
+1. ~~Add Town Hall check before allowing deposit~~ ✅
+2. ~~Show "Place Town Hall first" message if no Town Hall~~ ✅
+3. ~~Display SmartWallet address with copy button~~ ✅
+4. DefiCityCore integration (requires smart contracts)
 
 **Implementation Notes:**
 - Supports ETH (native), USDC, USDT, WBTC, WETH tokens
