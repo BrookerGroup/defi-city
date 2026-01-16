@@ -3,12 +3,13 @@
 import { usePrivy } from '@privy-io/react-auth'
 import { useHasWallet } from '@/hooks/useContracts'
 import {
-  IsometricGameCanvas,
+  PixiGameCanvas,
   TopBar,
   BottomBar,
   CreateTownHallModal,
 } from '@/components/game'
 import { WalletInfo, DepositForm, WithdrawForm } from '@/components/wallet'
+import { useGameStore } from '@/store/gameStore'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -61,6 +62,13 @@ export default function AppPage() {
   const [showTownHallModal, setShowTownHallModal] = useState(false)
   const [walletAddress, setWalletAddress] = useState<string | null>(null)
 
+  // Also check local buildings from gameStore
+  const localBuildings = useGameStore((state) => state.buildings)
+  const hasLocalTownHall = localBuildings.some(b => b.type === 'townhall')
+
+  // User has wallet if blockchain says so OR local storage has a town hall
+  const userHasWallet = hasWallet || hasLocalTownHall
+
   // Not ready yet
   if (!ready) {
     return (
@@ -112,7 +120,7 @@ export default function AppPage() {
   }
 
   // User needs to create Town Hall
-  if (authenticated && !hasWallet) {
+  if (authenticated && !userHasWallet) {
     return (
       <>
         <main
@@ -185,7 +193,7 @@ export default function AppPage() {
 
           {/* Faded grid background */}
           <div className="opacity-20">
-            <IsometricGameCanvas />
+            <PixiGameCanvas />
           </div>
 
           <BottomBar />
@@ -210,7 +218,7 @@ export default function AppPage() {
   return (
     <main className="relative min-h-screen overflow-hidden">
       <TopBar />
-      <IsometricGameCanvas />
+      <PixiGameCanvas />
       <BottomBar />
 
       {/* Sidebar Toggle */}

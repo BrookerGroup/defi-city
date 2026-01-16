@@ -6,25 +6,36 @@ import { useGameStore } from '@/store/gameStore'
 import { Building, BUILDING_INFO, BuildingType, GRID_SIZE } from '@/types'
 import { BuildingModal } from './BuildingModal'
 import { BuildingInfo } from './BuildingInfo'
+import { useCreateTownHall } from '@/hooks/useContracts'
+import { useWallets } from '@privy-io/react-auth'
 import { toast } from 'sonner'
 
-// Tile dimensions for isometric view
-const TILE_WIDTH = 100
-const TILE_HEIGHT = 50
+// Sprite sheet dimensions
+const SPRITE_SIZE = 200 // Each building is 200x200 in the sprite sheet
+const TILE_DISPLAY_WIDTH = 128
+const TILE_DISPLAY_HEIGHT = 64
+
+// Building positions in sprite sheet (2x2 grid, each 200x200)
+const BUILDING_SPRITES: Record<BuildingType, { col: number; row: number }> = {
+  townhall: { col: 0, row: 0 }, // Top-left: House
+  bank: { col: 1, row: 0 },     // Top-right: Apartment
+  shop: { col: 0, row: 1 },     // Bottom-left: Coffee shop
+  lottery: { col: 1, row: 1 },  // Bottom-right: Office
+}
 
 // Grid to screen conversion (isometric)
 const gridToScreen = (gridX: number, gridY: number) => ({
-  x: (gridX - gridY) * (TILE_WIDTH / 2),
-  y: (gridX + gridY) * (TILE_HEIGHT / 2)
+  x: (gridX - gridY) * (TILE_DISPLAY_WIDTH / 2),
+  y: (gridX + gridY) * (TILE_DISPLAY_HEIGHT / 2)
 })
 
 const screenToGrid = (screenX: number, screenY: number) => {
-  const x = (screenX / (TILE_WIDTH / 2) + screenY / (TILE_HEIGHT / 2)) / 2
-  const y = (screenY / (TILE_HEIGHT / 2) - screenX / (TILE_WIDTH / 2)) / 2
+  const x = (screenX / (TILE_DISPLAY_WIDTH / 2) + screenY / (TILE_DISPLAY_HEIGHT / 2)) / 2
+  const y = (screenY / (TILE_DISPLAY_HEIGHT / 2) - screenX / (TILE_DISPLAY_WIDTH / 2)) / 2
   return { x: Math.floor(x), y: Math.floor(y) }
 }
 
-// SVG Isometric Tile Component
+// Isometric Grass Tile Component using sprite
 function IsometricTile({
   x,
   y,
@@ -42,67 +53,56 @@ function IsometricTile({
 }) {
   const screen = gridToScreen(x, y)
 
-  // Determine tile colors
-  let fillColor = '#2d5a27'
-  let strokeColor = '#1e3d1a'
-
-  if (isHovered && isPlacing) {
-    fillColor = isOccupied ? '#dc2626' : '#16a34a'
-    strokeColor = isOccupied ? '#991b1b' : '#166534'
-  } else if (isHovered) {
-    fillColor = '#3d7a37'
-  }
-
-  // Add some variation to grass tiles
-  const variation = ((x * 7 + y * 13) % 3)
-  const grassColors = ['#2d5a27', '#2a5424', '#305e2a']
-  if (!isHovered) {
-    fillColor = grassColors[variation]
-  }
-
   return (
-    <g
-      transform={`translate(${screen.x}, ${screen.y})`}
+    <div
+      className="absolute cursor-pointer"
+      style={{
+        left: screen.x - TILE_DISPLAY_WIDTH / 2,
+        top: screen.y - TILE_DISPLAY_HEIGHT / 2,
+        width: TILE_DISPLAY_WIDTH,
+        height: TILE_DISPLAY_HEIGHT,
+        zIndex: x + y,
+      }}
       onClick={onClick}
-      style={{ cursor: isPlacing ? 'pointer' : 'default' }}
     >
-      {/* Isometric diamond tile */}
-      <polygon
-        points={`0,-${TILE_HEIGHT / 2} ${TILE_WIDTH / 2},0 0,${TILE_HEIGHT / 2} -${TILE_WIDTH / 2},0`}
-        fill={fillColor}
-        stroke={strokeColor}
-        strokeWidth="1"
-        className="transition-colors duration-150"
+      {/* Grass tile from sprite sheet - using bottom-left tile (plain grass) */}
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: 'url(/assets/grass-tiles.png)',
+          backgroundPosition: '0px -266px', // Bottom-left tile (row 2, col 0)
+          backgroundSize: '256px 400px',
+          imageRendering: 'pixelated',
+        }}
       />
-      {/* Grass texture details */}
-      {!isHovered && (
-        <>
-          <line
-            x1={-15 + variation * 5}
-            y1={-5 + variation * 2}
-            x2={-10 + variation * 5}
-            y2={-10 + variation * 2}
-            stroke="#3d7a37"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-          <line
-            x1={10 - variation * 3}
-            y1={5 - variation * 2}
-            x2={15 - variation * 3}
-            y2={0 - variation * 2}
-            stroke="#3d7a37"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-        </>
+
+      {/* Hover/placement overlay */}
+      {isHovered && isPlacing && (
+        <div
+          className="absolute inset-0 transition-opacity"
+          style={{
+            backgroundColor: isOccupied ? 'rgba(239, 68, 68, 0.5)' : 'rgba(16, 185, 129, 0.5)',
+            clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
+          }}
+        />
       )}
-    </g>
+
+      {/* Subtle hover effect when not placing */}
+      {isHovered && !isPlacing && (
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
+          }}
+        />
+      )}
+    </div>
   )
 }
 
-// SVG Pixel Art Building Component
-function PixelBuilding({
+// Building Sprite Component
+function BuildingSprite({
   building,
   onClick
 }: {
@@ -114,162 +114,52 @@ function PixelBuilding({
 
   if (!info) return null
 
-  const { colors } = info
-  const buildingHeight = 80
-  const buildingWidth = 60
+  const sprite = BUILDING_SPRITES[building.type]
+  const spriteX = sprite.col * SPRITE_SIZE
+  const spriteY = sprite.row * SPRITE_SIZE
 
   return (
-    <motion.g
-      transform={`translate(${screen.x}, ${screen.y - buildingHeight / 2})`}
+    <motion.div
+      className="absolute cursor-pointer"
+      style={{
+        left: screen.x - 80,
+        top: screen.y - 140,
+        width: 160,
+        height: 160,
+        zIndex: (building.position.x + building.position.y) * 10 + 100,
+      }}
       initial={{ scale: 0, y: 20 }}
       animate={{ scale: 1, y: 0 }}
-      whileHover={{ scale: 1.05 }}
+      whileHover={{ scale: 1.05, y: -5 }}
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
       onClick={onClick}
-      style={{ cursor: 'pointer' }}
     >
-      {/* Building shadow */}
-      <ellipse
-        cx="0"
-        cy={buildingHeight / 2 + 5}
-        rx={buildingWidth / 2}
-        ry={10}
-        fill="rgba(0,0,0,0.3)"
+      {/* Building sprite from sprite sheet */}
+      <div
+        className="w-full h-full"
+        style={{
+          backgroundImage: 'url(/assets/buildings-1.png)',
+          backgroundPosition: `-${spriteX * 0.8}px -${spriteY * 0.8}px`,
+          backgroundSize: '320px 320px', // Scale 400px to 320px (0.8x)
+          imageRendering: 'pixelated',
+        }}
       />
 
-      {/* Building base/foundation */}
-      <rect
-        x={-buildingWidth / 2}
-        y={buildingHeight / 2 - 8}
-        width={buildingWidth}
-        height={8}
-        fill={colors.accent}
-      />
-
-      {/* Building main body */}
-      <rect
-        x={-buildingWidth / 2 + 4}
-        y={-buildingHeight / 2 + 20}
-        width={buildingWidth - 8}
-        height={buildingHeight - 28}
-        fill={colors.wall}
-        stroke={colors.accent}
-        strokeWidth="2"
-      />
-
-      {/* Roof */}
-      {building.type === 'townhall' ? (
-        // Town Hall - pointed roof with flag
-        <>
-          <polygon
-            points={`0,-${buildingHeight / 2 + 10} ${buildingWidth / 2 - 4},${-buildingHeight / 2 + 20} -${buildingWidth / 2 - 4},${-buildingHeight / 2 + 20}`}
-            fill={colors.roof}
-            stroke={colors.accent}
-            strokeWidth="2"
-          />
-          <rect x="-2" y={-buildingHeight / 2 - 20} width="4" height="15" fill={colors.accent} />
-          <polygon
-            points={`2,-${buildingHeight / 2 - 20} 2,-${buildingHeight / 2 - 10} 12,-${buildingHeight / 2 - 15}`}
-            fill="#ef4444"
-          />
-        </>
-      ) : building.type === 'bank' ? (
-        // Bank - flat roof with columns
-        <>
-          <rect
-            x={-buildingWidth / 2}
-            y={-buildingHeight / 2 + 15}
-            width={buildingWidth}
-            height={8}
-            fill={colors.roof}
-          />
-          {/* Columns */}
-          <rect x={-buildingWidth / 2 + 8} y={-buildingHeight / 2 + 23} width={6} height={buildingHeight - 38} fill={colors.accent} />
-          <rect x={buildingWidth / 2 - 14} y={-buildingHeight / 2 + 23} width={6} height={buildingHeight - 38} fill={colors.accent} />
-        </>
-      ) : building.type === 'shop' ? (
-        // Shop - awning
-        <>
-          <rect
-            x={-buildingWidth / 2 - 5}
-            y={-buildingHeight / 2 + 15}
-            width={buildingWidth + 10}
-            height={12}
-            fill={colors.roof}
-          />
-          {/* Stripes on awning */}
-          <rect x={-buildingWidth / 2 - 5} y={-buildingHeight / 2 + 15} width={12} height={12} fill={colors.accent} />
-          <rect x={-buildingWidth / 2 + 19} y={-buildingHeight / 2 + 15} width={12} height={12} fill={colors.accent} />
-          <rect x={buildingWidth / 2 - 7} y={-buildingHeight / 2 + 15} width={12} height={12} fill={colors.accent} />
-        </>
-      ) : (
-        // Lottery - dome roof
-        <>
-          <ellipse
-            cx="0"
-            cy={-buildingHeight / 2 + 20}
-            rx={buildingWidth / 2 - 4}
-            ry={15}
-            fill={colors.roof}
-          />
-          <circle cx="0" cy={-buildingHeight / 2 + 5} r="8" fill={colors.accent} />
-          <text
-            x="0"
-            y={-buildingHeight / 2 + 9}
-            textAnchor="middle"
-            fill="#fef08a"
-            fontSize="10"
-            fontWeight="bold"
-          >
-            $
-          </text>
-        </>
-      )}
-
-      {/* Windows */}
-      <rect x={-buildingWidth / 2 + 10} y={-buildingHeight / 2 + 30} width={12} height={12} fill={colors.window} rx="1" />
-      <rect x={buildingWidth / 2 - 22} y={-buildingHeight / 2 + 30} width={12} height={12} fill={colors.window} rx="1" />
-
-      {/* Door */}
-      <rect
-        x={-8}
-        y={buildingHeight / 2 - 30}
-        width={16}
-        height={22}
-        fill={colors.accent}
-        rx="2"
-      />
-      <rect
-        x={-5}
-        y={buildingHeight / 2 - 27}
-        width={10}
-        height={19}
-        fill={colors.window}
-        rx="1"
-      />
-
-      {/* Building label */}
-      <rect
-        x={-30}
-        y={buildingHeight / 2 + 12}
-        width={60}
-        height={16}
-        fill="rgba(15, 23, 42, 0.9)"
-        stroke={colors.accent}
-        strokeWidth="1"
-        rx="2"
-      />
-      <text
-        x="0"
-        y={buildingHeight / 2 + 23}
-        textAnchor="middle"
-        fill={colors.roof}
-        fontSize="8"
-        fontFamily="'Press Start 2P', monospace"
+      {/* Building name label */}
+      <div
+        className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-1"
+        style={{
+          fontFamily: '"Press Start 2P", monospace',
+          fontSize: '7px',
+          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+          color: info.colors.roof,
+          border: `2px solid ${info.colors.accent}`,
+          boxShadow: `2px 2px 0px ${info.colors.accent}40`
+        }}
       >
         {info.name}
-      </text>
-    </motion.g>
+      </div>
+    </motion.div>
   )
 }
 
@@ -282,35 +172,36 @@ function GhostBuilding({
   position: { x: number; y: number }
 }) {
   const screen = gridToScreen(position.x, position.y)
-  const info = BUILDING_INFO[type]
-  if (!info) return null
-
-  const { colors } = info
-  const buildingHeight = 80
-  const buildingWidth = 60
+  const sprite = BUILDING_SPRITES[type]
+  const spriteX = sprite.col * SPRITE_SIZE
+  const spriteY = sprite.row * SPRITE_SIZE
 
   return (
-    <g
-      transform={`translate(${screen.x}, ${screen.y - buildingHeight / 2})`}
-      style={{ opacity: 0.6 }}
+    <motion.div
+      className="absolute pointer-events-none"
+      style={{
+        left: screen.x - 80,
+        top: screen.y - 140,
+        width: 160,
+        height: 160,
+        zIndex: 9999,
+        opacity: 0.7,
+      }}
+      initial={{ scale: 0.8 }}
+      animate={{ scale: [0.95, 1.05, 0.95] }}
+      transition={{ duration: 1.5, repeat: Infinity }}
     >
-      {/* Simplified ghost preview */}
-      <rect
-        x={-buildingWidth / 2 + 4}
-        y={-buildingHeight / 2 + 20}
-        width={buildingWidth - 8}
-        height={buildingHeight - 20}
-        fill={colors.wall}
-        stroke={colors.roof}
-        strokeWidth="2"
-        strokeDasharray="5,3"
+      <div
+        className="w-full h-full"
+        style={{
+          backgroundImage: 'url(/assets/buildings-1.png)',
+          backgroundPosition: `-${spriteX * 0.8}px -${spriteY * 0.8}px`,
+          backgroundSize: '320px 320px',
+          imageRendering: 'pixelated',
+          filter: 'brightness(1.3) saturate(0.7)',
+        }}
       />
-      <polygon
-        points={`0,-${buildingHeight / 2 + 5} ${buildingWidth / 2 - 4},${-buildingHeight / 2 + 20} -${buildingWidth / 2 - 4},${-buildingHeight / 2 + 20}`}
-        fill={colors.roof}
-        opacity="0.8"
-      />
-    </g>
+    </motion.div>
   )
 }
 
@@ -321,7 +212,10 @@ export function IsometricGameCanvas() {
   const [pendingPosition, setPendingPosition] = useState<{ x: number; y: number } | null>(null)
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null)
   const [infoModalOpen, setInfoModalOpen] = useState(false)
-  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
+  const [isCreatingTownHall, setIsCreatingTownHall] = useState(false)
+
+  const { wallets } = useWallets()
+  const { createTownHall, loading: townHallLoading, error: townHallError } = useCreateTownHall()
 
   const {
     buildings,
@@ -335,39 +229,37 @@ export function IsometricGameCanvas() {
     setZoom,
   } = useGameStore()
 
-  // Update viewport size on mount and resize
-  useEffect(() => {
-    const updateSize = () => {
-      setViewportSize({
-        width: window.innerWidth,
-        height: window.innerHeight
-      })
-    }
-    updateSize()
-    window.addEventListener('resize', updateSize)
-    return () => window.removeEventListener('resize', updateSize)
-  }, [])
+  // Get user's wallet address
+  const getUserAddress = () => {
+    const privyWallet = wallets.find(w => w.walletClientType === 'privy')
+    if (privyWallet) return privyWallet.address
+    if (wallets.length > 0) return wallets[0].address
+    return null
+  }
 
-  // Calculate SVG viewBox to center the grid
-  const gridPixelWidth = GRID_SIZE * TILE_WIDTH
-  const gridPixelHeight = GRID_SIZE * TILE_HEIGHT
-  const padding = 200
+  // Calculate center offset for the grid
+  const gridPixelWidth = GRID_SIZE * TILE_DISPLAY_WIDTH
+  const gridPixelHeight = GRID_SIZE * TILE_DISPLAY_HEIGHT
 
   // Handle mouse move for hover
-  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    const svg = e.currentTarget
-    const rect = svg.getBoundingClientRect()
-    const svgX = ((e.clientX - rect.left) / rect.width) * (gridPixelWidth + padding * 2) - padding - gridPixelWidth / 2
-    const svgY = ((e.clientY - rect.top) / rect.height) * (gridPixelHeight + padding * 2) - padding
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return
 
-    const grid = screenToGrid(svgX, svgY)
+    const rect = containerRef.current.getBoundingClientRect()
+    const centerX = rect.width / 2
+    const centerY = rect.height / 2
+
+    const mouseX = (e.clientX - rect.left - centerX) / zoom
+    const mouseY = (e.clientY - rect.top - centerY + 100) / zoom
+
+    const grid = screenToGrid(mouseX, mouseY)
 
     if (grid.x >= 0 && grid.x < GRID_SIZE && grid.y >= 0 && grid.y < GRID_SIZE) {
       setHoveredTile(grid)
     } else {
       setHoveredTile(null)
     }
-  }, [gridPixelWidth, gridPixelHeight])
+  }, [zoom])
 
   // Handle tile click
   const handleTileClick = useCallback((x: number, y: number) => {
@@ -397,9 +289,47 @@ export function IsometricGameCanvas() {
   }, [zoom, setZoom])
 
   // Confirm building placement
-  const handleConfirmBuild = (amount?: string) => {
+  const handleConfirmBuild = async (amount?: string) => {
     if (!pendingPosition || !selectedBuildingType) return
 
+    // For Town Hall, call the smart contract
+    if (selectedBuildingType === 'townhall') {
+      const userAddress = getUserAddress()
+      if (!userAddress) {
+        toast.error('Please connect your wallet first')
+        return
+      }
+
+      setIsCreatingTownHall(true)
+      setBuildModalOpen(false)
+
+      try {
+        toast.loading('Creating Town Hall on-chain...', { id: 'townhall-create' })
+        const result = await createTownHall(userAddress, pendingPosition.x, pendingPosition.y)
+
+        if (result.success) {
+          const newBuilding: Building = {
+            id: `townhall-${result.buildingId || Date.now()}`,
+            type: 'townhall',
+            position: pendingPosition,
+            createdAt: Date.now(),
+          }
+          addBuilding(newBuilding)
+          toast.success('Town Hall created successfully!', { id: 'townhall-create' })
+        } else {
+          toast.error(townHallError || 'Failed to create Town Hall', { id: 'townhall-create' })
+        }
+      } catch (err: any) {
+        toast.error(err.message || 'Failed to create Town Hall', { id: 'townhall-create' })
+      } finally {
+        setIsCreatingTownHall(false)
+        setPendingPosition(null)
+        selectBuildingType(null)
+      }
+      return
+    }
+
+    // For other buildings, just add locally (can be extended to call contracts)
     const newBuilding: Building = {
       id: `${selectedBuildingType}-${Date.now()}`,
       type: selectedBuildingType,
@@ -422,24 +352,21 @@ export function IsometricGameCanvas() {
     }
   }
 
-  // Sort buildings by depth (y position for proper overlapping)
+  // Sort buildings by depth
   const sortedBuildings = [...buildings].sort((a, b) =>
     (a.position.x + a.position.y) - (b.position.x + b.position.y)
   )
-
-  const viewBoxWidth = (gridPixelWidth + padding * 2) / zoom
-  const viewBoxHeight = (gridPixelHeight + padding * 2) / zoom
-  const viewBoxX = -padding / zoom - (gridPixelWidth / 2) / zoom + (gridPixelWidth / 2 - viewBoxWidth / 2)
-  const viewBoxY = -padding / zoom
 
   return (
     <>
       <div
         ref={containerRef}
-        className="fixed inset-0"
+        className="fixed inset-0 overflow-hidden"
         style={{
-          background: 'linear-gradient(180deg, #0f172a 0%, #1e1b4b 40%, #0f172a 100%)',
+          background: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)',
         }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHoveredTile(null)}
       >
         {/* Animated stars background */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -463,49 +390,49 @@ export function IsometricGameCanvas() {
           ))}
         </div>
 
-        {/* SVG Game Canvas - Full Screen */}
-        <svg
-          width="100%"
-          height="100%"
-          viewBox={`${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`}
-          preserveAspectRatio="xMidYMid meet"
-          onMouseMove={handleMouseMove}
-          onMouseLeave={() => setHoveredTile(null)}
-          className="absolute inset-0"
-          style={{ touchAction: 'none' }}
+        {/* Grid container - centered */}
+        <div
+          className="absolute left-1/2 top-1/2"
+          style={{
+            transform: `translate(-50%, -50%) scale(${zoom})`,
+            transformOrigin: 'center center',
+          }}
         >
-          {/* Grid tiles */}
-          {tiles.map(({ x, y }) => (
-            <IsometricTile
-              key={`${x}-${y}`}
-              x={x}
-              y={y}
-              isHovered={hoveredTile?.x === x && hoveredTile?.y === y}
-              isOccupied={isPositionOccupied(x, y)}
-              isPlacing={isPlacingBuilding}
-              onClick={() => handleTileClick(x, y)}
-            />
-          ))}
-
-          {/* Buildings */}
-          <AnimatePresence>
-            {sortedBuildings.map((building) => (
-              <PixelBuilding
-                key={building.id}
-                building={building}
-                onClick={() => {
-                  setSelectedBuilding(building)
-                  setInfoModalOpen(true)
-                }}
+          {/* Isometric grid */}
+          <div className="relative" style={{ marginTop: -100 }}>
+            {/* Render tiles */}
+            {tiles.map(({ x, y }) => (
+              <IsometricTile
+                key={`${x}-${y}`}
+                x={x}
+                y={y}
+                isHovered={hoveredTile?.x === x && hoveredTile?.y === y}
+                isOccupied={isPositionOccupied(x, y)}
+                isPlacing={isPlacingBuilding}
+                onClick={() => handleTileClick(x, y)}
               />
             ))}
-          </AnimatePresence>
 
-          {/* Ghost building when placing */}
-          {isPlacingBuilding && selectedBuildingType && hoveredTile && !isPositionOccupied(hoveredTile.x, hoveredTile.y) && (
-            <GhostBuilding type={selectedBuildingType} position={hoveredTile} />
-          )}
-        </svg>
+            {/* Render buildings */}
+            <AnimatePresence>
+              {sortedBuildings.map((building) => (
+                <BuildingSprite
+                  key={building.id}
+                  building={building}
+                  onClick={() => {
+                    setSelectedBuilding(building)
+                    setInfoModalOpen(true)
+                  }}
+                />
+              ))}
+            </AnimatePresence>
+
+            {/* Ghost building when placing */}
+            {isPlacingBuilding && selectedBuildingType && hoveredTile && !isPositionOccupied(hoveredTile.x, hoveredTile.y) && (
+              <GhostBuilding type={selectedBuildingType} position={hoveredTile} />
+            )}
+          </div>
+        </div>
 
         {/* Zoom controls */}
         <div className="fixed bottom-28 right-4 flex flex-col gap-2 z-50">
@@ -573,6 +500,41 @@ export function IsometricGameCanvas() {
         }}
         onRemove={removeBuilding}
       />
+
+      {/* Town Hall Creation Loading Overlay */}
+      <AnimatePresence>
+        {(isCreatingTownHall || townHallLoading) && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80"
+          >
+            <div className="text-center">
+              <motion.div
+                className="w-20 h-20 mx-auto mb-4"
+                style={{
+                  backgroundImage: 'url(/assets/buildings-1.png)',
+                  backgroundPosition: '0px 0px',
+                  backgroundSize: '96px 96px',
+                  imageRendering: 'pixelated',
+                }}
+                animate={{ rotate: [0, 5, -5, 0], y: [0, -10, 0] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              />
+              <div
+                className="text-amber-400 mb-2"
+                style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '12px' }}
+              >
+                Building Town Hall...
+              </div>
+              <div className="text-slate-400 text-sm">
+                Please confirm the transaction in your wallet
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   )
 }

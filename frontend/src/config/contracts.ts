@@ -34,14 +34,17 @@ export const ABIS = {
   ],
 
   DEFICITY_CORE: [
+    // createTownHall - Entry point for new players (creates wallet + townhall)
+    'function createTownHall(uint256 x, uint256 y) external returns (address walletAddress, uint256 buildingId)',
     // View functions
     'function hasWallet(address user) external view returns (bool)',
     'function userSmartWallets(address user) external view returns (address)',
+    'function getWallet(address user) external view returns (address)',
     'function buildings(uint256 buildingId) external view returns (tuple(uint256 id, address owner, address smartWallet, string buildingType, address asset, uint256 amount, uint256 placedAt, uint256 coordinateX, uint256 coordinateY, bool active, bytes metadata))',
     'function getUserBuildings(address user) external view returns (tuple(uint256 id, address owner, address smartWallet, string buildingType, address asset, uint256 amount, uint256 placedAt, uint256 coordinateX, uint256 coordinateY, bool active, bytes metadata)[])',
-    'function getBuildingAt(uint256 x, uint256 y) external view returns (tuple(uint256 id, address owner, address smartWallet, string buildingType, address asset, uint256 amount, uint256 placedAt, uint256 coordinateX, uint256 coordinateY, bool active, bytes metadata))',
-    'function userStats(address user) external view returns (tuple(uint256 totalDeposited, uint256 totalWithdrawn, uint256 totalHarvested, uint256 buildingCount, uint256 cityCreatedAt))',
-    'function gridBuildings(uint256 x, uint256 y) external view returns (uint256)',
+    'function getBuildingAt(address user, uint256 x, uint256 y) external view returns (tuple(uint256 id, address owner, address smartWallet, string buildingType, address asset, uint256 amount, uint256 placedAt, uint256 coordinateX, uint256 coordinateY, bool active, bytes metadata))',
+    'function getUserStats(address user) external view returns (tuple(uint256 totalDeposited, uint256 totalWithdrawn, uint256 totalHarvested, uint256 buildingCount, uint256 cityCreatedAt))',
+    'function userGridBuildings(address user, uint256 x, uint256 y) external view returns (uint256)',
     // Events
     'event BuildingPlaced(uint256 indexed buildingId, address indexed user, address indexed smartWallet, string buildingType, address asset, uint256 amount, uint256 x, uint256 y)',
   ],

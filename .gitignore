@@ -7,3 +7,4 @@ frontend/.next
 frontend/package-lock.json
 .playwright-mcp/
 frontend/out/
+frontend/public/.DS_Store

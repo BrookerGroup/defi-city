@@ -122,16 +122,22 @@ export function useHasWallet(userAddress: string | undefined) {
 
   useEffect(() => {
     async function checkWallet() {
+      console.log('[useHasWallet] Checking wallet for:', userAddress);
+      console.log('[useHasWallet] Core contract:', core ? 'initialized' : 'not initialized');
+
       if (!core || !userAddress) {
+        console.log('[useHasWallet] Missing core or userAddress, skipping check');
         setLoading(false);
         return;
       }
 
       try {
+        console.log('[useHasWallet] Calling core.hasWallet...');
         const result = await core.hasWallet(userAddress);
+        console.log('[useHasWallet] Result:', result);
         setHasWallet(result);
       } catch (error) {
-        console.error('Error checking wallet:', error);
+        console.error('[useHasWallet] Error checking wallet:', error);
         setHasWallet(false);
       } finally {
         setLoading(false);
@@ -210,20 +216,21 @@ export function useUserBuildings(userAddress: string | undefined) {
 
 /**
  * Hook to create Town Hall
+ * Calls DefiCityCore.createTownHall(x, y) which creates both wallet and townhall
  */
 export function useCreateTownHall() {
-  const { factory } = useContractInstances();
+  const { core } = useContractInstances();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const createTownHall = async (
-    userAddress: string,
+    _userAddress: string, // Not used - contract uses msg.sender
     x: number,
     y: number
   ): Promise<{ success: boolean; walletAddress?: string; buildingId?: number }> => {
-    if (!factory) {
+    if (!core) {
       setError('Please connect your wallet first. Make sure you are logged in.');
-      console.error('Factory contract not initialized - wallet may not be connected');
+      console.error('Core contract not initialized - wallet may not be connected');
       return { success: false };
     }
 
@@ -232,37 +239,59 @@ export function useCreateTownHall() {
 
     try {
       console.log('Creating Town Hall at position:', x, y);
-      console.log('User address:', userAddress);
-      console.log('Factory address:', await factory.getAddress());
+      console.log('Core address:', await core.getAddress());
 
       // First, try to estimate gas to see if the transaction will fail
       try {
-        const gasEstimate = await factory.createTownHall.estimateGas(userAddress, x, y);
+        const gasEstimate = await core.createTownHall.estimateGas(x, y);
         console.log('Gas estimate:', gasEstimate.toString());
       } catch (estimateError: any) {
         console.error('Gas estimation failed:', estimateError);
-        // Try to get more details about why it failed
+        // Try to decode error
         if (estimateError.data) {
           console.error('Error data:', estimateError.data);
         }
+
+        // Check for specific error messages
+        const errorMsg = estimateError.message || '';
+        if (errorMsg.includes('WalletAlreadyRegistered')) {
+          throw new Error('You already have a Town Hall. Each user can only create one.');
+        } else if (errorMsg.includes('GridOccupied')) {
+          throw new Error('This position is already occupied. Choose another location.');
+        }
+
         throw new Error(`Transaction will fail: ${estimateError.reason || estimateError.message}`);
       }
 
-      const tx = await factory.createTownHall(userAddress, x, y);
+      const tx = await core.createTownHall(x, y);
       console.log('Transaction sent:', tx.hash);
 
       const receipt = await tx.wait();
       console.log('Transaction confirmed:', receipt);
 
       // Parse events to get wallet address and building ID
-      // For now, we'll fetch them separately
-      const walletAddress = await factory.walletsByOwner(userAddress);
+      let walletAddress: string | undefined;
+      let buildingId: number | undefined;
+
+      // Look for BuildingPlaced event in logs
+      for (const log of receipt.logs) {
+        try {
+          const parsed = core.interface.parseLog(log);
+          if (parsed?.name === 'BuildingPlaced') {
+            buildingId = Number(parsed.args.buildingId);
+            walletAddress = parsed.args.smartWallet;
+            console.log('Building placed:', { buildingId, walletAddress });
+          }
+        } catch {
+          // Not our event, skip
+        }
+      }
 
       setLoading(false);
       return {
         success: true,
         walletAddress,
-        buildingId: 1, // Will be determined from events
+        buildingId,
       };
     } catch (err: any) {
       console.error('Error creating Town Hall:', err);
@@ -276,6 +305,10 @@ export function useCreateTownHall() {
           errorMessage = 'Insufficient ETH for gas. Please add ETH to your wallet on Base Sepolia.';
         } else if (err.message.includes('user rejected')) {
           errorMessage = 'Transaction was rejected by user.';
+        } else if (err.message.includes('WalletAlreadyRegistered')) {
+          errorMessage = 'You already have a Town Hall. Each user can only create one.';
+        } else if (err.message.includes('GridOccupied')) {
+          errorMessage = 'This position is already occupied.';
         } else {
           errorMessage = err.message;
         }

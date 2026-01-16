@@ -2,67 +2,66 @@
 
 import { useGameStore } from '@/store/gameStore'
 import { BUILDING_INFO, BuildingType } from '@/types'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 
 const AVAILABLE_BUILDINGS: BuildingType[] = ['bank', 'shop', 'lottery']
 
-// SVG Building Icon for toolbar
-function SVGBuildingIcon({ type, size = 48, isSelected = false }: { type: BuildingType; size?: number; isSelected?: boolean }) {
+// Base path for assets
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '/defi-city'
+const ASSET_PATH = `${BASE_PATH}/assets`
+
+// Building sprite sheet: 400x400, 2x2 grid
+const SHEET_WIDTH = 400
+const SHEET_HEIGHT = 400
+const SPRITE_COLS = 2
+const SPRITE_ROWS = 2
+const SPRITE_WIDTH = SHEET_WIDTH / SPRITE_COLS   // 200
+const SPRITE_HEIGHT = SHEET_HEIGHT / SPRITE_ROWS // 200
+
+// Building sprite configuration - position in 2x2 grid
+interface SpriteConfig {
+  col: number
+  row: number
+}
+
+const BUILDING_SPRITE_CONFIG: Record<BuildingType, SpriteConfig> = {
+  townhall: { col: 0, row: 0 },  // Brown house (top-left)
+  bank: { col: 1, row: 0 },      // Gray apartment (top-right)
+  shop: { col: 0, row: 1 },      // Coffee shop (bottom-left)
+  lottery: { col: 1, row: 1 },   // Office building (bottom-right)
+}
+
+// Large Sprite Building Icon for toolbar
+function SpriteBuildingIcon({ type, size = 80, isSelected = false }: { type: BuildingType; size?: number; isSelected?: boolean }) {
   const info = BUILDING_INFO[type]
   if (!info) return null
 
-  const { colors } = info
+  const config = BUILDING_SPRITE_CONFIG[type]
+  const spriteX = config.col * SPRITE_WIDTH
+  const spriteY = config.row * SPRITE_HEIGHT
+
+  // Scale factor to fit sprite into the icon size
+  const scale = size / SPRITE_WIDTH
+  const bgWidth = SHEET_WIDTH * scale
+  const bgHeight = SHEET_HEIGHT * scale
 
   return (
-    <motion.svg
-      width={size}
-      height={size}
-      viewBox="0 0 48 48"
-      animate={isSelected ? { scale: [1, 1.1, 1] } : {}}
-      transition={{ duration: 0.5, repeat: isSelected ? Infinity : 0 }}
-    >
-      {/* Building base */}
-      <rect x="8" y="40" width="32" height="4" fill={colors.accent} />
-
-      {/* Building body */}
-      <rect x="10" y="18" width="28" height="22" fill={colors.wall} stroke={colors.accent} strokeWidth="2" />
-
-      {/* Roof based on type */}
-      {type === 'townhall' ? (
-        <>
-          <polygon points="24,4 40,18 8,18" fill={colors.roof} stroke={colors.accent} strokeWidth="1" />
-          <rect x="22" y="0" width="4" height="6" fill={colors.accent} />
-          <polygon points="26,0 26,4 32,2" fill="#ef4444" />
-        </>
-      ) : type === 'bank' ? (
-        <>
-          <rect x="6" y="14" width="36" height="6" fill={colors.roof} />
-          <rect x="12" y="20" width="4" height="16" fill={colors.accent} />
-          <rect x="32" y="20" width="4" height="16" fill={colors.accent} />
-        </>
-      ) : type === 'shop' ? (
-        <>
-          <rect x="4" y="14" width="40" height="8" fill={colors.roof} />
-          <rect x="4" y="14" width="10" height="8" fill={colors.accent} />
-          <rect x="19" y="14" width="10" height="8" fill={colors.accent} />
-          <rect x="34" y="14" width="10" height="8" fill={colors.accent} />
-        </>
-      ) : (
-        <>
-          <ellipse cx="24" cy="16" rx="16" ry="8" fill={colors.roof} />
-          <circle cx="24" cy="10" r="6" fill={colors.accent} />
-          <text x="24" y="14" textAnchor="middle" fill="#fef08a" fontSize="8" fontWeight="bold">$</text>
-        </>
-      )}
-
-      {/* Windows */}
-      <rect x="14" y="22" width="6" height="6" fill={colors.window} rx="1" />
-      <rect x="28" y="22" width="6" height="6" fill={colors.window} rx="1" />
-
-      {/* Door */}
-      <rect x="20" y="32" width="8" height="8" fill={colors.accent} rx="1" />
-      <rect x="22" y="34" width="4" height="6" fill={colors.window} rx="1" />
-    </motion.svg>
+    <motion.div
+      className="relative"
+      style={{
+        width: size,
+        height: size,
+        backgroundImage: `url(${ASSET_PATH}/buildings-1.png)`,
+        backgroundPosition: `-${spriteX * scale}px -${spriteY * scale}px`,
+        backgroundSize: `${bgWidth}px ${bgHeight}px`,
+        filter: isSelected ? 'drop-shadow(0 0 12px rgba(255, 255, 255, 0.5))' : 'none',
+      }}
+      animate={isSelected ? {
+        scale: [1, 1.05, 1],
+        y: [0, -4, 0]
+      } : {}}
+      transition={{ duration: 1, repeat: isSelected ? Infinity : 0, ease: 'easeInOut' }}
+    />
   )
 }
 
@@ -80,44 +79,77 @@ export function BottomBar() {
   }
 
   return (
-    <div
-      className="fixed bottom-0 left-0 right-0 h-24 z-50 border-t-2"
-      style={{
-        backgroundColor: 'rgba(15, 23, 42, 0.95)',
-        borderColor: '#475569',
-        backdropFilter: 'blur(8px)',
-      }}
-    >
-      <div className="h-full max-w-screen-2xl mx-auto px-4 flex items-center justify-center gap-3">
-        {/* Town Hall (not selectable if already placed) */}
+    <div className="fixed bottom-0 left-0 right-0 z-50">
+      {/* Glass effect background */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.7) 0%, rgba(15, 23, 42, 0.95) 100%)',
+          backdropFilter: 'blur(12px)',
+          borderTop: '1px solid rgba(148, 163, 184, 0.2)',
+        }}
+      />
+
+      {/* Content */}
+      <div className="relative h-36 max-w-screen-xl mx-auto px-6 flex items-center justify-center gap-4">
+
+        {/* Town Hall Card */}
         <motion.button
-          className={`flex flex-col items-center justify-center p-3 border-2 transition-all ${hasTownHall ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+          className={`relative flex flex-col items-center justify-center rounded-2xl overflow-hidden transition-all ${hasTownHall ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
           style={{
-            borderColor: hasTownHall ? '#475569' : BUILDING_INFO.townhall.colors.accent,
-            backgroundColor: hasTownHall ? 'rgba(71, 85, 105, 0.2)' : 'rgba(245, 158, 11, 0.1)',
-            boxShadow: hasTownHall ? 'none' : '3px 3px 0px #B45309'
+            width: 130,
+            height: 120,
+            background: hasTownHall
+              ? 'linear-gradient(145deg, rgba(71, 85, 105, 0.3), rgba(51, 65, 85, 0.2))'
+              : 'linear-gradient(145deg, rgba(245, 158, 11, 0.2), rgba(180, 83, 9, 0.3))',
+            border: hasTownHall ? '2px solid rgba(71, 85, 105, 0.3)' : '2px solid rgba(245, 158, 11, 0.5)',
+            boxShadow: hasTownHall
+              ? 'none'
+              : '0 4px 20px rgba(245, 158, 11, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
           }}
           disabled={hasTownHall}
-          whileHover={!hasTownHall ? { scale: 1.05, y: -2 } : {}}
-          whileTap={!hasTownHall ? { scale: 0.95 } : {}}
+          onClick={() => !hasTownHall && selectBuildingType('townhall')}
+          whileHover={!hasTownHall ? { scale: 1.05, y: -4 } : {}}
+          whileTap={!hasTownHall ? { scale: 0.98 } : {}}
         >
-          <SVGBuildingIcon type="townhall" size={48} />
+          {/* Glow effect */}
+          {!hasTownHall && (
+            <div
+              className="absolute inset-0 opacity-50"
+              style={{
+                background: 'radial-gradient(circle at 50% 30%, rgba(245, 158, 11, 0.4) 0%, transparent 70%)',
+              }}
+            />
+          )}
+
+          <SpriteBuildingIcon type="townhall" size={70} />
+
           <span
-            className="text-xs mt-1"
+            className="mt-1 font-bold tracking-wide"
             style={{
               fontFamily: '"Press Start 2P", monospace',
-              fontSize: '6px',
-              color: hasTownHall ? '#64748b' : '#F59E0B'
+              fontSize: '8px',
+              color: hasTownHall ? '#64748b' : '#F59E0B',
+              textShadow: hasTownHall ? 'none' : '0 0 10px rgba(245, 158, 11, 0.5)',
             }}
           >
-            Town Hall
+            TOWN HALL
           </span>
+
+          {hasTownHall && (
+            <span className="absolute top-2 right-2 text-slate-500 text-xs">✓</span>
+          )}
         </motion.button>
 
         {/* Divider */}
-        <div className="w-px h-12 bg-slate-600 mx-1" />
+        <div
+          className="w-px h-20 mx-2"
+          style={{
+            background: 'linear-gradient(180deg, transparent 0%, rgba(148, 163, 184, 0.3) 50%, transparent 100%)',
+          }}
+        />
 
-        {/* Available buildings */}
+        {/* Building Cards */}
         {AVAILABLE_BUILDINGS.map((type) => {
           const info = BUILDING_INFO[type]
           const isSelected = selectedBuildingType === type
@@ -125,58 +157,101 @@ export function BottomBar() {
           return (
             <motion.button
               key={type}
-              className="flex flex-col items-center justify-center p-3 border-2 transition-all"
+              className="relative flex flex-col items-center justify-center rounded-2xl overflow-hidden cursor-pointer"
               style={{
-                borderColor: isSelected ? info.colors.roof : info.colors.accent,
-                backgroundColor: isSelected ? `${info.colors.roof}30` : `${info.colors.wall}15`,
-                boxShadow: isSelected ? `0 0 12px ${info.colors.roof}50` : `3px 3px 0px ${info.colors.accent}`
+                width: 130,
+                height: 120,
+                background: isSelected
+                  ? `linear-gradient(145deg, ${info.colors.roof}40, ${info.colors.accent}50)`
+                  : `linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))`,
+                border: isSelected
+                  ? `2px solid ${info.colors.roof}`
+                  : '2px solid rgba(71, 85, 105, 0.3)',
+                boxShadow: isSelected
+                  ? `0 4px 25px ${info.colors.roof}50, inset 0 1px 0 rgba(255, 255, 255, 0.1)`
+                  : '0 4px 15px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
               }}
               onClick={() => handleSelectBuilding(type)}
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.05, y: -4 }}
+              whileTap={{ scale: 0.98 }}
             >
-              <SVGBuildingIcon type={type} size={48} isSelected={isSelected} />
+              {/* Selected glow effect */}
+              {isSelected && (
+                <motion.div
+                  className="absolute inset-0"
+                  style={{
+                    background: `radial-gradient(circle at 50% 30%, ${info.colors.roof}60 0%, transparent 70%)`,
+                  }}
+                  animate={{ opacity: [0.5, 0.8, 0.5] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                />
+              )}
+
+              <SpriteBuildingIcon type={type} size={70} isSelected={isSelected} />
+
               <span
-                className="text-xs mt-1"
+                className="mt-1 font-bold tracking-wide uppercase"
                 style={{
                   fontFamily: '"Press Start 2P", monospace',
-                  fontSize: '6px',
-                  color: info.colors.roof
+                  fontSize: '8px',
+                  color: isSelected ? info.colors.roof : '#94a3b8',
+                  textShadow: isSelected ? `0 0 10px ${info.colors.roof}80` : 'none',
                 }}
               >
                 {info.name}
               </span>
-              {isSelected && (
-                <motion.div
-                  className="absolute -top-1 -right-1 w-3 h-3 rounded-full"
-                  style={{ backgroundColor: info.colors.roof }}
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 0.5, repeat: Infinity }}
-                />
-              )}
+
+              {/* Selection indicator */}
+              <AnimatePresence>
+                {isSelected && (
+                  <motion.div
+                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
+                    style={{
+                      backgroundColor: info.colors.roof,
+                      boxShadow: `0 0 10px ${info.colors.roof}`,
+                    }}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                  >
+                    <span className="text-white text-xs font-bold">✓</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.button>
           )
         })}
 
-        {/* Placing indicator */}
-        {isPlacingBuilding && selectedBuildingType && (
-          <motion.div
-            className="ml-4 px-3 py-2 border-2"
-            style={{
-              borderColor: '#10B981',
-              backgroundColor: 'rgba(16, 185, 129, 0.1)'
-            }}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-          >
-            <span
-              className="text-emerald-400"
-              style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '8px' }}
+        {/* Placing Mode Indicator */}
+        <AnimatePresence>
+          {isPlacingBuilding && selectedBuildingType && (
+            <motion.div
+              className="ml-6 px-5 py-3 rounded-xl"
+              style={{
+                background: 'linear-gradient(145deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.3))',
+                border: '2px solid rgba(16, 185, 129, 0.5)',
+                boxShadow: '0 4px 20px rgba(16, 185, 129, 0.3)',
+              }}
+              initial={{ opacity: 0, x: -20, scale: 0.9 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -20, scale: 0.9 }}
             >
-              Click grid to place
-            </span>
-          </motion.div>
-        )}
+              <div className="flex items-center gap-3">
+                <motion.div
+                  className="w-3 h-3 rounded-full bg-emerald-400"
+                  animate={{ scale: [1, 1.3, 1], opacity: [1, 0.6, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                />
+                <span
+                  className="text-emerald-400 font-bold"
+                  style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '9px' }}
+                >
+                  CLICK TO PLACE
+                </span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )
