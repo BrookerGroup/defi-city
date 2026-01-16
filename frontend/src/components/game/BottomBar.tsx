@@ -5,6 +5,7 @@ import { BUILDING_INFO, PLACEABLE_BUILDINGS, BuildingType } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 export function BottomBar() {
   const { selectedBuildingType, selectBuildingType, isPlacingBuilding, buildings } = useGameStore()
@@ -12,13 +13,18 @@ export function BottomBar() {
   const hasTownHall = buildings.some(b => b.type === 'town-hall')
 
   const handleSelectBuilding = (type: BuildingType) => {
+    console.log('Building button clicked:', type)
     // Toggle placing mode for the selected building type
     if (isPlacingBuilding && selectedBuildingType === type) {
       // Clicking the same building again cancels placement
+      console.log('Canceling placement')
       selectBuildingType(null)
+      toast.info('Building placement canceled')
     } else {
       // Select this building type for placement
+      console.log('Selecting building for placement:', type)
       selectBuildingType(type)
+      toast.info(`Click on the map to place ${BUILDING_INFO[type].name}`)
     }
   }
 

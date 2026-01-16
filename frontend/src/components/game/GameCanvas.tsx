@@ -124,6 +124,16 @@ export function GameCanvas() {
   const panStartRef = useRef<{ x: number; y: number } | null>(null)
   const panOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
 
+  // Store latest values in refs for native event listeners
+  const isPlacingBuildingRef = useRef(isPlacingBuilding)
+  const selectedBuildingTypeRef = useRef(selectedBuildingType)
+
+  // Update refs when values change
+  useEffect(() => {
+    isPlacingBuildingRef.current = isPlacingBuilding
+    selectedBuildingTypeRef.current = selectedBuildingType
+  }, [isPlacingBuilding, selectedBuildingType])
+
   // Initialize PixiJS
   useEffect(() => {
     if (!canvasRef.current || appRef.current) return
@@ -142,10 +152,51 @@ export function GameCanvas() {
       canvasRef.current?.appendChild(app.canvas)
       appRef.current = app
 
-      // Enable pointer events on canvas element only (parent has pointer-events: none)
+      // Disable touch actions on canvas to prevent mobile pinch-zoom
       if (app.canvas instanceof HTMLCanvasElement) {
-        app.canvas.style.pointerEvents = 'auto'
         app.canvas.style.touchAction = 'none'
+        console.log('Canvas appended, z-index:', window.getComputedStyle(app.canvas).zIndex)
+        console.log('Canvas pointer-events:', window.getComputedStyle(app.canvas).pointerEvents)
+
+        // Use native event listeners instead of PIXI events (which aren't working)
+        app.canvas.addEventListener('click', (e: MouseEvent) => {
+          console.log('Native canvas click detected!')
+
+          if (!gridContainerRef.current) return
+
+          // Get click position relative to canvas
+          const rect = app.canvas.getBoundingClientRect()
+          const x = e.clientX - rect.left
+          const y = e.clientY - rect.top
+
+          // Convert to PIXI coordinates
+          const globalPoint = { x, y }
+          const localPos = gridContainerRef.current.toLocal(globalPoint as any)
+          const cart = isoToCart(localPos.x, localPos.y)
+
+          console.log('Native click position:', {
+            cart,
+            isPlacingBuilding: isPlacingBuildingRef.current,
+            selectedType: selectedBuildingTypeRef.current
+          })
+
+          // Use refs instead of state values (which are stale in event listener)
+          if (!isPlacingBuildingRef.current) {
+            toast.error('Please select a building type first from the bottom bar')
+            return
+          }
+
+          if (cart.x >= 0 && cart.x < GRID_SIZE && cart.y >= 0 && cart.y < GRID_SIZE) {
+            if (isPositionOccupied(cart.x, cart.y)) {
+              toast.error('Position already occupied!')
+              return
+            }
+
+            console.log('Opening build modal at:', cart)
+            setPendingPosition({ x: cart.x, y: cart.y })
+            setBuildModalOpen(true)
+          }
+        })
       }
 
       // Create containers
@@ -281,6 +332,8 @@ export function GameCanvas() {
     }
 
     const handlePointerDown = (e: PIXI.FederatedPointerEvent) => {
+      console.log('Canvas clicked!', { button: e.button, isPlacingBuilding, selectedBuildingType })
+
       // Middle mouse button for panning
       if (e.button === 1) {
         setIsPanning(true)
@@ -296,10 +349,15 @@ export function GameCanvas() {
       }
 
       // Left click
-      if (!isPlacingBuilding) return
+      if (!isPlacingBuilding) {
+        console.log('Not placing building, ignoring click')
+        toast.error('Please select a building type first from the bottom bar')
+        return
+      }
 
       const localPos = gridContainer.toLocal(e.global)
       const cart = isoToCart(localPos.x, localPos.y)
+      console.log('Click position:', { cart, isOccupied: isPositionOccupied(cart.x, cart.y) })
 
       if (cart.x >= 0 && cart.x < GRID_SIZE && cart.y >= 0 && cart.y < GRID_SIZE) {
         if (isPositionOccupied(cart.x, cart.y)) {
@@ -307,6 +365,7 @@ export function GameCanvas() {
           return
         }
 
+        console.log('Opening build modal at:', cart)
         setPendingPosition({ x: cart.x, y: cart.y })
         setBuildModalOpen(true)
       }
@@ -327,10 +386,21 @@ export function GameCanvas() {
     }
 
     app.stage.eventMode = 'static'
+    app.stage.hitArea = app.screen
+    console.log('Setting up PIXI event listeners on stage...')
+    console.log('Stage eventMode:', app.stage.eventMode)
+    console.log('Stage hitArea:', app.stage.hitArea)
+
     app.stage.on('pointermove', handleMouseMove)
     app.stage.on('pointerdown', handlePointerDown)
     app.stage.on('pointerup', handlePointerUp)
     app.stage.on('pointerupoutside', handlePointerUp)
+
+    console.log('PIXI event listeners attached:', {
+      pointermove: app.stage.listenerCount('pointermove'),
+      pointerdown: app.stage.listenerCount('pointerdown'),
+      pointerup: app.stage.listenerCount('pointerup')
+    })
 
     // Disable context menu
     const canvas = canvasRef.current
@@ -400,8 +470,7 @@ export function GameCanvas() {
         ref={canvasRef}
         className="fixed inset-0 pt-14 pb-20 z-0"
         style={{
-          cursor: isPanning ? 'grabbing' : isPlacingBuilding ? 'crosshair' : 'default',
-          pointerEvents: 'none'
+          cursor: isPanning ? 'grabbing' : isPlacingBuilding ? 'crosshair' : 'default'
         }}
       />
 
