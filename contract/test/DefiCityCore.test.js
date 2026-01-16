@@ -252,9 +252,9 @@ describe("DefiCityCore", function () {
       const buildingId = event.args.buildingId;
 
       // Get user's buildings
-      const userBuildingIds = await core.getUserBuildings(user1.address);
-      expect(userBuildingIds.length).to.equal(1);
-      expect(userBuildingIds[0].toString()).to.equal(buildingId.toString());
+      const userBuildings = await core.getUserBuildings(user1.address);
+      expect(userBuildings.length).to.equal(1);
+      expect(userBuildings[0].id).to.equal(buildingId);
     });
 
     it("Should work when contract is not paused", async function () {
@@ -386,7 +386,7 @@ describe("DefiCityCore", function () {
 
       // Building in user's list
       expect(userBuildings.length).to.equal(1);
-      expect(userBuildings[0].toString()).to.equal(building.id.toString());
+      expect(userBuildings[0].id).to.equal(building.id);
     });
 
     it("Should handle multiple users creating town halls simultaneously", async function () {
