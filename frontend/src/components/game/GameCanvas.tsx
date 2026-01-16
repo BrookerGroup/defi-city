@@ -94,7 +94,11 @@ const createBuildingSprite = (building: Building) => {
   return container
 }
 
-export function GameCanvas() {
+interface GameCanvasProps {
+  sidebarOpen?: boolean
+}
+
+export function GameCanvas({ sidebarOpen = false }: GameCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null)
   const appRef = useRef<PIXI.Application | null>(null)
   const mainContainerRef = useRef<PIXI.Container | null>(null)
@@ -427,6 +431,17 @@ export function GameCanvas() {
   // Handle wheel zoom
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
+      // Check if mouse is over sidebar (right side of screen)
+      // Sidebar is 320px wide (w-80 = 20rem = 320px)
+      const sidebarWidth = 320
+      const isOverSidebar = sidebarOpen && e.clientX > window.innerWidth - sidebarWidth
+
+      // Don't prevent scroll if over sidebar
+      if (isOverSidebar) {
+        return
+      }
+
+      // Only zoom if not over sidebar or if sidebar is closed
       e.preventDefault()
       const delta = e.deltaY > 0 ? -0.1 : 0.1
       setZoom(zoom + delta)
@@ -434,7 +449,7 @@ export function GameCanvas() {
 
     window.addEventListener('wheel', handleWheel, { passive: false })
     return () => window.removeEventListener('wheel', handleWheel)
-  }, [zoom, setZoom])
+  }, [zoom, setZoom, sidebarOpen])
 
   // Confirm building placement
   const handleConfirmBuild = (buildingType: BuildingType, asset: BuildingAsset, amount: string) => {

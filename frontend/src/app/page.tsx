@@ -52,7 +52,7 @@ export default function Home() {
       {/* Map View */}
       {currentView === 'map' && (
         <>
-          <GameCanvas />
+          <GameCanvas sidebarOpen={sidebarOpen} />
           <BottomBar />
         </>
       )}
