@@ -13,8 +13,8 @@ const features = [
   },
   {
     icon: Zap,
-    title: 'Zero Gas Fees',
-    description: 'Gasless gameplay powered by ERC-4337. Play, build, and manage without transaction costs.',
+    title: 'Gasless Gameplay',
+    description: 'Powered by ERC-4337 account abstraction. Play, build, and manage without transaction costs.',
     color: '#10B981'
   },
   {
@@ -96,32 +96,6 @@ export function FeaturesSection() {
           ))}
         </div>
 
-        {/* Fee transparency */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="mt-16"
-        >
-          <PixelCard variant="highlight">
-            <div className="text-center py-4">
-              <h3
-                className="text-xl font-bold text-amber-400 mb-2"
-                style={{ fontFamily: '"Press Start 2P", monospace' }}
-              >
-                Transparent Fees
-              </h3>
-              <p className="text-slate-300 mb-4">
-                Only <span className="text-amber-400 font-bold">0.05%</span> fee on building creation.
-                No hidden charges. No performance fees. No withdrawal fees.
-              </p>
-              <p className="text-sm text-slate-500">
-                That is 20x lower than most DeFi platforms.
-              </p>
-            </div>
-          </PixelCard>
-        </motion.div>
       </div>
     </section>
   )

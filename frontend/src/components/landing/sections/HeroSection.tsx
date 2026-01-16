@@ -100,7 +100,7 @@ export function HeroSection() {
           transition={{ duration: 0.6, delay: 0.5 }}
           className="text-base text-slate-400 max-w-xl mx-auto"
         >
-          No wallet needed. No gas fees. Just play and grow your portfolio.
+          No wallet needed. Gasless transactions. Just play and grow your portfolio.
         </motion.p>
 
         {/* CTA Buttons */}
