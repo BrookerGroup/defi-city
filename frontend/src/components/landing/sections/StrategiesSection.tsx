@@ -25,7 +25,7 @@ const strategies = [
     description: 'Provide liquidity to decentralized exchanges. Earn from every trade that passes through.',
     features: [
       'Liquidity provision',
-      'Trading fee collection',
+      'Trading rewards',
       'Protocol rewards'
     ],
     risk: 'Moderate',
