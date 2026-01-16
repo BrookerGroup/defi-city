@@ -66,8 +66,8 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
     /// @notice User EOA → buildingIds[]
     mapping(address => uint256[]) public userBuildings;
 
-    /// @notice Grid position → buildingId
-    mapping(uint256 => mapping(uint256 => uint256)) public gridBuildings;
+    /// @notice User → Grid position (x,y) → buildingId
+    mapping(address => mapping(uint256 => mapping(uint256 => uint256))) public userGridBuildings;
 
     /// @notice User statistics (for leaderboard/analytics)
     struct UserStats {
@@ -218,8 +218,8 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
         // Check if user already has a wallet
         if (userSmartWallets[user] != address(0)) revert WalletAlreadyRegistered();
 
-        // Check grid position
-        if (gridBuildings[x][y] != 0) revert GridOccupied();
+        // Check grid position (user's own grid)
+        if (userGridBuildings[user][x][y] != 0) revert GridOccupied();
 
         // 1. Create SmartWallet via Factory
         SmartWallet wallet = walletFactory.createWallet(user, 0);
@@ -243,7 +243,7 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
         });
 
         userBuildings[user].push(buildingId);
-        gridBuildings[x][y] = buildingId;
+        userGridBuildings[user][x][y] = buildingId;
         userStats[user].buildingCount++;
 
         emit BuildingPlaced(
@@ -290,8 +290,8 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
         if (bytes(buildingType).length == 0) revert InvalidBuildingType();
         if (asset != address(0) && !supportedAssets[asset]) revert AssetNotSupported();
 
-        // Check grid position
-        if (gridBuildings[x][y] != 0) revert GridOccupied();
+        // Check grid position (user's own grid)
+        if (userGridBuildings[user][x][y] != 0) revert GridOccupied();
 
         // Create building
         buildingId = ++buildingIdCounter;
@@ -311,7 +311,7 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
         });
 
         userBuildings[user].push(buildingId);
-        gridBuildings[x][y] = buildingId;
+        userGridBuildings[user][x][y] = buildingId;
         userStats[user].buildingCount++;
 
         emit BuildingPlaced(
@@ -378,8 +378,8 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
 
         userStats[user].buildingCount--;
 
-        // Clear grid
-        gridBuildings[building.coordinateX][building.coordinateY] = 0;
+        // Clear grid (user's own grid)
+        userGridBuildings[user][building.coordinateX][building.coordinateY] = 0;
 
         emit BuildingDemolished(buildingId, user, returnedAmount);
     }
@@ -451,16 +451,18 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
     }
 
     /**
-     * @notice Get building at grid position
+     * @notice Get building at grid position for a specific user
+     * @param user User's EOA address
      * @param x Grid X coordinate
      * @param y Grid Y coordinate
      * @return Building struct
      */
     function getBuildingAt(
+        address user,
         uint256 x,
         uint256 y
     ) external view returns (Building memory) {
-        uint256 buildingId = gridBuildings[x][y];
+        uint256 buildingId = userGridBuildings[user][x][y];
         return buildings[buildingId];
     }
 
