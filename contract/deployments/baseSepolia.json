@@ -1,0 +1,12 @@
+{
+  "network": "baseSepolia",
+  "chainId": "84532",
+  "deployer": "0x05CA1c1250e1515e56B3Fd5946bB59cAd0fa7e76",
+  "timestamp": "2026-01-16T10:55:33.097Z",
+  "contracts": {
+    "entryPoint": "0x4290Cd4e3c7a781856c507EeaA02A4F8192d0922",
+    "core": "0xaDc51D79177BA89E1b3c99994F95E5A825194e59",
+    "factory": "0xD7e5Ef23F53c98a01b63e99A91e1547229579c7A",
+    "treasury": "0x05CA1c1250e1515e56B3Fd5946bB59cAd0fa7e76"
+  }
+}
