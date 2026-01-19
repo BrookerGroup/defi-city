@@ -3,6 +3,7 @@
 import { useGameStore } from '@/store/gameStore'
 import { BUILDING_INFO, BuildingType } from '@/types'
 import { motion, AnimatePresence } from 'framer-motion'
+import { toast } from 'sonner'
 
 const AVAILABLE_BUILDINGS: BuildingType[] = ['bank', 'shop', 'lottery']
 
@@ -161,6 +162,7 @@ export function BottomBar() {
         {AVAILABLE_BUILDINGS.map((type) => {
           const info = BUILDING_INFO[type]
           const count = buildings.filter(b => b.type === type).length
+          const isSelected = isPlacingBuilding && selectedBuildingType === type
 
           return (
             <motion.button

@@ -5,6 +5,9 @@ export type BuildingType =
   | 'shop'
   | 'lottery'
 
+// Asset types supported by buildings
+export type BuildingAsset = 'ETH' | 'USDC' | 'USDT' | 'WBTC' | 'WETH'
+
 export interface Building {
   id: string
   type: BuildingType
@@ -32,7 +35,11 @@ export interface BuildingTypeInfo {
     accent: string
     window: string
   }
+  supportedAssets: BuildingAsset[]
+  minDeposit?: number // Minimum deposit in USD
 }
+
+export type BuildingInfo = BuildingTypeInfo
 
 export const BUILDING_INFO: Record<BuildingType, BuildingInfo> = {
   townhall: {
@@ -48,7 +55,9 @@ export const BUILDING_INFO: Record<BuildingType, BuildingInfo> = {
       wall: '#FCD34D',
       accent: '#B45309',
       window: '#0F172A'
-    }
+    },
+    supportedAssets: [],
+    minDeposit: 0
   },
   bank: {
     type: 'bank',
@@ -63,7 +72,9 @@ export const BUILDING_INFO: Record<BuildingType, BuildingInfo> = {
       wall: '#34D399',
       accent: '#059669',
       window: '#0F172A'
-    }
+    },
+    supportedAssets: ['ETH', 'USDC', 'USDT', 'WBTC'],
+    minDeposit: 10
   },
   shop: {
     type: 'shop',
@@ -78,7 +89,9 @@ export const BUILDING_INFO: Record<BuildingType, BuildingInfo> = {
       wall: '#67E8F9',
       accent: '#0891B2',
       window: '#0F172A'
-    }
+    },
+    supportedAssets: ['ETH', 'USDC', 'USDT', 'WBTC'],
+    minDeposit: 100
   },
   lottery: {
     type: 'lottery',
@@ -93,7 +106,9 @@ export const BUILDING_INFO: Record<BuildingType, BuildingInfo> = {
       wall: '#C084FC',
       accent: '#7C3AED',
       window: '#0F172A'
-    }
+    },
+    supportedAssets: ['USDC'],
+    minDeposit: 10
   }
 }
 

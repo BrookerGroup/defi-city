@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
-import { useWallets } from '@privy-io/react-auth';
+import { useWallets, usePrivy } from '@privy-io/react-auth';
 import { CONTRACTS, ABIS, SUPPORTED_CHAINS } from '@/config/contracts';
 
 // Get current network
@@ -20,6 +20,7 @@ const TARGET_CHAIN_ID = SUPPORTED_CHAINS.baseSepolia.id; // 84532
  * Hook to get contract instances
  */
 export function useContractInstances() {
+  const { ready } = usePrivy();
   const { wallets } = useWallets();
   const [contracts, setContracts] = useState<{
     factory: ethers.Contract | null;
@@ -35,6 +36,12 @@ export function useContractInstances() {
 
   useEffect(() => {
     async function initContracts() {
+      // Skip if Privy not ready yet
+      if (!ready) {
+        console.log('Privy not ready, skipping contract initialization');
+        return;
+      }
+
       if (!wallets || wallets.length === 0) {
         console.log('No wallets available yet');
         return;

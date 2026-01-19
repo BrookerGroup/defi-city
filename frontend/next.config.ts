@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'export',
-  basePath: '/defi-city',  
+  // Remove output: 'export' and basePath for development
+  // output: 'export',
+  // basePath: '/defi-city',
   images: {
     unoptimized: true,
   },

@@ -14,9 +14,9 @@ export function PrivyProvider({ children }: { children: React.ReactNode }) {
   // Use useSyncExternalStore for hydration-safe mounted check
   const mounted = useSyncExternalStore(emptySubscribe, getSnapshot, getServerSnapshot)
 
-  // Skip rendering on server
+  // Skip rendering on server - return null instead of children to prevent hydration mismatch
   if (!mounted) {
-    return <>{children}</>
+    return null
   }
 
   // Check if Privy app ID is configured

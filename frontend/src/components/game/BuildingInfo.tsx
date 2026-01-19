@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { Building, BUILDING_INFO } from '@/types'
 import { Trash2, X } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface BuildingInfoProps {
   building: Building | null
@@ -73,6 +74,7 @@ export function BuildingInfo({ building, open, onClose, onRemove }: BuildingInfo
 
   const info = BUILDING_INFO[building.type]
   const isTownHall = building.type === 'townhall'
+  const canDemolish = !isTownHall // Town Hall cannot be demolished
 
   const handleDemolish = () => {
     if (!canDemolish) {
@@ -223,7 +225,7 @@ export function BuildingInfo({ building, open, onClose, onRemove }: BuildingInfo
               </button>
               {!isTownHall && (
                 <button
-                  onClick={handleRemove}
+                  onClick={handleDemolish}
                   className="flex-1 py-3 border-2 border-red-500 bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors flex items-center justify-center gap-2"
                   style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '10px' }}
                 >

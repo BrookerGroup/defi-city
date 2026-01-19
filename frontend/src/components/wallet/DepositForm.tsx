@@ -41,7 +41,7 @@ export function DepositForm({ smartWalletAddress, onSuccess }: DepositFormProps)
 
   // Check if user has Town Hall (SmartWallet)
   const { buildings } = useGameStore()
-  const hasTownHall = buildings.some(b => b.type === 'town-hall')
+  const hasTownHall = buildings.some(b => b.type === 'townhall')
 
   // Copy address to clipboard
   const copyAddress = () => {

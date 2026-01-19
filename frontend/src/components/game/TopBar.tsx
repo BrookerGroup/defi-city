@@ -4,6 +4,8 @@ import { usePrivy } from '@privy-io/react-auth'
 import { useSmartWallet, useTokenBalance } from '@/hooks'
 import { formatEther } from 'viem'
 import { ConnectButton } from '@/components/wallet'
+import { LayoutDashboard, Map, Building2, Settings } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 type View = 'dashboard' | 'map' | 'buildings' | 'settings'
 

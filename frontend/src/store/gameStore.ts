@@ -1,9 +1,17 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { Building, BuildingType, GRID_SIZE, BUILDING_INFO } from '@/types'
+import { Building, BuildingType, BuildingAsset, GRID_SIZE, BUILDING_INFO } from '@/types'
 
 // Valid building types for filtering old data
 const VALID_TYPES = Object.keys(BUILDING_INFO) as BuildingType[]
+
+// Pending building during placement
+interface PendingBuilding {
+  type: BuildingType
+  position: { x: number; y: number }
+  asset?: BuildingAsset
+  amount?: string
+}
 
 interface GameState {
   buildings: Building[]
@@ -86,7 +94,7 @@ export const useGameStore = create<GameState>()(
       },
 
       hasTownHall: () => {
-        return get().buildings.some((b) => b.type === 'town-hall')
+        return get().buildings.some((b) => b.type === 'townhall')
       },
 
       reset: () => set(initialState),

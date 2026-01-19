@@ -57,7 +57,11 @@ function PixelTownHallLarge() {
 export default function AppPage() {
   const { ready, authenticated, user } = usePrivy()
   const eoaAddress = user?.wallet?.address
-  const { hasWallet, loading: walletLoading } = useHasWallet(eoaAddress)
+
+  // Only call useHasWallet when ready and authenticated
+  const shouldCheckWallet = ready && authenticated && eoaAddress
+  const { hasWallet, loading: walletLoading } = useHasWallet(shouldCheckWallet ? eoaAddress : undefined)
+
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showTownHallModal, setShowTownHallModal] = useState(false)
   const [walletAddress, setWalletAddress] = useState<string | null>(null)

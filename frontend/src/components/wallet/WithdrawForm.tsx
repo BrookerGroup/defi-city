@@ -40,7 +40,7 @@ export function WithdrawForm({ smartWalletAddress, onSuccess }: WithdrawFormProp
 
   // Check if user has Town Hall (SmartWallet)
   const { buildings } = useGameStore()
-  const hasTownHall = buildings.some(b => b.type === 'town-hall')
+  const hasTownHall = buildings.some(b => b.type === 'townhall')
 
   // Get native ETH balance from SmartWallet
   const { formatted: ethBalance } = useWalletBalance(smartWalletAddress ?? undefined)

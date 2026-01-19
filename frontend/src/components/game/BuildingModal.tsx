@@ -1,12 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { BUILDING_INFO, BuildingType } from '@/types'
-import { useSmartWallet } from '@/hooks'
+import { useSmartWallet, useWalletBalance, useMultiTokenBalance, useTokenPrices } from '@/hooks'
 import { usePrivy } from '@privy-io/react-auth'
 import { formatEther } from 'viem'
 import { X } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+
+// Building asset types
+type BuildingAsset = 'ETH' | 'USDC' | 'USDT' | 'WBTC' | 'WETH'
+
+// Building fee (0.05%)
+const BUILDING_FEE_BPS = 5
+
+// Placeable buildings (exclude Town Hall)
+const PLACEABLE_BUILDINGS: BuildingType[] = ['bank', 'shop', 'lottery']
 
 interface BuildingModalProps {
   open: boolean
@@ -166,6 +179,13 @@ export function BuildingModal({
     setAmount('')
   }
 
+  const handleCancel = () => {
+    handleClose()
+  }
+
+  // Get formatted balance for selected asset
+  const formattedBalance = selectedAsset ? getBalance(selectedAsset) : '0'
+
   // Building selection step
   if (step === 'select-building') {
     return (
@@ -191,38 +211,35 @@ export function BuildingModal({
                     <div className="flex items-start gap-4">
                       <div
                         className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
-                        style={{ backgroundColor: `#${buildingInfo.color.toString(16).padStart(6, '0')}30` }}
+                        style={{ backgroundColor: `${buildingInfo.colors.accent}30` }}
                       >
-                        {buildingInfo.icon}
+                        {type === 'bank' ? '🏦' : type === 'shop' ? '🏪' : type === 'lottery' ? '🎰' : '🏛️'}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <h3 className="font-semibold">{buildingInfo.name}</h3>
-                          <Badge variant="outline">{buildingInfo.protocol}</Badge>
+                          <Badge variant="outline">{buildingInfo.category}</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
                           {buildingInfo.description}
                         </p>
                         <div className="flex items-center gap-4 mt-2 text-xs">
-                          {buildingInfo.apy && (
-                            <span className="text-green-500">APY: {buildingInfo.apy}</span>
-                          )}
-                          {buildingInfo.minDepositDisplay && (
+                          {buildingInfo.minDeposit && buildingInfo.minDeposit > 0 && (
                             <span className="text-muted-foreground">
-                              Min: {buildingInfo.minDepositDisplay}
+                              Min: ${buildingInfo.minDeposit}
                             </span>
                           )}
                           <Badge
                             variant="outline"
                             className={
-                              buildingInfo.risk === 'low'
+                              buildingInfo.risk === 'Conservative'
                                 ? 'text-green-500 border-green-500/30'
-                                : buildingInfo.risk === 'medium'
+                                : buildingInfo.risk === 'Moderate'
                                 ? 'text-amber-500 border-amber-500/30'
                                 : 'text-red-500 border-red-500/30'
                             }
                           >
-                            {buildingInfo.risk} risk
+                            {buildingInfo.risk}
                           </Badge>
                         </div>
                       </div>
@@ -279,7 +296,7 @@ export function BuildingModal({
               style={{ borderColor: info.colors.accent }}
             >
               <div className="flex items-center gap-3">
-                <PixelBuildingPreview type={buildingType} />
+                <PixelBuildingPreview type={selectedType!} />
                 <div>
                   <h3
                     className="text-lg"
