@@ -3,38 +3,22 @@ pragma solidity ^0.8.20;
 
 import "../wallet/SmartWallet.sol";
 import "../interfaces/IEntryPoint.sol";
+import "../core/DefiCityCore.sol";
 
 /**
  * @title WalletFactory
- * @notice Factory contract for deploying SmartWallet contracts using CREATE2
- * @dev This factory:
- *      - Deploys wallets deterministically (same owner + salt = same address)
- *      - Allows counterfactual wallet addresses (know address before deployment)
- *      - Prevents duplicate deployments
- *      - Maintains a registry of deployed wallets
- *
- * CREATE2 Benefits:
- * - Deterministic addresses: getAddress(owner, salt) returns the same address always
- * - Users can receive funds before wallet is deployed
- * - First UserOp can deploy + execute in one transaction
- * - No need to deploy upfront (gas savings)
- *
- * Architecture:
- * - Uses CREATE2 opcode for deterministic deployment
- * - Salt allows multiple wallets per owner
- * - Registry pattern for easy lookup
- * - Can be used in UserOp.initCode for counterfactual deployment
- *
- * Gas Optimization:
- * - Checks if wallet exists before deploying (saves gas on re-deployments)
- * - Uses immutable EntryPoint for gas savings
- * - Efficient address computation
+ * @notice Factory for deterministic SmartWallet deployment using CREATE2
+ * @dev Deploys wallets with deterministic addresses and maintains registry.
+ *      Supports counterfactual addresses and prevents duplicate deployments.
  */
 contract WalletFactory {
     // ============ State Variables ============
 
     /// @notice The ERC-4337 EntryPoint contract
     IEntryPoint public immutable entryPoint;
+
+    /// @notice DefiCityCore contract for game bookkeeping
+    DefiCityCore public immutable core;
 
     /// @notice Mapping from owner address to their wallet address (for salt=0)
     mapping(address => address) public walletsByOwner;
@@ -66,34 +50,25 @@ contract WalletFactory {
     /**
      * @notice Initialize the factory
      * @param _entryPoint Address of the ERC-4337 EntryPoint
-     * @dev EntryPoint address is immutable and shared across all wallets
+     * @param _core Address of the DefiCityCore contract
+     * @dev EntryPoint and Core addresses are immutable and shared across all wallets
      */
-    constructor(IEntryPoint _entryPoint) {
+    constructor(IEntryPoint _entryPoint, DefiCityCore _core) {
         if (address(_entryPoint) == address(0)) revert InvalidEntryPoint();
+        if (address(_core) == address(0)) revert InvalidOwner();  // Reuse error for invalid core
         entryPoint = _entryPoint;
+        core = _core;
     }
 
     // ============ Factory Functions ============
 
     /**
-     * @notice Create a new SmartWallet using CREATE2
+     * @notice Creates a new SmartWallet using CREATE2 deterministic deployment
+     * @dev Computes address, checks existence, deploys if needed, and registers in Core.
+     *      Salt 0 = default wallet, salt > 0 = additional wallets.
      * @param owner Address of the wallet owner
      * @param salt Salt for CREATE2 (use 0 for default wallet)
      * @return wallet Address of the deployed wallet
-     *
-     * @dev This function:
-     *      1. Computes the deterministic address
-     *      2. Checks if wallet already exists at that address
-     *      3. If not, deploys using CREATE2
-     *      4. Updates registry
-     *
-     * Usage:
-     * - Direct call: factory.createWallet(owner, 0)
-     * - Via UserOp initCode: factory + abi.encode(createWallet(owner, 0))
-     *
-     * Salt Strategy:
-     * - salt = 0: Default wallet for owner (one per owner)
-     * - salt > 0: Additional wallets (owner can have multiple)
      */
     function createWallet(address owner, uint256 salt) external virtual returns (SmartWallet wallet) {
         if (owner == address(0)) revert InvalidOwner();
@@ -109,9 +84,12 @@ contract WalletFactory {
         }
 
         // 3. Deploy wallet using CREATE2
-        wallet = new SmartWallet{salt: bytes32(salt)}(entryPoint, owner);
+        wallet = new SmartWallet{salt: bytes32(salt)}(entryPoint, owner, core);
 
-        // 4. Update registry
+        // 4. Register wallet in DefiCityCore
+        core.registerWallet(owner, address(wallet));
+
+        // 5. Update local registry
         if (salt == 0) {
             // Register as default wallet for owner
             walletsByOwner[owner] = address(wallet);
@@ -125,25 +103,18 @@ contract WalletFactory {
     }
 
     /**
-     * @notice Get the deterministic address for a wallet
+     * @notice Computes the deterministic wallet address for given owner and salt
+     * @dev Enables counterfactual addresses - users can know their wallet address before deployment.
      * @param owner Address of the wallet owner
      * @param salt Salt for CREATE2
      * @return Address where the wallet will be (or is) deployed
-     *
-     * @dev This allows users to know their wallet address BEFORE deployment.
-     *      They can receive funds at this address even if wallet doesn't exist yet.
-     *
-     * CREATE2 address formula:
-     * address = keccak256(0xff ++ factory ++ salt ++ keccak256(initCode))[12:]
-     *
-     * Where initCode = creationCode + constructor arguments
      */
     function getAddress(address owner, uint256 salt) public view returns (address) {
         // Compute the initCode hash
         bytes32 initCodeHash = keccak256(
             abi.encodePacked(
                 type(SmartWallet).creationCode,
-                abi.encode(entryPoint, owner)
+                abi.encode(entryPoint, owner, core)
             )
         );
 

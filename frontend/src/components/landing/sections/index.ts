@@ -1,0 +1,6 @@
+export { HeroSection } from './HeroSection'
+export { ConceptSection } from './ConceptSection'
+export { StrategiesSection } from './StrategiesSection'
+export { FeaturesSection } from './FeaturesSection'
+export { CTASection } from './CTASection'
+export { FooterSection } from './FooterSection'

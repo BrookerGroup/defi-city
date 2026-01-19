@@ -1,12 +1,9 @@
 // Building types as per PRD
 export type BuildingType =
-  | 'town-hall'  // Smart Wallet (free, one per user)
-  | 'bank'       // Aave V3 (Supply/Borrow)
-  | 'shop'       // Aerodrome LP
-  | 'lottery'    // Megapot Integration
-
-// Supported assets for buildings
-export type BuildingAsset = 'ETH' | 'USDC' | 'USDT' | 'WBTC' | 'WETH'
+  | 'townhall'
+  | 'bank'
+  | 'shop'
+  | 'lottery'
 
 export interface Building {
   id: string
@@ -24,79 +21,79 @@ export interface Building {
 export interface BuildingTypeInfo {
   type: BuildingType
   name: string
-  icon: string
-  protocol: string
+  category: string
   description: string
-  apy?: string
-  minDeposit?: number // in USD
-  minDepositDisplay?: string
-  supportedAssets: BuildingAsset[]
-  fee: number // basis points (0.05% = 5)
-  risk: 'low' | 'medium' | 'high'
-  color: number
-  canDemolish: boolean
+  features: string[]
+  risk: string
+  riskColor: string
+  colors: {
+    roof: string
+    wall: string
+    accent: string
+    window: string
+  }
 }
 
-export const BUILDING_FEE_BPS = 5 // 0.05%
-
-export const BUILDING_INFO: Record<BuildingType, BuildingTypeInfo> = {
-  'town-hall': {
-    type: 'town-hall',
+export const BUILDING_INFO: Record<BuildingType, BuildingInfo> = {
+  townhall: {
+    type: 'townhall',
     name: 'Town Hall',
-    icon: '🏛️',
-    protocol: 'Smart Wallet',
-    description: 'Your self-custodial wallet. All your assets are stored here safely.',
-    supportedAssets: [],
-    fee: 0,
-    risk: 'low',
-    color: 0x8B7355,
-    canDemolish: false,
+    category: 'Portfolio Hub',
+    description: 'Your city headquarters. View all assets and manage your portfolio from here.',
+    features: ['Portfolio overview', 'Asset management', 'City statistics'],
+    risk: 'None',
+    riskColor: '#10B981',
+    colors: {
+      roof: '#F59E0B',
+      wall: '#FCD34D',
+      accent: '#B45309',
+      window: '#0F172A'
+    }
   },
-  'bank': {
+  bank: {
     type: 'bank',
     name: 'Bank',
-    icon: '🏦',
-    protocol: 'Aave V3',
-    description: 'Supply assets to earn interest, or borrow against your collateral.',
-    apy: '3-8%',
-    minDeposit: 100,
-    minDepositDisplay: '$100',
-    supportedAssets: ['USDC', 'USDT', 'ETH', 'WBTC', 'WETH'],
-    fee: BUILDING_FEE_BPS,
-    risk: 'low',
-    color: 0x2775CA,
-    canDemolish: true,
+    category: 'Lending Protocol',
+    description: 'Deposit your crypto into battle-tested lending pools. Your assets work for you around the clock.',
+    features: ['Supply USDC, ETH, BTC, USDT', 'Withdraw anytime', 'Industry-leading security'],
+    risk: 'Conservative',
+    riskColor: '#10B981',
+    colors: {
+      roof: '#10B981',
+      wall: '#34D399',
+      accent: '#059669',
+      window: '#0F172A'
+    }
   },
-  'shop': {
+  shop: {
     type: 'shop',
     name: 'Shop',
-    icon: '🏪',
-    protocol: 'Aerodrome',
-    description: 'Provide liquidity to earn trading fees and AERO rewards.',
-    apy: '5-25%',
-    minDeposit: 500,
-    minDepositDisplay: '$500',
-    supportedAssets: ['USDC', 'USDT', 'ETH', 'WBTC', 'WETH'],
-    fee: BUILDING_FEE_BPS,
-    risk: 'medium',
-    color: 0x26A17B,
-    canDemolish: true,
+    category: 'DEX Liquidity',
+    description: 'Provide liquidity to decentralized exchanges. Earn from every trade that passes through.',
+    features: ['Liquidity provision', 'Trading rewards', 'Protocol rewards'],
+    risk: 'Moderate',
+    riskColor: '#F59E0B',
+    colors: {
+      roof: '#06B6D4',
+      wall: '#67E8F9',
+      accent: '#0891B2',
+      window: '#0F172A'
+    }
   },
-  'lottery': {
+  lottery: {
     type: 'lottery',
-    name: 'Lottery Office',
-    icon: '🎰',
-    protocol: 'Megapot',
-    description: 'Buy lottery tickets for a chance to win the $1M+ jackpot!',
-    minDeposit: 10,
-    minDepositDisplay: '$10',
-    supportedAssets: ['USDC'], // Megapot only accepts USDC
-    fee: BUILDING_FEE_BPS,
-    risk: 'high',
-    color: 0xF7931A,
-    canDemolish: true,
-  },
+    name: 'Lottery',
+    category: 'Prize Games',
+    description: 'Try your luck with provably fair lottery. Verifiable randomness ensures transparent draws.',
+    features: ['Verifiable randomness', 'Transparent draws', 'Prize pool jackpots'],
+    risk: 'High Variance',
+    riskColor: '#EF4444',
+    colors: {
+      roof: '#A855F7',
+      wall: '#C084FC',
+      accent: '#7C3AED',
+      window: '#0F172A'
+    }
+  }
 }
 
-// Helper to get available buildings (excluding town-hall which is auto-placed)
-export const PLACEABLE_BUILDINGS: BuildingType[] = ['bank', 'shop', 'lottery']

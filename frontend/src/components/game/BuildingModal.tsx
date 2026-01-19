@@ -1,28 +1,12 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
-import {
-  BUILDING_INFO,
-  BuildingType,
-  BuildingAsset,
-  BUILDING_FEE_BPS,
-  PLACEABLE_BUILDINGS,
-} from '@/types'
-import { useSmartWallet, useMultiTokenBalance, useWalletBalance, useTokenPrices } from '@/hooks'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { BUILDING_INFO, BuildingType } from '@/types'
+import { useSmartWallet } from '@/hooks'
 import { usePrivy } from '@privy-io/react-auth'
-import { ChevronDown, Check, AlertCircle, Loader2 } from 'lucide-react'
+import { formatEther } from 'viem'
+import { X } from 'lucide-react'
 
 interface BuildingModalProps {
   open: boolean
@@ -30,6 +14,61 @@ interface BuildingModalProps {
   buildingType: BuildingType | null
   position: { x: number; y: number } | null
   onConfirm: (buildingType: BuildingType, asset: BuildingAsset, amount: string) => void
+}
+
+// Pixel Art Building Preview
+function PixelBuildingPreview({ type }: { type: BuildingType }) {
+  const info = BUILDING_INFO[type]
+  const { colors } = info
+
+  return (
+    <svg
+      width={80}
+      height={80}
+      viewBox="0 0 16 16"
+      style={{ imageRendering: 'pixelated' }}
+    >
+      <rect x="2" y="14" width="12" height="2" fill={colors.accent} />
+      <rect x="3" y="6" width="10" height="8" fill={colors.wall} />
+
+      {type === 'townhall' ? (
+        <>
+          <rect x="4" y="4" width="8" height="2" fill={colors.roof} />
+          <rect x="5" y="2" width="6" height="2" fill={colors.roof} />
+          <rect x="7" y="1" width="2" height="1" fill={colors.roof} />
+          <rect x="7" y="0" width="1" height="1" fill={colors.accent} />
+        </>
+      ) : type === 'bank' ? (
+        <>
+          <rect x="2" y="5" width="12" height="1" fill={colors.roof} />
+          <rect x="3" y="4" width="10" height="1" fill={colors.roof} />
+          <rect x="4" y="6" width="1" height="8" fill={colors.accent} />
+          <rect x="7" y="6" width="2" height="8" fill={colors.accent} />
+          <rect x="11" y="6" width="1" height="8" fill={colors.accent} />
+        </>
+      ) : type === 'shop' ? (
+        <>
+          <rect x="2" y="5" width="12" height="2" fill={colors.roof} />
+          <rect x="2" y="5" width="2" height="2" fill={colors.accent} />
+          <rect x="6" y="5" width="2" height="2" fill={colors.accent} />
+          <rect x="10" y="5" width="2" height="2" fill={colors.accent} />
+          <rect x="5" y="3" width="6" height="2" fill={colors.accent} />
+        </>
+      ) : (
+        <>
+          <rect x="3" y="4" width="10" height="2" fill={colors.roof} />
+          <rect x="6" y="2" width="4" height="2" fill={colors.roof} />
+          <rect x="7" y="1" width="2" height="1" fill={colors.accent} />
+          <rect x="7" y="0" width="2" height="1" fill="#FCD34D" />
+        </>
+      )}
+
+      <rect x="4" y="7" width="2" height="2" fill={colors.window} />
+      <rect x="10" y="7" width="2" height="2" fill={colors.window} />
+      <rect x="6" y="10" width="4" height="4" fill={colors.accent} />
+      <rect x="7" y="11" width="2" height="3" fill={colors.window} />
+    </svg>
+  )
 }
 
 export function BuildingModal({
@@ -208,176 +247,155 @@ export function BuildingModal({
   if (!selectedType || !info) return null
 
   return (
-    <Dialog open={open} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <span className="text-2xl">{info.icon}</span>
-            Build {info.name}
-          </DialogTitle>
-          <DialogDescription>{info.description}</DialogDescription>
-        </DialogHeader>
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={handleCancel}
+          />
 
-        <div className="space-y-4 py-4">
-          {/* Building Info */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Protocol</span>
-              <Badge variant="secondary">{info.protocol}</Badge>
-            </div>
-            {info.apy && (
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Expected APY</span>
-                <span className="font-mono text-green-500">{info.apy}</span>
-              </div>
-            )}
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Min Deposit</span>
-              <span className="font-mono">{info.minDepositDisplay || 'None'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Building Fee</span>
-              <span className="font-mono">{BUILDING_FEE_BPS / 100}%</span>
-            </div>
-          </div>
-
-          <div className="border-t pt-4 space-y-4">
-            {/* Asset Selector */}
-            <div className="space-y-2">
-              <label className="text-sm text-muted-foreground">Select Asset</label>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setIsAssetSelectorOpen(!isAssetSelectorOpen)}
-                  className="w-full flex items-center justify-between px-3 py-2 border rounded-md bg-background hover:bg-muted/50 transition-colors"
-                >
-                  {selectedAsset ? (
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{selectedAsset}</span>
-                      <span className="text-muted-foreground text-sm">
-                        (Balance: {parseFloat(getBalance(selectedAsset)).toFixed(4)})
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">Select an asset</span>
-                  )}
-                  <ChevronDown className={`h-4 w-4 transition-transform ${isAssetSelectorOpen ? 'rotate-180' : ''}`} />
-                </button>
-
-                {isAssetSelectorOpen && (
-                  <div className="absolute z-10 w-full mt-1 border rounded-md bg-background shadow-lg">
-                    {info.supportedAssets.map((asset) => {
-                      const balance = getBalance(asset)
-                      const balanceUSD = calculateUSDValue(asset, balance)
-
-                      return (
-                        <button
-                          key={asset}
-                          type="button"
-                          onClick={() => {
-                            setSelectedAsset(asset)
-                            setIsAssetSelectorOpen(false)
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-2 hover:bg-muted/50 first:rounded-t-md last:rounded-b-md ${
-                            selectedAsset === asset ? 'bg-muted/50' : ''
-                          }`}
-                        >
-                          <span className="font-medium">{asset}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground">
-                              {parseFloat(balance).toFixed(4)} ({formatUSD(balanceUSD)})
-                            </span>
-                            {selectedAsset === asset && (
-                              <Check className="h-4 w-4 text-primary" />
-                            )}
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Amount Input */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Deposit Amount</span>
-                {selectedAsset && (
-                  <button
-                    onClick={() => setAmount(getBalance(selectedAsset))}
-                    className="text-primary hover:underline text-xs"
+          {/* Modal */}
+          <motion.div
+            className="relative z-10 w-full max-w-md mx-4 border-4"
+            style={{
+              backgroundColor: '#0f172a',
+              borderColor: info.colors.accent,
+              boxShadow: `8px 8px 0px ${info.colors.accent}40`
+            }}
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.9, y: 20 }}
+          >
+            {/* Header */}
+            <div
+              className="flex items-center justify-between px-4 py-3 border-b-2"
+              style={{ borderColor: info.colors.accent }}
+            >
+              <div className="flex items-center gap-3">
+                <PixelBuildingPreview type={buildingType} />
+                <div>
+                  <h3
+                    className="text-lg"
+                    style={{
+                      fontFamily: '"Press Start 2P", monospace',
+                      fontSize: '14px',
+                      color: info.colors.roof
+                    }}
                   >
-                    Max: {parseFloat(getBalance(selectedAsset)).toFixed(4)} {selectedAsset}
-                  </button>
-                )}
+                    Build {info.name}
+                  </h3>
+                  <p
+                    className="text-sm mt-1"
+                    style={{
+                      fontFamily: '"Press Start 2P", monospace',
+                      fontSize: '8px',
+                      color: '#64748b'
+                    }}
+                  >
+                    {info.category}
+                  </p>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  placeholder="0.0"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  step="0.001"
-                  min="0"
-                />
-                <span className="flex items-center px-3 bg-muted rounded-md text-sm font-medium min-w-[60px] justify-center">
-                  {selectedAsset || '---'}
+              <button
+                onClick={handleCancel}
+                className="p-2 hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 space-y-4">
+              <p className="text-sm text-slate-400">{info.description}</p>
+
+              {/* Features */}
+              <div className="space-y-2">
+                {info.features.map((feature, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div
+                      className="w-2 h-2"
+                      style={{ backgroundColor: info.colors.roof }}
+                    />
+                    <span className="text-sm text-slate-300">{feature}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Risk Level */}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-700">
+                <span className="text-xs text-slate-500">Risk Level</span>
+                <span
+                  className="text-xs px-2 py-1 border"
+                  style={{
+                    fontFamily: '"Press Start 2P", monospace',
+                    fontSize: '8px',
+                    color: info.riskColor,
+                    borderColor: info.riskColor,
+                    backgroundColor: `${info.riskColor}15`
+                  }}
+                >
+                  {info.risk}
                 </span>
               </div>
-              {amount && (
-                <div className="text-sm text-muted-foreground">
-                  ≈ {formatUSD(amountUSD)}
+
+              {/* Deposit Input */}
+              <div className="pt-4 border-t border-slate-700">
+                <div className="flex justify-between text-xs mb-2">
+                  <span className="text-slate-500">Deposit Amount (Optional)</span>
+                  <span className="text-slate-400">
+                    Balance: {parseFloat(formattedBalance).toFixed(4)} ETH
+                  </span>
                 </div>
-              )}
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    placeholder="0.0"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    step="0.001"
+                    min="0"
+                    className="flex-1 px-3 py-2 bg-slate-800 border-2 border-slate-600 text-white font-mono focus:border-emerald-500 focus:outline-none"
+                  />
+                  <span className="flex items-center px-3 bg-slate-800 border-2 border-slate-600 text-sm text-slate-400">
+                    ETH
+                  </span>
+                </div>
+              </div>
             </div>
 
-            {/* Fee Display */}
-            {amount && amountUSD > 0 && (
-              <div className="p-3 bg-muted/50 rounded-md space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Deposit</span>
-                  <span className="font-mono">{formatUSD(amountUSD)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Fee ({BUILDING_FEE_BPS / 100}%)</span>
-                  <span className="font-mono text-amber-500">-{formatUSD(feeUSD)}</span>
-                </div>
-                <div className="border-t pt-1 mt-1 flex justify-between text-sm font-medium">
-                  <span>Net Deposit</span>
-                  <span className="font-mono">{formatUSD(amountUSD - feeUSD)}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Validation Messages */}
-            {amount && !isAmountValid && (
-              <div className="flex items-center gap-2 text-sm text-amber-500">
-                <AlertCircle className="h-4 w-4" />
-                Minimum deposit is {info.minDepositDisplay}
-              </div>
-            )}
-            {amount && selectedAsset && !hasEnoughBalance && (
-              <div className="flex items-center gap-2 text-sm text-red-500">
-                <AlertCircle className="h-4 w-4" />
-                Insufficient {selectedAsset} balance
-              </div>
-            )}
-          </div>
-        </div>
-
-        <DialogFooter className="flex gap-2">
-          <Button variant="outline" onClick={handleBack}>
-            Back
-          </Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={!selectedAsset || !amount || !isAmountValid || !hasEnoughBalance}
-          >
-            Build {info.name}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            {/* Footer */}
+            <div className="flex gap-3 p-4 border-t-2" style={{ borderColor: info.colors.accent }}>
+              <button
+                onClick={handleCancel}
+                className="flex-1 py-3 border-2 border-slate-600 text-slate-400 hover:bg-slate-800 transition-colors"
+                style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '10px' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirm}
+                className="flex-1 py-3 border-2 text-white transition-all hover:brightness-110"
+                style={{
+                  fontFamily: '"Press Start 2P", monospace',
+                  fontSize: '10px',
+                  borderColor: info.colors.roof,
+                  backgroundColor: info.colors.accent,
+                  boxShadow: `3px 3px 0px ${info.colors.roof}`
+                }}
+              >
+                Build
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

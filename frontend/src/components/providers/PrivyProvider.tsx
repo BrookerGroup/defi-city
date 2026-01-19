@@ -55,11 +55,9 @@ export function PrivyProvider({ children }: { children: React.ReactNode }) {
           logo: '/logo.png',
           showWalletLoginFirst: false,
         },
-        // Login methods - email, social, wallet
-        loginMethods: ['email', 'wallet', 'google', 'twitter', 'discord', 'apple'],
+        loginMethods: ['email', 'wallet', 'google'],
         defaultChain: baseSepolia,
         supportedChains: [baseSepolia],
-        // Embedded wallets config
         embeddedWallets: {
           ethereum: {
             createOnLogin: 'users-without-wallets',

@@ -10,6 +10,7 @@ module.exports = {
         enabled: true,
         runs: 200,
       },
+      viaIR: true, // Enable IR-based compilation for stack too deep fix
     },
   },
   networks: {
@@ -39,10 +40,9 @@ module.exports = {
     },
   },
   etherscan: {
-    apiKey: {
-      sepolia: process.env.ETHERSCAN_API_KEY || "",
-      base: process.env.BASESCAN_API_KEY || "",
-      baseSepolia: process.env.BASESCAN_API_KEY || "",
-    },
+    apiKey: process.env.BASESCAN_API_KEY || "",
+  },
+  sourcify: {
+    enabled: true,
   },
 };

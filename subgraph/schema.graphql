@@ -1,0 +1,378 @@
+# DefiCity Subgraph Schema
+# GraphQL schema for indexing DefiCity smart contracts
+
+# ============================================
+# User & City
+# ============================================
+
+type User @entity {
+  id: ID! # User address
+  cityCreatedAt: BigInt!
+  totalBuildings: BigInt!
+  activeBuildings: BigInt!
+  totalDeposited: BigDecimal!
+  totalWithdrawn: BigDecimal!
+  totalEarned: BigDecimal!
+
+  # Relations
+  balances: [UserBalance!]! @derivedFrom(field: "user")
+  buildings: [Building!]! @derivedFrom(field: "owner")
+  transactions: [Transaction!]! @derivedFrom(field: "user")
+
+  # Metadata
+  updatedAt: BigInt!
+  updatedAtBlock: BigInt!
+}
+
+type UserBalance @entity {
+  id: ID! # user-asset
+  user: User!
+  asset: Asset!
+  balance: BigDecimal!
+
+  updatedAt: BigInt!
+  updatedAtBlock: BigInt!
+}
+
+# ============================================
+# Buildings
+# ============================================
+
+type Building @entity {
+  id: ID! # user-buildingId
+  owner: User!
+  buildingId: BigInt!
+  buildingType: BuildingType!
+
+  # Deposit info
+  asset: Asset!
+  depositedAmount: BigDecimal!
+  shares: BigDecimal!
+
+  # Status
+  isActive: Boolean!
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  demolishedAt: BigInt
+  demolishedAtBlock: BigInt
+
+  # Earnings
+  totalHarvested: BigDecimal!
+  harvestCount: BigInt!
+
+  # Relations
+  deposits: [Deposit!]! @derivedFrom(field: "building")
+  harvests: [Harvest!]! @derivedFrom(field: "building")
+
+  updatedAt: BigInt!
+  updatedAtBlock: BigInt!
+}
+
+type BuildingType @entity {
+  id: ID! # Building type number (0, 1, 2, 3)
+  name: String!
+  strategy: Bytes!
+  minDeposit: BigDecimal!
+
+  # Stats
+  totalBuildings: BigInt!
+  activeBuildings: BigInt!
+  totalDeposited: BigDecimal!
+
+  # APY tracking
+  currentAPY: BigDecimal!
+
+  updatedAt: BigInt!
+}
+
+# ============================================
+# Assets
+# ============================================
+
+type Asset @entity {
+  id: ID! # Asset address
+  symbol: String!
+  name: String!
+  decimals: Int!
+
+  # Stats
+  totalDeposited: BigDecimal!
+  totalWithdrawn: BigDecimal!
+  totalBalance: BigDecimal!
+
+  # Price (optional, from oracle)
+  priceUSD: BigDecimal
+
+  updatedAt: BigInt!
+}
+
+# ============================================
+# Transactions
+# ============================================
+
+interface Transaction {
+  id: ID!
+  user: User!
+  hash: Bytes!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type Deposit implements Transaction @entity {
+  id: ID! # tx-logIndex
+  user: User!
+  building: Building
+  asset: Asset!
+  amount: BigDecimal!
+  shares: BigDecimal!
+
+  # Fee
+  fee: BigDecimal!
+
+  # Transaction info
+  hash: Bytes!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type Withdrawal implements Transaction @entity {
+  id: ID! # tx-logIndex
+  user: User!
+  building: Building
+  asset: Asset!
+  amount: BigDecimal!
+  shares: BigDecimal!
+
+  # Transaction info
+  hash: Bytes!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type Harvest implements Transaction @entity {
+  id: ID! # tx-logIndex
+  user: User!
+  building: Building!
+  asset: Asset!
+  rewards: BigDecimal!
+
+  # Transaction info
+  hash: Bytes!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type BuildingPlaced implements Transaction @entity {
+  id: ID! # tx-logIndex
+  user: User!
+  building: Building!
+  buildingType: BuildingType!
+  asset: Asset!
+  initialDeposit: BigDecimal!
+  fee: BigDecimal!
+
+  # Transaction info
+  hash: Bytes!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type BuildingDemolished implements Transaction @entity {
+  id: ID! # tx-logIndex
+  user: User!
+  building: Building!
+  asset: Asset!
+  withdrawn: BigDecimal!
+
+  # Transaction info
+  hash: Bytes!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+# ============================================
+# Strategy Stats
+# ============================================
+
+type Strategy @entity {
+  id: ID! # Strategy address
+  buildingType: BuildingType!
+  version: BigInt!
+
+  # Performance
+  totalDeposited: BigDecimal!
+  totalWithdrawn: BigDecimal!
+  totalHarvested: BigDecimal!
+  currentTVL: BigDecimal!
+
+  # APY
+  currentAPY: BigDecimal!
+  apyHistory: [APYSnapshot!]! @derivedFrom(field: "strategy")
+
+  # Status
+  isActive: Boolean!
+  activatedAt: BigInt!
+  deactivatedAt: BigInt
+
+  updatedAt: BigInt!
+}
+
+type APYSnapshot @entity {
+  id: ID! # strategy-timestamp
+  strategy: Strategy!
+  apy: BigDecimal!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+# ============================================
+# Protocol Stats
+# ============================================
+
+type ProtocolStats @entity {
+  id: ID! # "1" (singleton)
+
+  # Users
+  totalUsers: BigInt!
+  activeUsers: BigInt!
+
+  # Buildings
+  totalBuildings: BigInt!
+  activeBuildings: BigInt!
+
+  # Volume
+  totalDeposited: BigDecimal!
+  totalWithdrawn: BigDecimal!
+  totalHarvested: BigDecimal!
+  currentTVL: BigDecimal!
+
+  # Fees
+  totalFeesCollected: BigDecimal!
+
+  # By asset
+  assetStats: [AssetProtocolStats!]! @derivedFrom(field: "protocol")
+
+  updatedAt: BigInt!
+  updatedAtBlock: BigInt!
+}
+
+type AssetProtocolStats @entity {
+  id: ID! # asset address
+  protocol: ProtocolStats!
+  asset: Asset!
+
+  totalDeposited: BigDecimal!
+  totalWithdrawn: BigDecimal!
+  currentTVL: BigDecimal!
+
+  updatedAt: BigInt!
+}
+
+# ============================================
+# Daily/Hourly Stats
+# ============================================
+
+type DailyStats @entity {
+  id: ID! # timestamp-day
+  date: Int!
+
+  # Users
+  activeUsers: BigInt!
+  newUsers: BigInt!
+
+  # Buildings
+  buildingsPlaced: BigInt!
+  buildingsDemolished: BigInt!
+
+  # Volume
+  depositVolume: BigDecimal!
+  withdrawVolume: BigDecimal!
+  harvestVolume: BigDecimal!
+
+  # TVL
+  tvl: BigDecimal!
+
+  # Fees
+  feesCollected: BigDecimal!
+
+  timestamp: BigInt!
+}
+
+type HourlyStats @entity {
+  id: ID! # timestamp-hour
+  hour: Int!
+
+  # Quick stats
+  activeUsers: BigInt!
+  depositVolume: BigDecimal!
+  withdrawVolume: BigDecimal!
+  tvl: BigDecimal!
+
+  timestamp: BigInt!
+}
+
+# ============================================
+# Lottery (Megapot Integration)
+# ============================================
+
+type LotteryTicket @entity {
+  id: ID! # tx-logIndex
+  user: User!
+  building: Building!
+  ticketCount: BigInt!
+  amount: BigDecimal! # USDC spent
+
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  hash: Bytes!
+}
+
+# ============================================
+# Account Abstraction
+# ============================================
+
+type SmartWallet @entity {
+  id: ID! # Wallet address
+  owner: User!
+
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+
+  # Session keys
+  sessionKeys: [SessionKey!]! @derivedFrom(field: "wallet")
+
+  # Stats
+  gaslessTransactions: BigInt!
+  gasSaved: BigDecimal! # Estimated in USD
+
+  updatedAt: BigInt!
+}
+
+type SessionKey @entity {
+  id: ID! # wallet-sessionKey
+  wallet: SmartWallet!
+  sessionKeyAddress: Bytes!
+
+  isActive: Boolean!
+  expiresAt: BigInt!
+  dailyLimit: BigDecimal!
+  spentToday: BigDecimal!
+
+  createdAt: BigInt!
+  revokedAt: BigInt
+
+  updatedAt: BigInt!
+}
+
+type GaslessTransaction @entity {
+  id: ID! # tx hash
+  user: User!
+  wallet: SmartWallet!
+
+  operation: String!
+  gasCost: BigDecimal! # In ETH
+  gasCostUSD: BigDecimal!
+
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}

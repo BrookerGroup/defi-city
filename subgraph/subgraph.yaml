@@ -1,0 +1,236 @@
+specVersion: 0.0.5
+description: DefiCity - DeFi City Builder Game Subgraph
+repository: https://github.com/your-org/deficity-subgraph
+schema:
+  file: ./schema.graphql
+
+dataSources:
+  # ============================================
+  # DefiCityCore
+  # ============================================
+  - kind: ethereum/contract
+    name: DefiCityCore
+    network: base
+    source:
+      address: "0x0000000000000000000000000000000000000000" # TODO: Update after deployment
+      abi: DefiCityCore
+      startBlock: 0 # TODO: Update to deployment block
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - User
+        - UserBalance
+        - Asset
+        - ProtocolStats
+      abis:
+        - name: DefiCityCore
+          file: ../contract_v2/out/DefiCityCore.sol/DefiCityCore.json
+        - name: ERC20
+          file: ./abis/ERC20.json
+      eventHandlers:
+        - event: Deposited(indexed address,indexed address,uint256)
+          handler: handleDeposited
+        - event: Withdrawn(indexed address,indexed address,uint256)
+          handler: handleWithdrawn
+        - event: AssetAdded(indexed address)
+          handler: handleAssetAdded
+        - event: AssetRemoved(indexed address)
+          handler: handleAssetRemoved
+        - event: Paused(address)
+          handler: handlePaused
+        - event: Unpaused(address)
+          handler: handleUnpaused
+      file: ./src/mappings/core.ts
+
+  # ============================================
+  # BuildingManager
+  # ============================================
+  - kind: ethereum/contract
+    name: BuildingManager
+    network: base
+    source:
+      address: "0x0000000000000000000000000000000000000000" # TODO: Update
+      abi: BuildingManager
+      startBlock: 0 # TODO: Update
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Building
+        - BuildingType
+        - User
+        - BuildingPlaced
+        - Deposit
+        - Harvest
+        - BuildingDemolished
+      abis:
+        - name: BuildingManager
+          file: ../contract_v2/out/BuildingManager.sol/BuildingManager.json
+        - name: DefiCityCore
+          file: ../contract_v2/out/DefiCityCore.sol/DefiCityCore.json
+      eventHandlers:
+        - event: BuildingPlaced(indexed address,uint256,uint256,address,uint256,uint256)
+          handler: handleBuildingPlaced
+        - event: DepositedToBuilding(indexed address,uint256,uint256)
+          handler: handleDepositedToBuilding
+        - event: Harvested(indexed address,uint256,uint256)
+          handler: handleHarvested
+        - event: BuildingDemolished(indexed address,uint256,uint256)
+          handler: handleBuildingDemolished
+      file: ./src/mappings/building.ts
+
+  # ============================================
+  # StrategyRegistry
+  # ============================================
+  - kind: ethereum/contract
+    name: StrategyRegistry
+    network: base
+    source:
+      address: "0x0000000000000000000000000000000000000000" # TODO: Update
+      abi: StrategyRegistry
+      startBlock: 0 # TODO: Update
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Strategy
+        - BuildingType
+      abis:
+        - name: StrategyRegistry
+          file: ../contract_v2/out/StrategyRegistry.sol/StrategyRegistry.json
+        - name: IStrategy
+          file: ../contract_v2/out/IStrategy.sol/IStrategy.json
+      eventHandlers:
+        - event: StrategyRegistered(indexed uint256,indexed address,uint256)
+          handler: handleStrategyRegistered
+        - event: StrategyActivated(indexed uint256,indexed address)
+          handler: handleStrategyActivated
+        - event: StrategyDeprecated(indexed uint256,indexed address)
+          handler: handleStrategyDeprecated
+      file: ./src/mappings/strategy.ts
+
+  # ============================================
+  # FeeManager
+  # ============================================
+  - kind: ethereum/contract
+    name: FeeManager
+    network: base
+    source:
+      address: "0x0000000000000000000000000000000000000000" # TODO: Update
+      abi: FeeManager
+      startBlock: 0 # TODO: Update
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - ProtocolStats
+      abis:
+        - name: FeeManager
+          file: ../contract_v2/out/FeeManager.sol/FeeManager.json
+      eventHandlers:
+        - event: FeeCollected(indexed address,indexed address,uint256,uint256)
+          handler: handleFeeCollected
+        - event: FeeUpdated(uint256,uint256)
+          handler: handleFeeUpdated
+      file: ./src/mappings/fee.ts
+
+  # ============================================
+  # WalletFactory
+  # ============================================
+  - kind: ethereum/contract
+    name: WalletFactory
+    network: base
+    source:
+      address: "0x0000000000000000000000000000000000000000" # TODO: Update
+      abi: WalletFactory
+      startBlock: 0 # TODO: Update
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - SmartWallet
+        - User
+      abis:
+        - name: WalletFactory
+          file: ../contract_v2/out/WalletFactory.sol/WalletFactory.json
+      eventHandlers:
+        - event: WalletCreated(indexed address,indexed address,indexed address,uint256)
+          handler: handleWalletCreated
+      file: ./src/mappings/wallet.ts
+
+  # ============================================
+  # DefiCityPaymaster
+  # ============================================
+  - kind: ethereum/contract
+    name: DefiCityPaymaster
+    network: base
+    source:
+      address: "0x0000000000000000000000000000000000000000" # TODO: Update
+      abi: DefiCityPaymaster
+      startBlock: 0 # TODO: Update
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - GaslessTransaction
+        - SmartWallet
+      abis:
+        - name: DefiCityPaymaster
+          file: ../contract_v2/out/DefiCityPaymaster.sol/DefiCityPaymaster.json
+      eventHandlers:
+        - event: UserOperationSponsored(indexed address,uint256,uint256)
+          handler: handleUserOperationSponsored
+      file: ./src/mappings/paymaster.ts
+
+  # ============================================
+  # MegapotStrategy
+  # ============================================
+  - kind: ethereum/contract
+    name: MegapotStrategy
+    network: base
+    source:
+      address: "0x0000000000000000000000000000000000000000" # TODO: Update
+      abi: MegapotStrategy
+      startBlock: 0 # TODO: Update
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - LotteryTicket
+        - Building
+      abis:
+        - name: MegapotStrategy
+          file: ../contract_v2/out/MegapotStrategy.sol/MegapotStrategy.json
+      eventHandlers:
+        - event: TicketsPurchased(indexed address,uint256,uint256)
+          handler: handleTicketsPurchased
+      file: ./src/mappings/lottery.ts
+
+# ============================================
+# Templates (for dynamic contract tracking)
+# ============================================
+templates:
+  - kind: ethereum/contract
+    name: Strategy
+    network: base
+    source:
+      abi: IStrategy
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Strategy
+        - APYSnapshot
+      abis:
+        - name: IStrategy
+          file: ../contract_v2/out/IStrategy.sol/IStrategy.json
+      file: ./src/mappings/strategy-template.ts

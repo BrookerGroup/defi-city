@@ -1,11 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { Building, BuildingType, BuildingAsset, GRID_SIZE } from '@/types'
+import { Building, BuildingType, GRID_SIZE, BUILDING_INFO } from '@/types'
 
-interface PendingBuilding {
-  type: BuildingType
-  position: { x: number; y: number }
-}
+// Valid building types for filtering old data
+const VALID_TYPES = Object.keys(BUILDING_INFO) as BuildingType[]
 
 interface GameState {
   buildings: Building[]
@@ -94,10 +92,22 @@ export const useGameStore = create<GameState>()(
       reset: () => set(initialState),
     }),
     {
-      name: 'defi-city-game',
+      name: 'defi-city-game-v2', // New version to clear old data
       partialize: (state) => ({
-        buildings: state.buildings,
+        buildings: state.buildings.filter(b => VALID_TYPES.includes(b.type)),
       }),
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<GameState> | undefined
+        if (!persisted?.buildings) {
+          return currentState
+        }
+        // Filter out buildings with invalid types
+        const validBuildings = persisted.buildings.filter(b => VALID_TYPES.includes(b.type))
+        return {
+          ...currentState,
+          buildings: validBuildings,
+        }
+      },
     }
   )
 )

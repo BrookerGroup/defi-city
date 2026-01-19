@@ -281,7 +281,40 @@ export function GameCanvas({ sidebarOpen = false }: GameCanvasProps) {
     })
   }, [buildings, isPlacingBuilding])
 
-  // Handle mouse move for hover effect and panning
+  // Create building sprite
+  const createBuildingSprite = (building: Building) => {
+    const info = BUILDING_INFO[building.type]
+    const container = new PIXI.Container()
+
+    // Convert hex color string to number
+    const roofColor = parseInt(info.colors.roof.replace('#', ''), 16)
+    const wallColor = parseInt(info.colors.wall.replace('#', ''), 16)
+
+    // Building base
+    const base = new PIXI.Graphics()
+    base.roundRect(-25, -40, 50, 50, 5)
+    base.fill({ color: wallColor })
+    base.stroke({ color: roofColor, width: 2, alpha: 0.8 })
+
+    // Building name text
+    const text = new PIXI.Text({
+      text: info.name.charAt(0),
+      style: {
+        fontSize: 24,
+        fill: roofColor,
+        fontWeight: 'bold',
+      },
+    })
+    text.anchor.set(0.5)
+    text.y = -15
+
+    container.addChild(base)
+    container.addChild(text)
+
+    return container
+  }
+
+  // Handle mouse move for hover effect
   useEffect(() => {
     if (!appRef.current || !hoverTileRef.current || !gridContainerRef.current || !mainContainerRef.current) return
 
