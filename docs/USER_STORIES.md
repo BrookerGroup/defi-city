@@ -241,20 +241,39 @@ Buildings, stats, game state (accounting records)
 **I want** to withdraw my available balance from my SmartWallet to my EOA wallet
 **So that** I can move funds to my main wallet or external exchanges
 
+**Status:** ✅ COMPLETED (2026-01-19)
+
 **Acceptance Criteria:**
-- [ ] User can select asset type to withdraw
-- [ ] User can enter withdrawal amount
-- [ ] UI shows available balance in SmartWallet (not invested in buildings)
-- [ ] UI prevents withdrawal of invested funds (must demolish buildings first)
-- [ ] User confirms transaction
-- [ ] Transaction transfers tokens FROM user's SmartWallet TO user's EOA
-- [ ] DefiCityCore updates accounting records
-- [ ] Transaction shows loading state
-- [ ] Balance updates after successful withdrawal
-- [ ] Success notification displays
-- [ ] User pays gas fee for withdrawal (not gasless)
-- [ ] Cannot withdraw more than available balance
-- [ ] User can also withdraw directly from SmartWallet without using game UI (true self-custody)
+- [x] User can select asset type to withdraw
+- [x] User can enter withdrawal amount
+- [x] UI shows available balance in SmartWallet (not invested in buildings)
+- [x] UI prevents withdrawal of invested funds (must demolish buildings first)
+- [x] User confirms transaction
+- [x] Transaction transfers tokens FROM user's SmartWallet TO user's EOA
+- [ ] DefiCityCore updates accounting records - **Requires SC integration**
+- [x] Transaction shows loading state
+- [x] Balance updates after successful withdrawal
+- [x] Success notification displays
+- [x] User pays gas fee for withdrawal (not gasless)
+- [x] Cannot withdraw more than available balance
+- [x] User can also withdraw directly from SmartWallet without using game UI (true self-custody)
+
+**Implementation Notes:**
+- Supports all 5 tokens: ETH, USDC, USDT, WBTC, WETH
+- Uses SmartWallet.execute() for withdrawals
+  - Native ETH: execute(recipient, value, "0x")
+  - ERC-20: execute(tokenAddress, 0, transfer(recipient, amount))
+- Reads balance from SmartWallet (on-chain)
+- Token selector dropdown with balance display
+- Insufficient balance validation
+- For ETH withdrawals, leaves 0.001 ETH for gas when using "Max"
+- Transaction hash link to BaseScan
+- Warning message about invested funds
+
+**Files Created/Changed:**
+- `frontend/src/hooks/useWithdrawToken.ts` - Multi-asset withdrawal hook
+- `frontend/src/components/wallet/WithdrawForm.tsx` - Updated for multi-asset support
+- `frontend/src/hooks/index.ts` - Exported new hook
 
 **Priority:** P0 (Critical)
 **Estimated:** 3 story points
