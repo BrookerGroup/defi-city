@@ -7,6 +7,7 @@ import { useSmartWallet } from '@/hooks'
 import { usePrivy } from '@privy-io/react-auth'
 import { formatEther } from 'viem'
 import { X } from 'lucide-react'
+import { BankModal } from './bank'
 
 interface BuildingModalProps {
   open: boolean
@@ -82,6 +83,19 @@ export function BuildingModal({
   const { balance } = useSmartWallet(eoaAddress)
 
   if (!buildingType) return null
+
+  // Special handling for Bank building - show BankModal
+  if (buildingType === 'bank' && open) {
+    return (
+      <BankModal
+        onClose={onClose}
+        onConfirm={() => {
+          onConfirm()
+          onClose()
+        }}
+      />
+    )
+  }
 
   const info = BUILDING_INFO[buildingType]
   const formattedBalance = balance ? formatEther(balance) : '0'

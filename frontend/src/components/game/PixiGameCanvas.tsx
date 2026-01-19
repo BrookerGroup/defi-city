@@ -172,9 +172,12 @@ export function PixiGameCanvas() {
       app.stage.eventMode = 'static'
       app.stage.hitArea = app.screen
 
-      // Setup camera drag/pan
+      // Setup camera drag/pan - left click drag when not placing buildings
       app.stage.on('pointerdown', (e) => {
-        if (e.button === 1 || e.button === 2 || e.altKey) {
+        const state = useGameStore.getState()
+        // Allow drag with: left click (when not placing), middle click, right click, or alt+click
+        const canDrag = e.button === 0 && !state.isPlacingBuilding
+        if (canDrag || e.button === 1 || e.button === 2 || e.altKey) {
           dragRef.current.isDragging = true
           dragRef.current.lastX = e.global.x
           dragRef.current.lastY = e.global.y
