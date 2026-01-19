@@ -287,17 +287,35 @@ Buildings, stats, game state (accounting records)
 **I want** to see a history of all my transactions
 **So that** I can track deposits, withdrawals, placements, harvests, and demolitions
 
+**Status:** ✅ COMPLETED (2026-01-19)
+
 **Acceptance Criteria:**
-- [ ] Transaction history shows all transactions
-- [ ] Shows transaction type (deposit, withdraw, place, harvest, demolish)
-- [ ] Shows asset type
-- [ ] Shows amount
-- [ ] Shows timestamp
-- [ ] Shows transaction hash (clickable → BaseScan)
-- [ ] Shows transaction status (success, pending, failed)
-- [ ] Filterable by transaction type
-- [ ] Filterable by asset type
-- [ ] Paginated for performance
+- [x] Transaction history shows all transactions
+- [x] Shows transaction type (deposit, withdraw, place, harvest, demolish)
+- [x] Shows asset type
+- [x] Shows amount
+- [x] Shows timestamp
+- [x] Shows transaction hash (clickable → BaseScan)
+- [x] Shows transaction status (success, pending, failed)
+- [x] Filterable by transaction type
+- [x] Filterable by asset type
+- [x] Paginated for performance
+
+**Implementation Notes:**
+- Stores transactions in localStorage (up to 100 transactions per wallet)
+- Auto-watches pending transactions for confirmation
+- Filter dropdowns for transaction type and asset type
+- Pagination with 10 items per page
+- Clear filters button when filters are active
+- Empty state with helpful message
+- Mobile-responsive design
+- Integrated into app sidebar under "History" section
+
+**Files Created/Changed:**
+- `frontend/src/hooks/useTransactionHistory.ts` - Enhanced with filtering and pagination
+- `frontend/src/components/dashboard/TransactionHistory.tsx` - Updated UI with filters
+- `frontend/src/hooks/index.ts` - Added new type exports
+- `frontend/src/app/app/page.tsx` - Integrated into sidebar
 
 **Priority:** P1 (High)
 **Estimated:** 3 story points

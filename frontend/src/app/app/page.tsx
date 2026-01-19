@@ -9,6 +9,7 @@ import {
   CreateTownHallModal,
 } from '@/components/game'
 import { WalletInfo, DepositForm, WithdrawForm } from '@/components/wallet'
+import { TransactionHistory } from '@/components/dashboard'
 import { useGameStore } from '@/store/gameStore'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
@@ -280,6 +281,19 @@ export default function AppPage() {
           </div>
           <DepositForm smartWalletAddress={(walletAddress as `0x${string}`) || null} />
           <WithdrawForm smartWalletAddress={(walletAddress as `0x${string}`) || null} />
+
+          <div
+            className="text-center py-2 border-b-2 mt-4"
+            style={{ borderColor: '#475569' }}
+          >
+            <span
+              className="text-purple-400"
+              style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '10px' }}
+            >
+              History
+            </span>
+          </div>
+          <TransactionHistory />
         </div>
       </motion.div>
     </main>

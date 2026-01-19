@@ -55,44 +55,7 @@ const drawGrid = (container: PIXI.Container) => {
   container.addChild(graphics)
 }
 
-// Create building sprite
-const createBuildingSprite = (building: Building) => {
-  const info = BUILDING_INFO[building.type]
-  const container = new PIXI.Container()
 
-  // Building base
-  const base = new PIXI.Graphics()
-  base.roundRect(-30, -50, 60, 60, 8)
-  base.fill({ color: info.color })
-  base.stroke({ color: 0xffffff, width: 2, alpha: 0.3 })
-
-  // Icon text
-  const text = new PIXI.Text({
-    text: info.icon,
-    style: {
-      fontSize: 32,
-    },
-  })
-  text.anchor.set(0.5)
-  text.y = -20
-
-  // Building name label
-  const nameText = new PIXI.Text({
-    text: info.name,
-    style: {
-      fontSize: 10,
-      fill: 0xffffff,
-    },
-  })
-  nameText.anchor.set(0.5)
-  nameText.y = 18
-
-  container.addChild(base)
-  container.addChild(text)
-  container.addChild(nameText)
-
-  return container
-}
 
 interface GameCanvasProps {
   sidebarOpen?: boolean
