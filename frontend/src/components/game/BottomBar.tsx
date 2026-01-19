@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 const AVAILABLE_BUILDINGS: BuildingType[] = ['bank', 'shop', 'lottery']
 
 // Base path for assets
-const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '/defi-city'
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || ''
 const ASSET_PATH = `${BASE_PATH}/assets`
 
 // Building sprite sheet: 400x400, 2x2 grid

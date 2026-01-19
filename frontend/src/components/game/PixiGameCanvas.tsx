@@ -16,7 +16,7 @@ let globalPixiApp: Application | null = null
 let globalPixiInitialized = false
 
 // Base path for assets
-const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '/defi-city'
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || ''
 const ASSET_PATH = `${BASE_PATH}/assets`
 
 // Isometric constants

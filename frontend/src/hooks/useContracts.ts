@@ -66,22 +66,43 @@ export function useContractInstances() {
 
         console.log('Initializing contracts with wallet:', wallet.address, wallet.walletClientType);
 
-        // Switch to Base Sepolia using Privy's best practice method
-        try {
-          console.log('Switching to Base Sepolia (Chain ID:', TARGET_CHAIN_ID, ')...');
-          await wallet.switchChain(TARGET_CHAIN_ID);
-          console.log('Successfully switched to Base Sepolia');
-        } catch (switchError) {
-          console.error('Error switching chain:', switchError);
-          // Continue anyway - the chain might already be correct
-        }
-
+        // Get provider and check current chain
         const ethereumProvider = await wallet.getEthereumProvider();
         const provider = new ethers.BrowserProvider(ethereumProvider);
+
+        // Check current chain ID
+        const network = await provider.getNetwork();
+        const currentChainId = Number(network.chainId);
+
+        console.log('Current chain ID:', currentChainId, 'Target chain ID:', TARGET_CHAIN_ID);
+
+        // Only switch if not on Base Sepolia
+        if (currentChainId !== TARGET_CHAIN_ID) {
+          try {
+            console.log('Switching to Base Sepolia (Chain ID:', TARGET_CHAIN_ID, ')...');
+            await wallet.switchChain(TARGET_CHAIN_ID);
+            console.log('Successfully switched to Base Sepolia');
+
+            // Wait a bit for the switch to complete
+            await new Promise(resolve => setTimeout(resolve, 500));
+          } catch (switchError: any) {
+            console.error('Error switching chain:', switchError);
+
+            // If switch fails, prompt user to switch manually
+            if (switchError?.code === 4902 || switchError?.message?.includes('Unrecognized chain')) {
+              console.warn('Base Sepolia not added to wallet. Please add it manually.');
+            }
+
+            // Don't throw - try to continue with current chain
+          }
+        } else {
+          console.log('Already on Base Sepolia, no need to switch');
+        }
+
         const signer = await provider.getSigner();
 
-        const network = getCurrentNetwork();
-        const addresses = CONTRACTS[network as keyof typeof CONTRACTS];
+        const networkKey = getCurrentNetwork();
+        const addresses = CONTRACTS[networkKey as keyof typeof CONTRACTS];
 
         // Only initialize if addresses are set
         if (!addresses.WALLET_FACTORY || !addresses.DEFICITY_CORE) {
