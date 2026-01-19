@@ -53,16 +53,13 @@ export function PrivyProvider({ children }: { children: React.ReactNode }) {
           theme: 'dark',
           accentColor: '#676FFF',
           logo: '/logo.png',
+          // Prevent showing wallet login first - user must click to see wallet options
           showWalletLoginFirst: false,
         },
-        loginMethods: ['email', 'wallet', 'google'],
+        // Include wallet as option but won't auto-detect/prompt
+        loginMethods: ['email', 'google', 'wallet'],
         defaultChain: baseSepolia,
         supportedChains: [baseSepolia],
-        embeddedWallets: {
-          ethereum: {
-            createOnLogin: 'users-without-wallets',
-          },
-        },
         // MFA/Passkey config for returning users
         mfa: {
           noPromptOnMfaRequired: false,

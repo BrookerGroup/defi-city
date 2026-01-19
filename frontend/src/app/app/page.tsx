@@ -9,7 +9,6 @@ import {
   CreateTownHallModal,
 } from '@/components/game'
 import { WalletInfo, DepositForm, WithdrawForm } from '@/components/wallet'
-import { TransactionHistory } from '@/components/dashboard'
 import { useGameStore } from '@/store/gameStore'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
@@ -124,8 +123,8 @@ export default function AppPage() {
     )
   }
 
-  // User needs to create Town Hall
-  if (authenticated && !userHasWallet) {
+  // Show welcome screen if not authenticated OR if authenticated but no wallet
+  if (!authenticated || (authenticated && !userHasWallet)) {
     return (
       <>
         <main
@@ -175,7 +174,10 @@ export default function AppPage() {
               </h1>
 
               <p className="text-lg text-slate-300">
-                Start your journey by creating your Town Hall
+                {!authenticated 
+                  ? 'Connect your wallet to start building your city'
+                  : 'Start your journey by creating your Town Hall'
+                }
               </p>
 
               <motion.button
@@ -191,7 +193,7 @@ export default function AppPage() {
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
               >
-                Create Town Hall
+                {!authenticated ? 'Connect Wallet' : 'Create Town Hall'}
               </motion.button>
             </motion.div>
           </div>
@@ -219,7 +221,7 @@ export default function AppPage() {
     )
   }
 
-  // Show game (user has wallet)
+  // Show game (user has wallet) - ONLY MAP VIEW
   return (
     <main className="relative min-h-screen overflow-hidden">
       <TopBar />
@@ -281,19 +283,6 @@ export default function AppPage() {
           </div>
           <DepositForm smartWalletAddress={(walletAddress as `0x${string}`) || null} />
           <WithdrawForm smartWalletAddress={(walletAddress as `0x${string}`) || null} />
-
-          <div
-            className="text-center py-2 border-b-2 mt-4"
-            style={{ borderColor: '#475569' }}
-          >
-            <span
-              className="text-purple-400"
-              style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '10px' }}
-            >
-              History
-            </span>
-          </div>
-          <TransactionHistory />
         </div>
       </motion.div>
     </main>

@@ -58,8 +58,14 @@ export function CreateTownHallModal({ isOpen, onClose, onSuccess }: CreateTownHa
   const { wallets } = useWallets()
   const { createTownHall, loading, error } = useCreateTownHall()
   const { addBuilding } = useGameStore()
-  const [gridX, setGridX] = useState(5)
-  const [gridY, setGridY] = useState(5)
+  
+  // Fixed position at center of map (5,5)
+  const GRID_SIZE = 10
+  const centerX = Math.floor(GRID_SIZE / 2)
+  const centerY = Math.floor(GRID_SIZE / 2)
+  
+  const [createdWalletAddress, setCreatedWalletAddress] = useState<string | null>(null)
+  const [showSuccess, setShowSuccess] = useState(false)
 
   // Get user's wallet address - prefer Privy embedded wallet, then any connected wallet
   const getUserAddress = () => {
@@ -89,19 +95,29 @@ export function CreateTownHallModal({ isOpen, onClose, onSuccess }: CreateTownHa
     }
 
     console.log('Creating Town Hall for address:', userAddress)
-    const result = await createTownHall(userAddress, gridX, gridY)
+    const result = await createTownHall(userAddress, centerX, centerY)
 
     if (result.success && result.walletAddress) {
-      // Add town hall to the game store
+      // Add town hall to the game store at center
       addBuilding({
         id: `townhall-${Date.now()}`,
         type: 'townhall',
-        position: { x: gridX, y: gridY },
+        position: { x: centerX, y: centerY },
         createdAt: Date.now(),
       })
 
-      onSuccess(result.walletAddress, result.buildingId || 1)
-      onClose()
+      // Show success screen with wallet address
+      setCreatedWalletAddress(result.walletAddress)
+      setShowSuccess(true)
+      
+      // Auto-close after showing address
+      setTimeout(() => {
+        if (result.walletAddress) {
+          onSuccess(result.walletAddress, result.buildingId || 1)
+        }
+        onClose()
+        setShowSuccess(false)
+      }, 5000)
     }
   }
 
@@ -200,36 +216,20 @@ export function CreateTownHallModal({ isOpen, onClose, onSuccess }: CreateTownHa
                   </div>
                 </div>
 
-                {/* Position Selection */}
+                {/* Auto-placed at center info */}
                 <div className="pt-4 border-t border-slate-700">
-                  <label
-                    className="text-xs text-slate-400 mb-3 block"
-                    style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '8px' }}
-                  >
-                    Town Hall Position
-                  </label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs text-slate-500 mb-1 block">X</label>
-                      <input
-                        type="number"
-                        value={gridX}
-                        onChange={(e) => setGridX(Number(e.target.value))}
-                        className="w-full bg-slate-800 border-2 border-slate-600 px-4 py-2 text-white font-mono focus:border-amber-500 focus:outline-none"
-                        min="0"
-                        max="9"
-                      />
+                  <div className="text-center p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+                    <div
+                      className="text-xs text-slate-400 mb-2"
+                      style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '8px' }}
+                    >
+                      Auto-Placement
                     </div>
-                    <div>
-                      <label className="text-xs text-slate-500 mb-1 block">Y</label>
-                      <input
-                        type="number"
-                        value={gridY}
-                        onChange={(e) => setGridY(Number(e.target.value))}
-                        className="w-full bg-slate-800 border-2 border-slate-600 px-4 py-2 text-white font-mono focus:border-amber-500 focus:outline-none"
-                        min="0"
-                        max="9"
-                      />
+                    <div className="text-sm text-slate-300">
+                      Town Hall will be placed at the center of your map
+                    </div>
+                    <div className="text-xs text-emerald-400 mt-2 font-mono">
+                      Position: ({centerX}, {centerY})
                     </div>
                   </div>
                 </div>
@@ -300,6 +300,43 @@ export function CreateTownHallModal({ isOpen, onClose, onSuccess }: CreateTownHa
                       Building your city...
                     </div>
                     <div className="text-xs text-slate-400 mt-2">Please wait</div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Success Overlay */}
+              {showSuccess && createdWalletAddress && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="absolute inset-0 bg-slate-900/95 flex items-center justify-center z-10"
+                >
+                  <div className="text-center max-w-md px-6">
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: 'spring', duration: 0.5 }}
+                    >
+                      <PixelTownHall />
+                    </motion.div>
+                    <div
+                      className="text-emerald-400 mt-4 mb-6"
+                      style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '12px' }}
+                    >
+                      Success!
+                    </div>
+                    <div className="text-sm text-slate-300 mb-4">
+                      Your Smart Wallet has been created!
+                    </div>
+                    <div className="p-4 bg-slate-800 rounded-lg border-2 border-emerald-500/30">
+                      <div className="text-xs text-slate-400 mb-2">Smart Wallet Address:</div>
+                      <div className="text-xs font-mono text-emerald-400 break-all">
+                        {createdWalletAddress}
+                      </div>
+                    </div>
+                    <div className="text-xs text-slate-500 mt-4">
+                      Redirecting to your city...
+                    </div>
                   </div>
                 </motion.div>
               )}

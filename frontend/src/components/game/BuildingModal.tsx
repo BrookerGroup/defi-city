@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { BUILDING_INFO, BuildingType } from '@/types'
-import { useSmartWallet, useWalletBalance, useMultiTokenBalance, useTokenPrices } from '@/hooks'
+import { useSmartWallet, useWalletBalance, useMultiTokenBalance } from '@/hooks'
 import { usePrivy } from '@privy-io/react-auth'
 import { formatEther } from 'viem'
 import { X } from 'lucide-react'
@@ -106,7 +106,6 @@ export function BuildingModal({
   // Get balances
   const { formatted: ethBalance } = useWalletBalance(walletAddress ?? undefined)
   const tokenBalances = useMultiTokenBalance(walletAddress ?? undefined)
-  const { getPrice, formatUSD, calculateUSDValue } = useTokenPrices()
 
   // Get balance for selected asset
   const getBalance = (asset: BuildingAsset): string => {
@@ -120,21 +119,8 @@ export function BuildingModal({
     }
   }
 
-  // Calculate USD value of input amount
-  const amountUSD = useMemo(() => {
-    if (!selectedAsset || !amount) return 0
-    return calculateUSDValue(selectedAsset, amount)
-  }, [selectedAsset, amount, calculateUSDValue])
-
-  // Calculate fee
-  const feeUSD = useMemo(() => {
-    return amountUSD * (BUILDING_FEE_BPS / 10000)
-  }, [amountUSD])
-
-  // Validation
+  // Validation - simplified without USD conversion
   const info = selectedType ? BUILDING_INFO[selectedType] : null
-  const minDeposit = info?.minDeposit ?? 0
-  const isAmountValid = amountUSD >= minDeposit
   const hasEnoughBalance = selectedAsset ? parseFloat(amount || '0') <= parseFloat(getBalance(selectedAsset)) : false
 
   // Sync state when modal opens
@@ -160,7 +146,7 @@ export function BuildingModal({
   }
 
   const handleConfirm = () => {
-    if (!selectedType || !selectedAsset || !amount || !isAmountValid || !hasEnoughBalance) return
+    if (!selectedType || !selectedAsset || !amount || !hasEnoughBalance) return
     onConfirm(selectedType, selectedAsset, amount)
     handleClose()
   }

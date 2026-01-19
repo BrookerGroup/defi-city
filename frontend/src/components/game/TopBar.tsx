@@ -1,37 +1,14 @@
 'use client'
 
 import { usePrivy } from '@privy-io/react-auth'
-import { useSmartWallet, useTokenBalance } from '@/hooks'
+import { useSmartWallet } from '@/hooks'
 import { formatEther } from 'viem'
 import { ConnectButton } from '@/components/wallet'
-import { LayoutDashboard, Map, Building2, Settings } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 
-type View = 'dashboard' | 'map' | 'buildings' | 'settings'
-
-type NavItem = {
-  label: string
-  icon: React.ReactNode
-  view: View
-}
-
-const navItems: NavItem[] = [
-  { label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" />, view: 'dashboard' },
-  { label: 'Map', icon: <Map className="h-4 w-4" />, view: 'map' },
-  { label: 'Buildings', icon: <Building2 className="h-4 w-4" />, view: 'buildings' },
-  { label: 'Settings', icon: <Settings className="h-4 w-4" />, view: 'settings' },
-]
-
-interface TopBarProps {
-  currentView?: View
-  onViewChange?: (view: View) => void
-}
-
-export function TopBar({ currentView = 'map', onViewChange }: TopBarProps) {
+export function TopBar() {
   const { user, authenticated } = usePrivy()
   const eoaAddress = user?.wallet?.address as `0x${string}` | undefined
   const { balance, walletAddress } = useSmartWallet(eoaAddress)
-  const { formatted: usdcBalance } = useTokenBalance(walletAddress ?? undefined, 'USDC')
 
   const formatBalance = (value: bigint | undefined) => {
     if (!value) return '0.00'
@@ -39,13 +16,6 @@ export function TopBar({ currentView = 'map', onViewChange }: TopBarProps) {
     return parseFloat(formatted).toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 4,
-    })
-  }
-
-  const formatUSDC = (value: string) => {
-    return parseFloat(value).toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
     })
   }
 
@@ -77,24 +47,6 @@ export function TopBar({ currentView = 'map', onViewChange }: TopBarProps) {
             </span>
           </div>
         </div>
-
-        {/* Navigation Menu */}
-        {authenticated && (
-          <nav className="hidden md:flex items-center gap-1">
-            {navItems.map((item) => (
-              <Button
-                key={item.label}
-                variant={currentView === item.view ? 'secondary' : 'ghost'}
-                size="sm"
-                className="gap-2"
-                onClick={() => onViewChange?.(item.view)}
-              >
-                {item.icon}
-                <span className="hidden lg:inline">{item.label}</span>
-              </Button>
-            ))}
-          </nav>
-        )}
 
         {/* Resources */}
         {authenticated && (
