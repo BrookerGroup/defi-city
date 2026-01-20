@@ -1,9 +1,7 @@
-'use client'
+"use client";
 
-import { LandingPage } from '@/components/landing'
-
-type View = 'dashboard' | 'map' | 'buildings' | 'settings'
+import { LandingPage } from "@/components/landing";
 
 export default function Home() {
-  return <LandingPage />
+  return <LandingPage />;
 }

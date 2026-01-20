@@ -1,8 +1,6 @@
 'use client'
 
 import { Component, ReactNode } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface Props {
   children: ReactNode
@@ -43,32 +41,36 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-screen flex items-center justify-center p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle className="text-destructive">Something went wrong</CardTitle>
-              <CardDescription>
+        <div className="min-h-screen flex items-center justify-center p-4 bg-slate-900">
+          <div className="w-full max-w-md border-2 border-slate-700 rounded-lg bg-slate-800 p-6 space-y-4">
+            <div>
+              <h1 className="text-xl font-bold text-red-400 mb-2">Something went wrong</h1>
+              <p className="text-sm text-slate-400">
                 An unexpected error occurred. Please try again.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {this.state.error && (
-                <div className="p-3 bg-muted rounded-md">
-                  <p className="text-sm font-mono text-muted-foreground break-all">
-                    {this.state.error.message}
-                  </p>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <Button onClick={this.handleReset} variant="outline">
-                  Try Again
-                </Button>
-                <Button onClick={this.handleReload}>
-                  Reload Page
-                </Button>
+              </p>
+            </div>
+            {this.state.error && (
+              <div className="p-3 bg-slate-900 rounded-md border border-slate-700">
+                <p className="text-sm font-mono text-slate-300 break-all">
+                  {this.state.error.message}
+                </p>
               </div>
-            </CardContent>
-          </Card>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={this.handleReset}
+                className="px-4 py-2 border-2 border-slate-600 bg-slate-700 text-white rounded hover:bg-slate-600 transition-colors"
+              >
+                Try Again
+              </button>
+              <button
+                onClick={this.handleReload}
+                className="px-4 py-2 border-2 border-amber-600 bg-amber-700 text-white rounded hover:bg-amber-600 transition-colors"
+              >
+                Reload Page
+              </button>
+            </div>
+          </div>
         </div>
       )
     }

@@ -1,11 +1,11 @@
-'use client'
+"use client";
 
-import { motion } from 'framer-motion'
-import { useRouter } from 'next/navigation'
-import { PixelButton, BuildingIcon } from '../pixel'
+import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { PixelButton, BuildingIcon } from "../pixel";
 
 export function HeroSection() {
-  const router = useRouter()
+  const router = useRouter();
 
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center px-6 py-20">
@@ -14,28 +14,43 @@ export function HeroSection() {
         <motion.div
           className="absolute top-1/4 left-[10%]"
           animate={{ y: [0, -10, 0] }}
-          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
         >
           <BuildingIcon type="bank" size={48} animated={false} />
         </motion.div>
         <motion.div
           className="absolute top-1/3 right-[15%]"
           animate={{ y: [0, -8, 0] }}
-          transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+          transition={{
+            duration: 3.5,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 0.5,
+          }}
         >
           <BuildingIcon type="shop" size={56} animated={false} />
         </motion.div>
         <motion.div
           className="absolute bottom-1/4 left-[20%]"
           animate={{ y: [0, -12, 0] }}
-          transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+          transition={{
+            duration: 4.5,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 1,
+          }}
         >
           <BuildingIcon type="lottery" size={44} animated={false} />
         </motion.div>
         <motion.div
           className="absolute bottom-1/3 right-[10%]"
           animate={{ y: [0, -6, 0] }}
-          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }}
+          transition={{
+            duration: 3,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 1.5,
+          }}
         >
           <BuildingIcon type="townhall" size={52} animated={false} />
         </motion.div>
@@ -53,8 +68,8 @@ export function HeroSection() {
           <div
             className="px-4 py-2 border-2 bg-slate-800/80"
             style={{
-              borderColor: '#10B981',
-              boxShadow: '3px 3px 0px #059669'
+              borderColor: "#10B981",
+              boxShadow: "3px 3px 0px #059669",
             }}
           >
             <span
@@ -85,7 +100,7 @@ export function HeroSection() {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="text-xl md:text-2xl text-slate-300 max-w-2xl mx-auto leading-relaxed"
         >
-          <span className="text-amber-400 font-bold">Build your city.</span>{' '}
+          <span className="text-amber-400 font-bold">Build your city.</span>{" "}
           <span className="text-teal-400 font-bold">Manage your crypto.</span>
           <br />
           <span className="text-slate-400">
@@ -100,7 +115,8 @@ export function HeroSection() {
           transition={{ duration: 0.6, delay: 0.5 }}
           className="text-base text-slate-400 max-w-xl mx-auto"
         >
-          No wallet needed. Gasless transactions. Just play and grow your portfolio.
+          No wallet needed. Gasless transactions. Just play and grow your
+          portfolio.
         </motion.p>
 
         {/* CTA Buttons */}
@@ -111,19 +127,11 @@ export function HeroSection() {
           className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-8"
         >
           <PixelButton
-            onClick={() => router.push('/app')}
+            onClick={() => router.push("/app")}
             variant="primary"
             size="lg"
           >
             Start Playing
-          </PixelButton>
-
-          <PixelButton
-            onClick={() => document.getElementById('concept')?.scrollIntoView({ behavior: 'smooth' })}
-            variant="outline"
-            size="lg"
-          >
-            Learn More
           </PixelButton>
         </motion.div>
       </div>
@@ -138,25 +146,40 @@ export function HeroSection() {
         <div className="flex justify-center items-end gap-4 md:gap-8">
           <motion.div
             animate={{ y: [0, -8, 0] }}
-            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           >
             <BuildingIcon type="bank" size={80} animated={false} />
           </motion.div>
           <motion.div
             animate={{ y: [0, -6, 0] }}
-            transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }}
+            transition={{
+              duration: 3.5,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 0.3,
+            }}
           >
             <BuildingIcon type="townhall" size={100} animated={false} />
           </motion.div>
           <motion.div
             animate={{ y: [0, -10, 0] }}
-            transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut', delay: 0.6 }}
+            transition={{
+              duration: 2.8,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 0.6,
+            }}
           >
             <BuildingIcon type="shop" size={80} animated={false} />
           </motion.div>
           <motion.div
             animate={{ y: [0, -7, 0] }}
-            transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut', delay: 0.9 }}
+            transition={{
+              duration: 3.2,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 0.9,
+            }}
           >
             <BuildingIcon type="lottery" size={72} animated={false} />
           </motion.div>
@@ -182,5 +205,5 @@ export function HeroSection() {
         </motion.div>
       </motion.div>
     </section>
-  )
+  );
 }
