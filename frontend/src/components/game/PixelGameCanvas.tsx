@@ -441,6 +441,7 @@ export function PixelGameCanvas() {
           setPendingPosition(null)
         }}
         buildingType={selectedBuildingType}
+        position={pendingPosition}
         onConfirm={handleConfirmBuild}
       />
 

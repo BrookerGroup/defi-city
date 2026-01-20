@@ -1,22 +1,28 @@
 'use client'
 
 import { usePrivy } from '@privy-io/react-auth'
-import { useSmartWallet } from '@/hooks'
+import { useSmartWallet } from '@/hooks/useContracts'
 import { formatEther } from 'viem'
 import { ConnectButton } from '@/components/wallet'
+import { Copy } from 'lucide-react'
+import { useState } from 'react'
 
 export function TopBar() {
   const { user, authenticated } = usePrivy()
-  const eoaAddress = user?.wallet?.address as `0x${string}` | undefined
-  const { balance, walletAddress } = useSmartWallet(eoaAddress)
+  const eoaAddress = user?.wallet?.address
+  const { smartWallet, loading: walletLoading } = useSmartWallet(eoaAddress)
+  const [copied, setCopied] = useState(false)
 
-  const formatBalance = (value: bigint | undefined) => {
-    if (!value) return '0.00'
-    const formatted = formatEther(value)
-    return parseFloat(formatted).toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    })
+  const copyAddress = () => {
+    if (smartWallet) {
+      navigator.clipboard.writeText(smartWallet)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`
   }
 
   return (
@@ -48,29 +54,31 @@ export function TopBar() {
           </div>
         </div>
 
-        {/* Resources */}
-        {authenticated && (
-          <div className="flex items-center gap-3">
+        {/* Smart Wallet Address */}
+        {authenticated && smartWallet && (
+          <div className="flex items-center gap-2">
             <div
-              className="flex items-center gap-2 px-3 py-1.5 border-2"
+              className="flex items-center gap-2 px-3 py-1.5 border-2 cursor-pointer hover:brightness-110 transition-all"
               style={{
-                borderColor: '#10B981',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderColor: '#8B5CF6',
+                backgroundColor: 'rgba(139, 92, 246, 0.1)',
               }}
+              onClick={copyAddress}
+              title="Click to copy Smart Wallet address"
             >
-              <span className="text-emerald-400" style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '8px' }}>ETH</span>
-              <span className="font-mono text-sm text-emerald-300">{formatBalance(balance)}</span>
+              <span className="text-purple-400" style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '8px' }}>
+                WALLET
+              </span>
+              <span className="font-mono text-xs text-purple-300">
+                {formatAddress(smartWallet)}
+              </span>
+              <Copy className="h-3 w-3 text-purple-400" />
             </div>
-            <div
-              className="hidden md:flex items-center gap-2 px-3 py-1.5 border-2"
-              style={{
-                borderColor: '#06B6D4',
-                backgroundColor: 'rgba(6, 182, 212, 0.1)',
-              }}
-            >
-              <span className="text-cyan-400" style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '8px' }}>USDC</span>
-              <span className="font-mono text-sm text-cyan-300">0.00</span>
-            </div>
+            {copied && (
+              <span className="text-xs text-emerald-400" style={{ fontFamily: '"Press Start 2P", monospace', fontSize: '8px' }}>
+                Copied!
+              </span>
+            )}
           </div>
         )}
 

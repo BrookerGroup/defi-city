@@ -20,5 +20,5 @@ export interface GridPosition {
   y: number
 }
 
-export const GRID_SIZE = 10
+export const GRID_SIZE = 12
 export const TILE_SIZE = 64

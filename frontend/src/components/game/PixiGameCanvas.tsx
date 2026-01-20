@@ -11,10 +11,6 @@ import { useWallets } from '@privy-io/react-auth'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 
-// Global singleton to prevent multiple Pixi instances
-let globalPixiApp: Application | null = null
-let globalPixiInitialized = false
-
 // Base path for assets
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || ''
 const ASSET_PATH = `${BASE_PATH}/assets`
@@ -23,8 +19,8 @@ const ASSET_PATH = `${BASE_PATH}/assets`
 const TILE_WIDTH = 128
 const TILE_HEIGHT = 64
 
-// Grid size - large enough to fill the screen
-const GRID_SIZE = 30
+// Grid size - optimized for better visibility
+const GRID_SIZE = 12
 
 // Building sprite sheet: 400x400, 2x2 grid
 const BUILDING_SHEET_WIDTH = 400
@@ -95,17 +91,16 @@ export function PixiGameCanvas() {
   const { wallets } = useWallets()
   const { createTownHall, loading: townHallLoading, error: townHallError } = useCreateTownHall()
 
-  const {
-    buildings,
-    selectedBuildingType,
-    isPlacingBuilding,
-    addBuilding,
-    removeBuilding,
-    selectBuildingType,
-    isPositionOccupied,
-    zoom,
-    setZoom,
-  } = useGameStore()
+  // Use selector to ensure re-render when buildings change
+  const buildings = useGameStore((state) => state.buildings)
+  const selectedBuildingType = useGameStore((state) => state.selectedBuildingType)
+  const isPlacingBuilding = useGameStore((state) => state.isPlacingBuilding)
+  const addBuilding = useGameStore((state) => state.addBuilding)
+  const removeBuilding = useGameStore((state) => state.removeBuilding)
+  const selectBuildingType = useGameStore((state) => state.selectBuildingType)
+  const isPositionOccupied = useGameStore((state) => state.isPositionOccupied)
+  const zoom = useGameStore((state) => state.zoom)
+  const setZoom = useGameStore((state) => state.setZoom)
 
   // Get user's wallet address
   const getUserAddress = () => {
@@ -118,23 +113,20 @@ export function PixiGameCanvas() {
   // Initialize PixiJS
   useEffect(() => {
     if (!canvasRef.current) return
-    if (globalPixiInitialized) {
-      if (globalPixiApp && !canvasRef.current.contains(globalPixiApp.canvas)) {
-        canvasRef.current.appendChild(globalPixiApp.canvas)
-        appRef.current = globalPixiApp
-        setIsInitialized(true)
-        setTexturesLoaded(true)
-      }
-      return
-    }
 
-    globalPixiInitialized = true
-
+    // Always create new instance with correct size
     const initPixi = async () => {
+      // Calculate available space (exclude TopBar and BottomBar)
+      const topBarHeight = 64  // TopBar height
+      const bottomBarHeight = 144  // BottomBar height (h-36 = 144px)
+      const availableWidth = window.innerWidth
+      const availableHeight = window.innerHeight - topBarHeight - bottomBarHeight
+      
       const app = new Application()
       await app.init({
         background: 0x1a1a2e,
-        resizeTo: window,
+        width: availableWidth,
+        height: availableHeight,
         antialias: true,
         resolution: window.devicePixelRatio || 1,
         autoDensity: true,
@@ -142,7 +134,6 @@ export function PixiGameCanvas() {
 
       canvasRef.current?.appendChild(app.canvas)
       appRef.current = app
-      globalPixiApp = app
 
       // Load textures
       try {
@@ -154,10 +145,11 @@ export function PixiGameCanvas() {
       }
 
       // Create world container centered on screen
+      // Center in available space
       const world = new Container()
-      world.x = app.screen.width / 2
-      world.y = app.screen.height / 2.5
-      world.scale.set(0.7) // Initial zoom to fit the larger grid
+      world.x = availableWidth / 2
+      world.y = availableHeight / 2 - 20  // Offset up slightly for better centering
+      world.scale.set(1.1) // Optimal zoom for 12x12 grid
       world.sortableChildren = true
       app.stage.addChild(world)
       worldRef.current = world
@@ -204,9 +196,18 @@ export function PixiGameCanvas() {
 
       // Handle resize
       const handleResize = () => {
-        if (worldRef.current && appRef.current) {
-          worldRef.current.x = appRef.current.screen.width / 2
-          worldRef.current.y = appRef.current.screen.height / 2.5
+        if (appRef.current) {
+          const topBarHeight = 64
+          const bottomBarHeight = 144
+          const availableWidth = window.innerWidth
+          const availableHeight = window.innerHeight - topBarHeight - bottomBarHeight
+
+          appRef.current.renderer.resize(availableWidth, availableHeight)
+          
+          if (worldRef.current) {
+            worldRef.current.x = availableWidth / 2
+            worldRef.current.y = availableHeight / 2
+          }
         }
       }
       window.addEventListener('resize', handleResize)
@@ -219,24 +220,52 @@ export function PixiGameCanvas() {
     initPixi()
 
     return () => {
-      appRef.current = null
+      // Cleanup on unmount
+      if (appRef.current) {
+        appRef.current.destroy(true, { children: true })
+        appRef.current = null
+      }
       setIsInitialized(false)
       setTexturesLoaded(false)
     }
   }, [])
 
-  // Create starfield background
+  // Create beautiful starfield background
   const createStarfield = (app: Application) => {
     const stars = new Graphics()
-    for (let i = 0; i < 150; i++) {
+
+    // Create various sized stars with different colors
+    for (let i = 0; i < 200; i++) {
       const x = Math.random() * app.screen.width
-      const y = Math.random() * app.screen.height * 0.7
-      const radius = Math.random() * 1.5 + 0.5
-      const alpha = Math.random() * 0.6 + 0.2
+      const y = Math.random() * app.screen.height
+      const radius = Math.random() * 2 + 0.3
+      const alpha = Math.random() * 0.8 + 0.2
+
+      // Mix of white and slightly colored stars
+      const colorVariation = Math.random()
+      const color = colorVariation > 0.9 ? 0xadd8e6 : // Light blue
+                    colorVariation > 0.8 ? 0xffd700 : // Gold
+                    0xffffff // White
+
       stars.circle(x, y, radius)
-      stars.fill({ color: 0xffffff, alpha })
+      stars.fill({ color, alpha })
     }
-    app.stage.addChildAt(stars, 0)
+
+    // Add some nebula-like glow effects
+    const nebulaGlow = new Graphics()
+    for (let i = 0; i < 5; i++) {
+      const x = Math.random() * app.screen.width
+      const y = Math.random() * app.screen.height
+      const radius = Math.random() * 100 + 50
+      const colors = [0x1e3a8a, 0x581c87, 0x064e3b] // Blue, purple, teal
+      const color = colors[Math.floor(Math.random() * colors.length)]
+
+      nebulaGlow.circle(x, y, radius)
+      nebulaGlow.fill({ color, alpha: 0.05 })
+    }
+
+    app.stage.addChildAt(nebulaGlow, 0)
+    app.stage.addChildAt(stars, 1)
   }
 
   // Create isometric grid
@@ -260,15 +289,42 @@ export function PixiGameCanvas() {
       for (let x = 0; x < GRID_SIZE; x++) {
         const screen = gridToScreen(x, y)
 
-        // Ground tile (always visible)
+        // Calculate checkerboard pattern for visual variety
+        const isEvenTile = (x + y) % 2 === 0
+
+        // Create beautiful tile with vibrant colors
         const tile = new Graphics()
+
+        // Main tile body with rich green colors
+        const darkGreen = 0x2d5016 // Rich dark green
+        const lightGreen = 0x3a6b1f // Vibrant light green
+        const tileColor = isEvenTile ? darkGreen : lightGreen
+
         tile.poly([
           { x: 0, y: -TILE_HEIGHT / 2 },
           { x: TILE_WIDTH / 2, y: 0 },
           { x: 0, y: TILE_HEIGHT / 2 },
           { x: -TILE_WIDTH / 2, y: 0 },
         ])
-        tile.fill({ color: 0x2d5a27, alpha: 0.9 })
+        tile.fill({ color: tileColor, alpha: 1.0 })
+
+        // Add edge highlighting for 3D effect
+        tile.poly([
+          { x: 0, y: -TILE_HEIGHT / 2 },
+          { x: TILE_WIDTH / 2, y: 0 },
+          { x: 0, y: TILE_HEIGHT / 2 },
+          { x: -TILE_WIDTH / 2, y: 0 },
+        ])
+        tile.stroke({ color: 0x4a7e28, width: 2, alpha: 0.5 })
+
+        // Add top highlight for depth
+        tile.poly([
+          { x: 0, y: -TILE_HEIGHT / 2 + 3 },
+          { x: TILE_WIDTH / 2 - 6, y: -1 },
+          { x: 0, y: TILE_HEIGHT / 2 - 3 },
+          { x: -TILE_WIDTH / 2 + 6, y: -1 },
+        ])
+        tile.fill({ color: 0x5a9e32, alpha: 0.2 })
 
         tile.x = screen.x
         tile.y = screen.y
@@ -344,7 +400,14 @@ export function PixiGameCanvas() {
       const isHovered = hoveredTile?.x === x && hoveredTile?.y === y
       const occupied = isPositionOccupied(x, y)
 
+      // Checkerboard pattern
+      const isEvenTile = (x + y) % 2 === 0
+      const darkGreen = 0x2d5016
+      const lightGreen = 0x3a6b1f
+
       tile.clear()
+
+      // Main tile
       tile.poly([
         { x: 0, y: -TILE_HEIGHT / 2 },
         { x: TILE_WIDTH / 2, y: 0 },
@@ -354,14 +417,17 @@ export function PixiGameCanvas() {
 
       if (isHovered && isPlacingBuilding) {
         // Highlight when placing building
-        tile.fill({ color: occupied ? 0xef4444 : 0x10b981, alpha: 0.7 })
-        tile.stroke({ color: occupied ? 0xef4444 : 0x10b981, width: 2, alpha: 1 })
+        tile.fill({ color: occupied ? 0xef4444 : 0x10b981, alpha: 0.8 })
+        tile.stroke({ color: occupied ? 0xef4444 : 0x10b981, width: 3, alpha: 1 })
       } else if (isHovered) {
-        // Normal hover
-        tile.fill({ color: 0x3d7a37, alpha: 0.95 })
+        // Bright hover effect
+        tile.fill({ color: 0x4a7e28, alpha: 1.0 })
+        tile.stroke({ color: 0x5a9e32, width: 2, alpha: 0.6 })
       } else {
-        // Default state
-        tile.fill({ color: 0x2d5a27, alpha: 0.9 })
+        // Default checkerboard pattern
+        const tileColor = isEvenTile ? darkGreen : lightGreen
+        tile.fill({ color: tileColor, alpha: 1.0 })
+        tile.stroke({ color: 0x4a7e28, width: 2, alpha: 0.5 })
       }
     })
   }, [hoveredTile, isPlacingBuilding, isInitialized, isPositionOccupied])
@@ -445,6 +511,7 @@ export function PixiGameCanvas() {
 
         world.addChild(sprite)
         buildingsRef.current.set(building.id, sprite)
+        console.log('[PixiGameCanvas] Building sprite created and added to world:', building.id)
       }
 
       // Position building at grid cell center
@@ -453,6 +520,20 @@ export function PixiGameCanvas() {
       sprite.y = screen.y
       sprite.zIndex = (building.position.x + building.position.y) * 10 + 100
     })
+
+    // Auto-center on Town Hall if it exists
+    const townHall = buildings.find(b => b.type === 'townhall')
+    if (townHall && appRef.current) {
+      const screen = gridToScreen(townHall.position.x, townHall.position.y)
+      const topBarHeight = 64
+      const bottomBarHeight = 144
+      const availableWidth = window.innerWidth
+      const availableHeight = window.innerHeight - topBarHeight - bottomBarHeight
+      
+      // Center the world on the Town Hall position
+      world.x = availableWidth / 2 - screen.x * world.scale.x
+      world.y = (availableHeight / 2 - 20) - screen.y * world.scale.y
+    }
   }, [buildings, isInitialized, texturesLoaded])
 
   // Update ghost building preview
@@ -569,12 +650,18 @@ export function PixiGameCanvas() {
     <>
       <div
         ref={canvasRef}
-        className="fixed inset-0 overflow-hidden"
-        style={{ background: 'linear-gradient(180deg, #0f0f23 0%, #1a1a2e 40%, #16213e 100%)' }}
+        className="fixed overflow-hidden"
+        style={{ 
+          background: 'linear-gradient(180deg, #0f0f23 0%, #1a1a2e 40%, #16213e 100%)',
+          top: '64px',  // Start below TopBar
+          left: 0,
+          right: 0,
+          bottom: '144px'  // End above BottomBar
+        }}
       />
 
       {/* Zoom controls */}
-      <div className="fixed bottom-28 right-4 flex flex-col gap-2 z-50">
+      <div className="fixed bottom-40 right-4 flex flex-col gap-2 z-50">
         <button
           onClick={() => setZoom(Math.min(2, zoom + 0.2))}
           className="w-10 h-10 border-2 text-white font-bold transition-colors hover:bg-slate-700"
@@ -606,7 +693,7 @@ export function PixiGameCanvas() {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2"
+          className="fixed top-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2"
           style={{
             backgroundColor: 'rgba(15, 23, 42, 0.9)',
             border: '2px solid #F59E0B',
@@ -626,6 +713,7 @@ export function PixiGameCanvas() {
           setPendingPosition(null)
         }}
         buildingType={selectedBuildingType}
+        position={pendingPosition}
         onConfirm={handleConfirmBuild}
       />
 

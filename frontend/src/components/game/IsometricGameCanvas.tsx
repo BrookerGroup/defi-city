@@ -488,6 +488,7 @@ export function IsometricGameCanvas() {
           setPendingPosition(null)
         }}
         buildingType={selectedBuildingType}
+        position={pendingPosition}
         onConfirm={handleConfirmBuild}
       />
 

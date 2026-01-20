@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { Building, BuildingType, BuildingAsset, GRID_SIZE, BUILDING_INFO } from '@/types'
+import { Building, BuildingType, BuildingAsset, BUILDING_INFO } from '@/types'
 
 // Valid building types for filtering old data
 const VALID_TYPES = Object.keys(BUILDING_INFO) as BuildingType[]
@@ -35,8 +35,20 @@ interface GameState {
   reset: () => void
 }
 
+// Town Hall is always at center of map (6, 6 for 12x12 grid)
+const GRID_SIZE = 12
+const centerX = Math.floor(GRID_SIZE / 2)
+const centerY = Math.floor(GRID_SIZE / 2)
+
 const initialState = {
-  buildings: [] as Building[],
+  buildings: [
+    {
+      id: 'townhall-center',
+      type: 'townhall' as BuildingType,
+      position: { x: centerX, y: centerY },
+      createdAt: Date.now(),
+    }
+  ] as Building[],
   selectedBuildingType: null as BuildingType | null,
   isPlacingBuilding: false,
   pendingBuilding: null as PendingBuilding | null,
@@ -111,9 +123,27 @@ export const useGameStore = create<GameState>()(
         }
         // Filter out buildings with invalid types
         const validBuildings = persisted.buildings.filter(b => VALID_TYPES.includes(b.type))
+        
+        // Step 4: Ensure Town Hall is always displayed at center (hardcoded)
+        // Check if Town Hall exists in persisted buildings
+        const hasTownHall = validBuildings.some(b => b.type === 'townhall')
+        
+        // If no Town Hall, add the default one at center
+        const buildingsWithTownHall = hasTownHall 
+          ? validBuildings 
+          : [
+              {
+                id: 'townhall-center',
+                type: 'townhall' as BuildingType,
+                position: { x: centerX, y: centerY },
+                createdAt: Date.now(),
+              },
+              ...validBuildings
+            ]
+        
         return {
           ...currentState,
-          buildings: validBuildings,
+          buildings: buildingsWithTownHall,
         }
       },
     }

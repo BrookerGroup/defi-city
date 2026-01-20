@@ -1,8 +1,8 @@
 'use client'
 
 import { usePrivy } from '@privy-io/react-auth'
-import { useSmartWallet, useWalletBalance } from '@/hooks'
-import { formatEther } from 'viem'
+import { useSmartWallet } from '@/hooks/useContracts'
+import { useWalletBalance } from '@/hooks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -13,18 +13,13 @@ export function WalletInfo() {
   const { user } = usePrivy()
   const eoaAddress = user?.wallet?.address as `0x${string}` | undefined
 
-  const { walletAddress, balance, hasWallet, isLoading, isCreating, createWallet } = useSmartWallet(eoaAddress)
+  // Step 3: Get Smart Wallet Address from contract (Base Sepolia)
+  const { smartWallet, loading: isLoading } = useSmartWallet(eoaAddress)
   const { formatted: eoaBalance } = useWalletBalance(eoaAddress)
 
   const copyAddress = (address: string) => {
     navigator.clipboard.writeText(address)
     toast.success('Address copied!')
-  }
-
-  const formatBalance = (value: bigint | undefined) => {
-    if (!value) return '0.0000'
-    const formatted = formatEther(value)
-    return parseFloat(formatted).toFixed(4)
   }
 
   if (!eoaAddress) {
@@ -45,7 +40,7 @@ export function WalletInfo() {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">EOA Wallet</span>
-            <Badge variant="outline">Sepolia</Badge>
+            <Badge variant="outline">Base Sepolia</Badge>
           </div>
           <div className="flex items-center gap-2">
             <code className="text-xs bg-muted px-2 py-1 rounded flex-1 truncate">
@@ -72,8 +67,8 @@ export function WalletInfo() {
         {/* Smart Wallet */}
         <div className="border-t pt-4 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Smart Wallet</span>
-            {hasWallet && <Badge className="bg-green-500/10 text-green-500">Active</Badge>}
+            <span className="text-sm text-muted-foreground">Smart Wallet (AA)</span>
+            {smartWallet && <Badge className="bg-green-500/10 text-green-500">Active</Badge>}
           </div>
 
           {isLoading ? (
@@ -81,44 +76,33 @@ export function WalletInfo() {
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading wallet info...
             </div>
-          ) : hasWallet && walletAddress ? (
+          ) : smartWallet ? (
             <>
               <div className="flex items-center gap-2">
                 <code className="text-xs bg-muted px-2 py-1 rounded flex-1 truncate">
-                  {walletAddress}
+                  {smartWallet}
                 </code>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyAddress(walletAddress)}>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyAddress(smartWallet)}>
                   <Copy className="h-3 w-3" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => window.open(`https://sepolia.etherscan.io/address/${walletAddress}`, '_blank')}
+                  onClick={() => window.open(`https://sepolia.basescan.org/address/${smartWallet}`, '_blank')}
                 >
                   <ExternalLink className="h-3 w-3" />
                 </Button>
               </div>
-              <div className="text-sm">
-                <span className="text-muted-foreground">Balance: </span>
-                <span className="font-mono">{formatBalance(balance)} ETH</span>
+              <div className="text-sm text-muted-foreground">
+                <span>Deployed via Town Hall creation</span>
               </div>
             </>
           ) : (
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                Create a Smart Wallet to start building your city!
+                Smart Wallet will be created automatically when you enter the game
               </p>
-              <Button onClick={createWallet} disabled={isCreating} className="w-full">
-                {isCreating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating Wallet...
-                  </>
-                ) : (
-                  'Create Smart Wallet'
-                )}
-              </Button>
             </div>
           )}
         </div>

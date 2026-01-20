@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import { useWallets, usePrivy } from '@privy-io/react-auth';
 import { CONTRACTS, ABIS, SUPPORTED_CHAINS } from '@/config/contracts';
+import type { BuildingAsset } from '@/types';
 
 // Get current network
 const getCurrentNetwork = () => {
@@ -188,19 +189,29 @@ export function useSmartWallet(userAddress: string | undefined) {
 
   useEffect(() => {
     async function getWallet() {
+      console.log('[useSmartWallet] Starting wallet check for:', userAddress);
+      console.log('[useSmartWallet] Core contract:', core ? 'initialized' : 'not initialized');
+      
       if (!core || !userAddress) {
+        console.log('[useSmartWallet] Missing core or userAddress');
         setLoading(false);
         return;
       }
 
+      setLoading(true); // Ensure loading is true while checking
+      
       try {
         const wallet = await core.userSmartWallets(userAddress);
-        setSmartWallet(wallet === ethers.ZeroAddress ? null : wallet);
+        console.log('[useSmartWallet] Contract returned wallet:', wallet);
+        const walletAddress = wallet === ethers.ZeroAddress ? null : wallet;
+        setSmartWallet(walletAddress);
+        console.log('[useSmartWallet] Final wallet state:', walletAddress);
       } catch (error) {
-        console.error('Error getting wallet:', error);
+        console.error('[useSmartWallet] Error getting wallet:', error);
         setSmartWallet(null);
       } finally {
         setLoading(false);
+        console.log('[useSmartWallet] Loading complete');
       }
     }
 
@@ -275,6 +286,31 @@ export function useCreateTownHall() {
         console.log('Gas estimate:', gasEstimate.toString());
       } catch (estimateError: any) {
         console.error('Gas estimation failed:', estimateError);
+        
+        // Check for WalletAlreadyRegistered (0x792279f3)
+        if (estimateError.data === '0x792279f3') {
+          console.log('[createTownHall] User already has a wallet registered (0x792279f3)');
+          // Try to get existing wallet
+          try {
+            // Get signer address from the user address parameter
+            const existingWallet = await core.userSmartWallets(_userAddress);
+            if (existingWallet && existingWallet !== ethers.ZeroAddress) {
+              console.log('[createTownHall] Found existing wallet:', existingWallet);
+              setLoading(false);
+              return {
+                success: true,
+                walletAddress: existingWallet,
+                buildingId: 0, // We don't know the building ID
+              };
+            }
+          } catch (e) {
+            console.error('[createTownHall] Error getting existing wallet:', e);
+          }
+          setError('You already have a Town Hall. Each user can only create one.');
+          setLoading(false);
+          return { success: false };
+        }
+        
         // Try to decode error
         if (estimateError.data) {
           console.error('Error data:', estimateError.data);
@@ -349,6 +385,108 @@ export function useCreateTownHall() {
   };
 
   return { createTownHall, loading, error };
+}
+
+/**
+ * Hook to sync buildings from contract to localStorage
+ * This ensures the game state is always in sync with blockchain
+ */
+export function useSyncBuildings(userAddress: string | undefined) {
+  const { core } = useContractInstances();
+  const [synced, setSynced] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
+
+  // Refetch function to manually trigger sync
+  const refetch = () => {
+    console.log('[useSyncBuildings] Manual refetch triggered');
+    setRefetchTrigger(prev => prev + 1);
+  };
+
+  useEffect(() => {
+    // Reset synced state when userAddress changes
+    setSynced(false);
+    setLoading(true);
+
+    async function syncBuildings() {
+      if (!core || !userAddress) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        console.log('[useSyncBuildings] Fetching buildings from contract for:', userAddress);
+        const contractBuildings = await core.getUserBuildings(userAddress);
+        console.log('[useSyncBuildings] Contract buildings:', contractBuildings);
+
+        // Only sync if there are buildings on-chain
+        if (contractBuildings && contractBuildings.length > 0) {
+          // Import gameStore dynamically to avoid circular dependencies
+          const { useGameStore } = await import('@/store/gameStore');
+          const gameStore = useGameStore.getState();
+
+          // Get existing buildings
+          const existingBuildings = gameStore.buildings;
+          console.log('[useSyncBuildings] Existing buildings:', existingBuildings.length);
+
+          // Create map of contract buildings
+          const contractBuildingIds = new Set<string>();
+          const contractBuildingsMap = new Map<string, any>();
+
+          for (const building of contractBuildings) {
+            if (!building.active) continue;
+            const buildingId = `building-${building.id}`;
+            contractBuildingIds.add(buildingId);
+            contractBuildingsMap.set(buildingId, building);
+          }
+
+          // Remove buildings that don't exist in contract anymore
+          for (const existingBuilding of existingBuildings) {
+            if (!contractBuildingIds.has(existingBuilding.id)) {
+              console.log('[useSyncBuildings] Removing building not in contract:', existingBuilding.id);
+              gameStore.removeBuilding(existingBuilding.id);
+            }
+          }
+
+          // Add new buildings from contract
+          for (const [buildingId, building] of contractBuildingsMap) {
+            const exists = existingBuildings.some(b => b.id === buildingId);
+
+            if (!exists) {
+              const gameBuilding = {
+                id: buildingId,
+                type: building.buildingType.toLowerCase() as any,
+                position: {
+                  x: Number(building.coordinateX),
+                  y: Number(building.coordinateY),
+                },
+                createdAt: Number(building.placedAt) * 1000,
+                // asset is BuildingAsset (string), not object
+                asset: building.asset !== ethers.ZeroAddress ? 'ETH' as BuildingAsset : undefined,
+                deposited: building.amount > 0n ? ethers.formatEther(building.amount) : undefined,
+              };
+
+              console.log('[useSyncBuildings] Adding new building to game store:', gameBuilding);
+              gameStore.addBuilding(gameBuilding);
+            }
+          }
+
+          setSynced(true);
+          console.log('[useSyncBuildings] Sync completed. Contract buildings:', contractBuildingIds.size, 'Local buildings:', gameStore.buildings.length);
+        } else {
+          console.log('[useSyncBuildings] No buildings found on contract');
+        }
+      } catch (error) {
+        console.error('[useSyncBuildings] Error syncing buildings:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    syncBuildings();
+  }, [core, userAddress, refetchTrigger]);
+
+  return { synced, loading, refetch };
 }
 
 /**

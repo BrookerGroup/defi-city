@@ -69,8 +69,6 @@ function SpriteBuildingIcon({ type, size = 80, isSelected = false }: { type: Bui
 export function BottomBar() {
   const { selectedBuildingType, selectBuildingType, isPlacingBuilding, buildings } = useGameStore()
 
-  const hasTownHall = buildings.some(b => b.type === 'townhall')
-
   const handleSelectBuilding = (type: BuildingType) => {
     console.log('Building button clicked:', type)
     // Toggle placing mode for the selected building type
@@ -101,62 +99,6 @@ export function BottomBar() {
 
       {/* Content */}
       <div className="relative h-36 max-w-screen-xl mx-auto px-6 flex items-center justify-center gap-4">
-
-        {/* Town Hall Card */}
-        <motion.button
-          className={`relative flex flex-col items-center justify-center rounded-2xl overflow-hidden transition-all ${hasTownHall ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
-          style={{
-            width: 130,
-            height: 120,
-            background: hasTownHall
-              ? 'linear-gradient(145deg, rgba(71, 85, 105, 0.3), rgba(51, 65, 85, 0.2))'
-              : 'linear-gradient(145deg, rgba(245, 158, 11, 0.2), rgba(180, 83, 9, 0.3))',
-            border: hasTownHall ? '2px solid rgba(71, 85, 105, 0.3)' : '2px solid rgba(245, 158, 11, 0.5)',
-            boxShadow: hasTownHall
-              ? 'none'
-              : '0 4px 20px rgba(245, 158, 11, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-          }}
-          disabled={hasTownHall}
-          onClick={() => !hasTownHall && selectBuildingType('townhall')}
-          whileHover={!hasTownHall ? { scale: 1.05, y: -4 } : {}}
-          whileTap={!hasTownHall ? { scale: 0.98 } : {}}
-        >
-          {/* Glow effect */}
-          {!hasTownHall && (
-            <div
-              className="absolute inset-0 opacity-50"
-              style={{
-                background: 'radial-gradient(circle at 50% 30%, rgba(245, 158, 11, 0.4) 0%, transparent 70%)',
-              }}
-            />
-          )}
-
-          <SpriteBuildingIcon type="townhall" size={70} />
-
-          <span
-            className="mt-1 font-bold tracking-wide"
-            style={{
-              fontFamily: '"Press Start 2P", monospace',
-              fontSize: '8px',
-              color: hasTownHall ? '#64748b' : '#F59E0B',
-              textShadow: hasTownHall ? 'none' : '0 0 10px rgba(245, 158, 11, 0.5)',
-            }}
-          >
-            TOWN HALL
-          </span>
-
-          {hasTownHall && (
-            <span className="absolute top-2 right-2 text-slate-500 text-xs">✓</span>
-          )}
-        </motion.button>
-
-        {/* Divider */}
-        <div
-          className="w-px h-20 mx-2"
-          style={{
-            background: 'linear-gradient(180deg, transparent 0%, rgba(148, 163, 184, 0.3) 50%, transparent 100%)',
-          }}
-        />
 
         {/* Building Cards */}
         {AVAILABLE_BUILDINGS.map((type) => {
