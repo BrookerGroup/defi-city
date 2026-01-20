@@ -53,13 +53,13 @@ export function PrivyProvider({ children }: { children: React.ReactNode }) {
           theme: 'dark',
           accentColor: '#F59E0B',
           logo: '/logo.png',
-          showWalletLoginFirst: false,
+          showWalletLoginFirst: true, // Show wallet first
         },
-        loginMethods: ['email', 'google', 'wallet'],
+        loginMethods: ['wallet'], // Only wallet login
         defaultChain: baseSepolia,
         supportedChains: [baseSepolia],
         embeddedWallets: {
-          createOnLogin: 'users-without-wallets',
+          createOnLogin: 'off', // Disable embedded wallets
         },
       }}
     >
