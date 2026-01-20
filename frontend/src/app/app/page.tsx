@@ -2,6 +2,7 @@
 
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { useMemo } from 'react'
+import { useSmartWallet, useCreateSmartAccount } from '@/hooks'
 
 export default function AppPage() {
   const { ready, authenticated, login, logout } = usePrivy()
@@ -12,7 +13,16 @@ export default function AppPage() {
     return wallets.find(w => w.walletClientType !== 'privy')
   }, [wallets])
 
-  const address = wallet?.address
+  const address = wallet?.address as `0x${string}` | undefined
+
+  // Smart Account
+  const { smartWallet, loading: smartWalletLoading, hasSmartWallet } = useSmartWallet(address)
+  const { createSmartAccount, isPending: isCreating } = useCreateSmartAccount()
+
+  const handleCreateTownHall = async () => {
+    if (!address) return
+    await createSmartAccount(address)
+  }
 
   // Loading
   if (!ready) {
@@ -282,6 +292,185 @@ export default function AppPage() {
             </div>
           </div>
 
+          {/* Smart Account / Town Hall */}
+          <div className="relative mb-6">
+            {/* Box Shadow */}
+            <div className="absolute inset-0 bg-amber-900 translate-x-2 translate-y-2" />
+
+            {/* Box */}
+            <div className="relative bg-slate-800 border-4 border-amber-500 p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">🏛️</span>
+                  <h3
+                    className="text-amber-400 text-sm"
+                    style={{ fontFamily: '"Press Start 2P", monospace' }}
+                  >
+                    TOWN HALL
+                  </h3>
+                </div>
+
+                {hasSmartWallet && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-400" />
+                    <span
+                      className="text-green-400 text-[8px]"
+                      style={{ fontFamily: '"Press Start 2P", monospace' }}
+                    >
+                      DEPLOYED
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="flex gap-1 mb-4">
+                {[...Array(20)].map((_, i) => (
+                  <div key={i} className="w-2 h-1 bg-slate-600" />
+                ))}
+              </div>
+
+              {smartWalletLoading ? (
+                // Loading State
+                <div className="text-center py-4">
+                  <div className="flex justify-center gap-2 mb-3">
+                    {[0, 1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className="w-3 h-3 bg-amber-400"
+                        style={{
+                          animation: `pixelBounce 0.6s ease-in-out infinite`,
+                          animationDelay: `${i * 0.15}s`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <p
+                    className="text-slate-400 text-[10px]"
+                    style={{ fontFamily: '"Press Start 2P", monospace' }}
+                  >
+                    CHECKING...
+                  </p>
+                </div>
+              ) : hasSmartWallet && smartWallet ? (
+                // Deployed State
+                <div>
+                  <div className="bg-slate-900 border-2 border-slate-700 p-4 mb-4">
+                    <p
+                      className="text-slate-500 text-[10px] mb-2"
+                      style={{ fontFamily: '"Press Start 2P", monospace' }}
+                    >
+                      SMART ACCOUNT
+                    </p>
+                    <p
+                      className="text-amber-400 text-[10px] break-all leading-relaxed"
+                      style={{ fontFamily: '"Press Start 2P", monospace' }}
+                    >
+                      {smartWallet}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-slate-900/50 border border-slate-700 p-3 text-center">
+                      <p
+                        className="text-slate-500 text-[8px] mb-1"
+                        style={{ fontFamily: '"Press Start 2P", monospace' }}
+                      >
+                        TYPE
+                      </p>
+                      <p
+                        className="text-white text-[10px]"
+                        style={{ fontFamily: '"Press Start 2P", monospace' }}
+                      >
+                        ERC-4337
+                      </p>
+                    </div>
+                    <div className="bg-slate-900/50 border border-slate-700 p-3 text-center">
+                      <p
+                        className="text-slate-500 text-[8px] mb-1"
+                        style={{ fontFamily: '"Press Start 2P", monospace' }}
+                      >
+                        NETWORK
+                      </p>
+                      <p
+                        className="text-white text-[10px]"
+                        style={{ fontFamily: '"Press Start 2P", monospace' }}
+                      >
+                        BASE
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Not Deployed - Show Create Button
+                <div>
+                  <p
+                    className="text-slate-400 text-[10px] mb-4 leading-relaxed"
+                    style={{ fontFamily: '"Press Start 2P", monospace' }}
+                  >
+                    Deploy your Town Hall to start building your city!
+                  </p>
+
+                  <button
+                    onClick={handleCreateTownHall}
+                    disabled={isCreating}
+                    className="relative group w-full disabled:opacity-50"
+                  >
+                    {/* Button Shadow */}
+                    <div className="absolute inset-0 bg-amber-900 translate-x-2 translate-y-2" />
+
+                    {/* Button */}
+                    <div
+                      className={`relative px-6 py-4 bg-amber-500 border-4 border-amber-400 text-white flex items-center justify-center gap-3 transition-transform ${
+                        !isCreating ? 'group-hover:-translate-y-1 group-active:translate-y-0' : ''
+                      }`}
+                    >
+                      {isCreating ? (
+                        <>
+                          <div className="flex gap-1">
+                            {[0, 1, 2].map((i) => (
+                              <div
+                                key={i}
+                                className="w-2 h-2 bg-white"
+                                style={{
+                                  animation: `pixelBounce 0.6s ease-in-out infinite`,
+                                  animationDelay: `${i * 0.15}s`,
+                                }}
+                              />
+                            ))}
+                          </div>
+                          <span
+                            className="text-xs"
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          >
+                            BUILDING...
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-lg">🏗️</span>
+                          <span
+                            className="text-xs"
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          >
+                            CREATE TOWN HALL
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </button>
+                </div>
+              )}
+
+              {/* Decorative Corners */}
+              <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-amber-400 -translate-x-1 -translate-y-1" />
+              <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-amber-400 translate-x-1 -translate-y-1" />
+              <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-amber-400 -translate-x-1 translate-y-1" />
+              <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-amber-400 translate-x-1 translate-y-1" />
+            </div>
+          </div>
+
           {/* Stats Preview */}
           <div className="grid grid-cols-3 gap-4">
             {[
@@ -310,6 +499,13 @@ export default function AppPage() {
           </div>
         </div>
       </main>
+
+      <style jsx>{`
+        @keyframes pixelBounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-8px); }
+        }
+      `}</style>
     </div>
   )
 }
