@@ -16,12 +16,23 @@ export default function AppPage() {
   const address = wallet?.address as `0x${string}` | undefined
 
   // Smart Account
-  const { smartWallet, loading: smartWalletLoading, hasSmartWallet } = useSmartWallet(address)
+  const { smartWallet, loading: smartWalletLoading, hasSmartWallet, refetch } = useSmartWallet(address)
   const { createSmartAccount, isPending: isCreating } = useCreateSmartAccount()
+
+  // Debug log
+  console.log('[Smart Wallet]', { smartWallet, smartWalletLoading, hasSmartWallet, address })
 
   const handleCreateTownHall = async () => {
     if (!address) return
-    await createSmartAccount(address)
+    const result = await createSmartAccount(address)
+    console.log('[Create Result]', result)
+
+    // Wait a bit then refetch to check if deployed
+    if (result.success) {
+      setTimeout(() => {
+        refetch()
+      }, 3000)
+    }
   }
 
   // Loading
