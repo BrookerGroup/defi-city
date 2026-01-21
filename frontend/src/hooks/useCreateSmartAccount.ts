@@ -1,5 +1,5 @@
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { FACTORY_ADDRESS, SimpleWalletFactoryABI } from '@/lib/contracts'
+import { CORE_ADDRESS, DefiCityCoreABI } from '@/lib/contracts'
 import { useState } from 'react'
 
 export function useCreateSmartAccount() {
@@ -10,7 +10,7 @@ export function useCreateSmartAccount() {
     hash,
   })
 
-  const createSmartAccount = async (ownerAddress: string) => {
+  const createSmartAccount = async () => {
     setIsDeploying(true)
     try {
       // Default position for town hall (center of map)
@@ -19,16 +19,17 @@ export function useCreateSmartAccount() {
       const centerY = Math.floor(GRID_SIZE / 2)
 
       console.log('[Create Smart Account] Starting deployment...', {
-        owner: ownerAddress,
         x: centerX,
         y: centerY,
+        contract: CORE_ADDRESS,
       })
 
+      // Call DefiCityCore.createTownHall(x, y) - uses msg.sender as owner
       const hash = await writeContractAsync({
-        address: FACTORY_ADDRESS,
-        abi: SimpleWalletFactoryABI,
+        address: CORE_ADDRESS,
+        abi: DefiCityCoreABI,
         functionName: 'createTownHall',
-        args: [ownerAddress as `0x${string}`, BigInt(centerX), BigInt(centerY)],
+        args: [BigInt(centerX), BigInt(centerY)],
       })
 
       console.log('[Create Smart Account] Transaction sent:', hash)

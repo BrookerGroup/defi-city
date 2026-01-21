@@ -16,15 +16,15 @@ export default function AppPage() {
   const address = wallet?.address as `0x${string}` | undefined
 
   // Smart Account
-  const { smartWallet, loading: smartWalletLoading, hasSmartWallet, refetch } = useSmartWallet(address)
+  const { smartWallet, loading: smartWalletLoading, hasSmartWallet, isError, error, refetch } = useSmartWallet(address)
   const { createSmartAccount, isPending: isCreating } = useCreateSmartAccount()
 
   // Debug log
-  console.log('[Smart Wallet]', { smartWallet, smartWalletLoading, hasSmartWallet, address })
+  console.log('[Smart Wallet]', { smartWallet, smartWalletLoading, hasSmartWallet, isError, error, address })
 
   const handleCreateTownHall = async () => {
     if (!address) return
-    const result = await createSmartAccount(address)
+    const result = await createSmartAccount()
     console.log('[Create Result]', result)
 
     // Wait a bit then refetch to check if deployed
@@ -363,6 +363,26 @@ export default function AppPage() {
                   >
                     CHECKING...
                   </p>
+                </div>
+              ) : isError ? (
+                // Error State
+                <div className="text-center py-4">
+                  <p
+                    className="text-red-400 text-[10px] mb-3"
+                    style={{ fontFamily: '"Press Start 2P", monospace' }}
+                  >
+                    ERROR LOADING
+                  </p>
+                  <p className="text-slate-500 text-xs mb-3 break-all">
+                    {error?.message || 'Failed to check Town Hall status'}
+                  </p>
+                  <button
+                    onClick={() => refetch()}
+                    className="px-4 py-2 bg-slate-700 border-2 border-slate-600 text-white text-xs hover:bg-slate-600"
+                    style={{ fontFamily: '"Press Start 2P", monospace' }}
+                  >
+                    RETRY
+                  </button>
                 </div>
               ) : hasSmartWallet && smartWallet ? (
                 // Deployed State
