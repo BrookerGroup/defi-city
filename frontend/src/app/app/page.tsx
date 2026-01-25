@@ -1,7 +1,7 @@
 'use client'
 
 import { usePrivy, useWallets } from '@privy-io/react-auth'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useSmartWallet, useCreateSmartAccount, useWithdrawToSmartWallet, useWithdrawFromSmartWallet, TokenType } from '@/hooks'
 
 export default function AppPage() {
@@ -14,6 +14,31 @@ export default function AppPage() {
   }, [wallets])
 
   const address = wallet?.address as `0x${string}` | undefined
+
+  // Track if waiting too long for wallet
+  const [waitingTooLong, setWaitingTooLong] = useState(false)
+
+  // Auto-trigger wallet connection when authenticated but no address
+  useEffect(() => {
+    if (authenticated && !address) {
+      // Trigger wallet popup immediately
+      const triggerWallet = async () => {
+        try {
+          const ethereum = (window as unknown as { ethereum?: { request: (args: { method: string }) => Promise<string[]> } }).ethereum
+          if (ethereum) {
+            console.log('[Wallet] Requesting accounts...')
+            await ethereum.request({ method: 'eth_requestAccounts' })
+          }
+        } catch (err) {
+          console.log('[Wallet] User rejected or error:', err)
+          setWaitingTooLong(true)
+        }
+      }
+      triggerWallet()
+    } else {
+      setWaitingTooLong(false)
+    }
+  }, [authenticated, address])
 
   // Smart Account
   const { smartWallet, loading: smartWalletLoading, hasSmartWallet, isError, error, refetch } = useSmartWallet(address)
@@ -281,7 +306,7 @@ export default function AppPage() {
   if (!address) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
-        <div className="text-center">
+        <div className="text-center max-w-md px-4">
           <div className="flex justify-center gap-2 mb-4">
             {[0, 1, 2].map((i) => (
               <div
@@ -295,11 +320,42 @@ export default function AppPage() {
             ))}
           </div>
           <p
-            className="text-green-400 text-sm tracking-wider"
+            className="text-green-400 text-sm tracking-wider mb-4"
             style={{ fontFamily: '"Press Start 2P", monospace' }}
           >
             CONNECTING...
           </p>
+
+          {/* Show message after timeout */}
+          {waitingTooLong && (
+            <div className="mt-6 space-y-4">
+              <p
+                className="text-amber-400 text-[10px] leading-relaxed"
+                style={{ fontFamily: '"Press Start 2P", monospace' }}
+              >
+                PLEASE UNLOCK YOUR WALLET
+              </p>
+              <p className="text-slate-400 text-xs">
+                Make sure your wallet extension is unlocked and connected to this site.
+              </p>
+              <div className="flex gap-3 justify-center mt-4">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2 bg-slate-700 border-2 border-slate-600 text-white text-xs hover:bg-slate-600"
+                  style={{ fontFamily: '"Press Start 2P", monospace' }}
+                >
+                  REFRESH
+                </button>
+                <button
+                  onClick={logout}
+                  className="px-4 py-2 bg-red-700 border-2 border-red-600 text-white text-xs hover:bg-red-600"
+                  style={{ fontFamily: '"Press Start 2P", monospace' }}
+                >
+                  LOGOUT
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <style jsx>{`
