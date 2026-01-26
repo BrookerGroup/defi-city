@@ -2,7 +2,8 @@
 
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { useMemo, useState, useEffect } from 'react'
-import { useSmartWallet, useCreateSmartAccount, useWithdrawToSmartWallet, useWithdrawFromSmartWallet, TokenType } from '@/hooks'
+import { useSmartWallet, useCreateSmartAccount, useVaultDeposit, useVaultWithdraw, TokenType } from '@/hooks'
+import { AavePanel } from '@/components/aave'
 
 export default function AppPage() {
   const { ready, authenticated, login, logout } = usePrivy()
@@ -44,24 +45,23 @@ export default function AppPage() {
   const { smartWallet, loading: smartWalletLoading, hasSmartWallet, isError, error, refetch } = useSmartWallet(address)
   const { createSmartAccount, isPending: isCreating } = useCreateSmartAccount()
 
-  // Withdraw to Smart Wallet
+  // Vault Actions (Deposit: EOA -> Smart Wallet, Withdraw: Smart Wallet -> EOA)
   const {
-    withdraw,
-    isWithdrawing,
-    isConfirming,
+    deposit: vaultDeposit,
+    isDepositing,
+    isConfirming: isConfirmingDeposit,
     ethBalance,
     usdcBalance,
     smartWalletEthBalance,
     smartWalletUsdcBalance,
     refetchBalances,
-  } = useWithdrawToSmartWallet(address, smartWallet)
+  } = useVaultDeposit(address, smartWallet)
 
-  // Withdraw from Smart Wallet (to EOA)
   const {
-    withdrawFromVault,
+    withdraw: vaultWithdraw,
     isWithdrawing: isWithdrawingFromVault,
-    isConfirming: isConfirmingFromVault,
-  } = useWithdrawFromSmartWallet(address, smartWallet, refetchBalances)
+    isConfirming: isConfirmingWithdraw,
+  } = useVaultWithdraw(address, smartWallet, refetchBalances)
 
   // Deposit form state
   const [selectedToken, setSelectedToken] = useState<TokenType>('ETH')
@@ -70,6 +70,7 @@ export default function AppPage() {
   const [depositSuccess, setDepositSuccess] = useState(false)
 
   // Withdraw form state
+  const [activeVaultTab, setActiveVaultTab] = useState<'deposit' | 'withdraw'>('deposit')
   const [withdrawToken, setWithdrawToken] = useState<TokenType>('ETH')
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawError, setWithdrawError] = useState<string | null>(null)
@@ -102,7 +103,7 @@ export default function AppPage() {
     setDepositError(null)
     setDepositSuccess(false)
 
-    const result = await withdraw(selectedToken, depositAmount)
+    const result = await vaultDeposit(selectedToken, depositAmount)
 
     if (result.success) {
       setDepositSuccess(true)
@@ -137,7 +138,7 @@ export default function AppPage() {
     setWithdrawError(null)
     setWithdrawSuccess(false)
 
-    const result = await withdrawFromVault(withdrawToken, withdrawAmount)
+    const result = await vaultWithdraw(withdrawToken, withdrawAmount)
 
     if (result.success) {
       setWithdrawSuccess(true)
@@ -402,9 +403,11 @@ export default function AppPage() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <div className="max-w-lg mx-auto">
-          {/* Welcome Box */}
-          <div className="relative mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-6xl mx-auto">
+          {/* Left Column */}
+          <div className="space-y-6">
+            {/* Welcome Box */}
+            <div className="relative">
             {/* Box Shadow */}
             <div className="absolute inset-0 bg-green-900 translate-x-2 translate-y-2" />
 
@@ -437,7 +440,7 @@ export default function AppPage() {
               </div>
 
               {/* Address Box */}
-              <div className="bg-slate-900 border-2 border-slate-700 p-4">
+              <div className="bg-slate-900 border-2 border-slate-700 p-4 mb-4">
                 <p
                   className="text-slate-500 text-[10px] mb-2"
                   style={{ fontFamily: '"Press Start 2P", monospace' }}
@@ -452,6 +455,26 @@ export default function AppPage() {
                 </p>
               </div>
 
+              {/* Balances Box */}
+              <div className="bg-slate-900 border-2 border-slate-700 p-4 border-l-green-500">
+                <p
+                  className="text-slate-500 text-[10px] mb-2"
+                  style={{ fontFamily: '"Press Start 2P", monospace' }}
+                >
+                  YOUR BALANCES
+                </p>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white text-[10px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>ETH</span>
+                    <span className="text-white text-[10px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>{parseFloat(ethBalance).toFixed(4)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white text-[10px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>USDC</span>
+                    <span className="text-white text-[10px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>{parseFloat(usdcBalance).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
               {/* Decorative Corners */}
               <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-green-400 -translate-x-1 -translate-y-1" />
               <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-green-400 translate-x-1 -translate-y-1" />
@@ -461,7 +484,7 @@ export default function AppPage() {
           </div>
 
           {/* Smart Account / Town Hall */}
-          <div className="relative mb-6">
+          <div className="relative">
             {/* Box Shadow */}
             <div className="absolute inset-0 bg-amber-900 translate-x-2 translate-y-2" />
 
@@ -557,6 +580,26 @@ export default function AppPage() {
                     >
                       {smartWallet}
                     </p>
+                  </div>
+
+                  {/* Vault Balances */}
+                  <div className="bg-slate-900 border-2 border-slate-700 p-4 mb-4 border-l-amber-500">
+                    <p
+                      className="text-slate-500 text-[10px] mb-2"
+                      style={{ fontFamily: '"Press Start 2P", monospace' }}
+                    >
+                      VAULT BALANCES
+                    </p>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-amber-400 text-[10px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>ETH</span>
+                        <span className="text-amber-400 text-[10px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>{parseFloat(smartWalletEthBalance).toFixed(4)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-amber-400 text-[10px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>USDC</span>
+                        <span className="text-amber-400 text-[10px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>{parseFloat(smartWalletUsdcBalance).toFixed(2)}</span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -658,464 +701,337 @@ export default function AppPage() {
               <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-amber-400 translate-x-1 translate-y-1" />
             </div>
           </div>
+          </div>
+          {/* End Left Column */}
 
-          {/* Withdraw Section - Only show when Smart Wallet exists */}
-          {hasSmartWallet && smartWallet && (
-            <div className="relative mb-6">
-              {/* Box Shadow */}
-              <div className="absolute inset-0 bg-blue-900 translate-x-2 translate-y-2" />
+          {/* Right Column */}
+          <div className="space-y-6">
+            {/* Consolidated Vault Management Section - Only show when Smart Wallet exists */}
+            {hasSmartWallet && smartWallet && (
+              <div className="relative">
+                {/* Box Shadow */}
+                <div className={`absolute inset-0 translate-x-2 translate-y-2 transition-colors duration-300 ${
+                  activeVaultTab === 'deposit' ? 'bg-blue-900' : 'bg-purple-900'
+                }`} />
 
-              {/* Box */}
-              <div className="relative bg-slate-800 border-4 border-blue-500 p-6">
-                {/* Header */}
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-2xl">💰</span>
-                  <h3
-                    className="text-blue-400 text-sm"
-                    style={{ fontFamily: '"Press Start 2P", monospace' }}
-                  >
-                    DEPOSIT TO VAULT
-                  </h3>
-                </div>
-
-                {/* Divider */}
-                <div className="flex gap-1 mb-4">
-                  {[...Array(20)].map((_, i) => (
-                    <div key={i} className="w-2 h-1 bg-slate-600" />
-                  ))}
-                </div>
-
-                {/* Balance Display */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  {/* EOA Balance */}
-                  <div className="bg-slate-900 border-2 border-slate-700 p-3">
-                    <p
-                      className="text-slate-500 text-[8px] mb-2"
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      YOUR WALLET
-                    </p>
-                    <div className="space-y-1">
-                      <p
-                        className="text-white text-[10px]"
+                {/* Box */}
+                <div className={`relative bg-slate-800 border-4 transition-colors duration-300 p-6 ${
+                  activeVaultTab === 'deposit' ? 'border-blue-500' : 'border-purple-500'
+                }`}>
+                  {/* Header & Tabs */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{activeVaultTab === 'deposit' ? '💰' : '📤'}</span>
+                      <h3
+                        className={`text-sm transition-colors duration-300 ${
+                          activeVaultTab === 'deposit' ? 'text-blue-400' : 'text-purple-400'
+                        }`}
                         style={{ fontFamily: '"Press Start 2P", monospace' }}
                       >
-                        {parseFloat(ethBalance).toFixed(4)} ETH
-                      </p>
-                      <p
-                        className="text-white text-[10px]"
+                        VAULT MGMT
+                      </h3>
+                    </div>
+
+                    {/* Tab Switcher */}
+                    <div className="flex bg-slate-900 p-1 border-2 border-slate-700">
+                      <button
+                        onClick={() => setActiveVaultTab('deposit')}
+                        className={`px-3 py-1 text-[8px] transition-all ${
+                          activeVaultTab === 'deposit'
+                            ? 'bg-blue-600 text-white shadow-[2px_2px_0px_#1e3a8a]'
+                            : 'text-slate-500 hover:text-slate-300'
+                        }`}
                         style={{ fontFamily: '"Press Start 2P", monospace' }}
                       >
-                        {parseFloat(usdcBalance).toFixed(2)} USDC
-                      </p>
+                        DEPOSIT
+                      </button>
+                      <button
+                        onClick={() => setActiveVaultTab('withdraw')}
+                        className={`px-3 py-1 text-[8px] transition-all ${
+                          activeVaultTab === 'withdraw'
+                            ? 'bg-purple-600 text-white shadow-[2px_2px_0px_#4c1d95]'
+                            : 'text-slate-500 hover:text-slate-300'
+                        }`}
+                        style={{ fontFamily: '"Press Start 2P", monospace' }}
+                      >
+                        WITHDRAW
+                      </button>
                     </div>
                   </div>
 
-                  {/* Smart Wallet Balance */}
-                  <div className="bg-slate-900 border-2 border-slate-700 p-3">
-                    <p
-                      className="text-slate-500 text-[8px] mb-2"
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      SMART VAULT
-                    </p>
-                    <div className="space-y-1">
-                      <p
-                        className="text-amber-400 text-[10px]"
-                        style={{ fontFamily: '"Press Start 2P", monospace' }}
-                      >
-                        {parseFloat(smartWalletEthBalance).toFixed(4)} ETH
-                      </p>
-                      <p
-                        className="text-amber-400 text-[10px]"
-                        style={{ fontFamily: '"Press Start 2P", monospace' }}
-                      >
-                        {parseFloat(smartWalletUsdcBalance).toFixed(2)} USDC
-                      </p>
-                    </div>
+                  {/* Divider */}
+                  <div className="flex gap-1 mb-6">
+                    {[...Array(20)].map((_, i) => (
+                      <div key={i} className={`w-2 h-1 transition-colors duration-300 ${
+                        activeVaultTab === 'deposit' ? 'bg-blue-900/50' : 'bg-purple-900/50'
+                      }`} />
+                    ))}
                   </div>
-                </div>
 
-                {/* Token Selection */}
-                <div className="mb-4">
-                  <p
-                    className="text-slate-500 text-[8px] mb-2"
-                    style={{ fontFamily: '"Press Start 2P", monospace' }}
-                  >
-                    SELECT TOKEN
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setSelectedToken('ETH')}
-                      className={`flex-1 px-4 py-3 border-2 text-xs transition-colors ${
-                        selectedToken === 'ETH'
-                          ? 'bg-blue-600 border-blue-400 text-white'
-                          : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                      }`}
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      ETH
-                    </button>
-                    <button
-                      onClick={() => setSelectedToken('USDC')}
-                      className={`flex-1 px-4 py-3 border-2 text-xs transition-colors ${
-                        selectedToken === 'USDC'
-                          ? 'bg-blue-600 border-blue-400 text-white'
-                          : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                      }`}
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      USDC
-                    </button>
-                  </div>
-                </div>
-
-                {/* Amount Input */}
-                <div className="mb-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <p
-                      className="text-slate-500 text-[8px]"
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      AMOUNT
-                    </p>
-                    <button
-                      onClick={handleDepositMax}
-                      className="text-blue-400 text-[8px] hover:text-blue-300"
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      MAX
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      value={depositAmount}
-                      onChange={(e) => setDepositAmount(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full bg-slate-900 border-2 border-slate-700 p-3 pr-16 text-white text-sm focus:border-blue-500 focus:outline-none"
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    />
-                    <span
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-[10px]"
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      {selectedToken}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Error/Success Messages */}
-                {depositError && (
-                  <div className="mb-4 p-3 bg-red-900/50 border-2 border-red-500">
-                    <p
-                      className="text-red-400 text-[10px]"
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      {depositError}
-                    </p>
-                  </div>
-                )}
-
-                {depositSuccess && (
-                  <div className="mb-4 p-3 bg-green-900/50 border-2 border-green-500">
-                    <p
-                      className="text-green-400 text-[10px]"
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      DEPOSIT SUCCESSFUL!
-                    </p>
-                  </div>
-                )}
-
-                {/* Deposit Button */}
-                <button
-                  onClick={handleDeposit}
-                  disabled={isWithdrawing || isConfirming || !depositAmount}
-                  className="relative group w-full disabled:opacity-50"
-                >
-                  {/* Button Shadow */}
-                  <div className="absolute inset-0 bg-blue-900 translate-x-2 translate-y-2" />
-
-                  {/* Button */}
-                  <div
-                    className={`relative px-6 py-4 bg-blue-600 border-4 border-blue-400 text-white flex items-center justify-center gap-3 transition-transform ${
-                      !(isWithdrawing || isConfirming) ? 'group-hover:-translate-y-1 group-active:translate-y-0' : ''
-                    }`}
-                  >
-                    {isWithdrawing || isConfirming ? (
-                      <>
-                        <div className="flex gap-1">
-                          {[0, 1, 2].map((i) => (
-                            <div
-                              key={i}
-                              className="w-2 h-2 bg-white"
-                              style={{
-                                animation: `pixelBounce 0.6s ease-in-out infinite`,
-                                animationDelay: `${i * 0.15}s`,
-                              }}
-                            />
-                          ))}
+                  {/* Content Area */}
+                  {activeVaultTab === 'deposit' ? (
+                    /* Deposit Tab Content */
+                    <div className="space-y-6">
+                      {/* Token Selection */}
+                      <div>
+                        <p
+                          className="text-slate-500 text-[8px] mb-3"
+                          style={{ fontFamily: '"Press Start 2P", monospace' }}
+                        >
+                          SELECT TOKEN
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setSelectedToken('ETH')}
+                            className={`flex-1 px-4 py-3 border-2 text-xs transition-colors ${
+                              selectedToken === 'ETH'
+                                ? 'bg-blue-600 border-blue-400 text-white'
+                                : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                            }`}
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          >
+                            ETH
+                          </button>
+                          <button
+                            onClick={() => setSelectedToken('USDC')}
+                            className={`flex-1 px-4 py-3 border-2 text-xs transition-colors ${
+                              selectedToken === 'USDC'
+                                ? 'bg-blue-600 border-blue-400 text-white'
+                                : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                            }`}
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          >
+                            USDC
+                          </button>
                         </div>
-                        <span
-                          className="text-xs"
-                          style={{ fontFamily: '"Press Start 2P", monospace' }}
-                        >
-                          {isConfirming ? 'CONFIRMING...' : 'SENDING...'}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-lg">📥</span>
-                        <span
-                          className="text-xs"
-                          style={{ fontFamily: '"Press Start 2P", monospace' }}
-                        >
-                          DEPOSIT TO VAULT
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </button>
+                      </div>
 
-                {/* Decorative Corners */}
-                <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-blue-400 -translate-x-1 -translate-y-1" />
-                <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-blue-400 translate-x-1 -translate-y-1" />
-                <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-blue-400 -translate-x-1 translate-y-1" />
-                <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-blue-400 translate-x-1 translate-y-1" />
-              </div>
-            </div>
-          )}
-
-          {/* Withdraw from Vault Section - Only show when Smart Wallet exists */}
-          {hasSmartWallet && smartWallet && (
-            <div className="relative mb-6">
-              {/* Box Shadow */}
-              <div className="absolute inset-0 bg-purple-900 translate-x-2 translate-y-2" />
-
-              {/* Box */}
-              <div className="relative bg-slate-800 border-4 border-purple-500 p-6">
-                {/* Header */}
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-2xl">📤</span>
-                  <h3
-                    className="text-purple-400 text-sm"
-                    style={{ fontFamily: '"Press Start 2P", monospace' }}
-                  >
-                    WITHDRAW FROM VAULT
-                  </h3>
-                </div>
-
-                {/* Divider */}
-                <div className="flex gap-1 mb-4">
-                  {[...Array(20)].map((_, i) => (
-                    <div key={i} className="w-2 h-1 bg-slate-600" />
-                  ))}
-                </div>
-
-                {/* Balance Display */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  {/* Smart Wallet Balance */}
-                  <div className="bg-slate-900 border-2 border-slate-700 p-3">
-                    <p
-                      className="text-slate-500 text-[8px] mb-2"
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      SMART VAULT
-                    </p>
-                    <div className="space-y-1">
-                      <p
-                        className="text-amber-400 text-[10px]"
-                        style={{ fontFamily: '"Press Start 2P", monospace' }}
-                      >
-                        {parseFloat(smartWalletEthBalance).toFixed(4)} ETH
-                      </p>
-                      <p
-                        className="text-amber-400 text-[10px]"
-                        style={{ fontFamily: '"Press Start 2P", monospace' }}
-                      >
-                        {parseFloat(smartWalletUsdcBalance).toFixed(2)} USDC
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* EOA Balance */}
-                  <div className="bg-slate-900 border-2 border-slate-700 p-3">
-                    <p
-                      className="text-slate-500 text-[8px] mb-2"
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      YOUR WALLET
-                    </p>
-                    <div className="space-y-1">
-                      <p
-                        className="text-white text-[10px]"
-                        style={{ fontFamily: '"Press Start 2P", monospace' }}
-                      >
-                        {parseFloat(ethBalance).toFixed(4)} ETH
-                      </p>
-                      <p
-                        className="text-white text-[10px]"
-                        style={{ fontFamily: '"Press Start 2P", monospace' }}
-                      >
-                        {parseFloat(usdcBalance).toFixed(2)} USDC
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Token Selection */}
-                <div className="mb-4">
-                  <p
-                    className="text-slate-500 text-[8px] mb-2"
-                    style={{ fontFamily: '"Press Start 2P", monospace' }}
-                  >
-                    SELECT TOKEN
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setWithdrawToken('ETH')}
-                      className={`flex-1 px-4 py-3 border-2 text-xs transition-colors ${
-                        withdrawToken === 'ETH'
-                          ? 'bg-purple-600 border-purple-400 text-white'
-                          : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                      }`}
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      ETH
-                    </button>
-                    <button
-                      onClick={() => setWithdrawToken('USDC')}
-                      className={`flex-1 px-4 py-3 border-2 text-xs transition-colors ${
-                        withdrawToken === 'USDC'
-                          ? 'bg-purple-600 border-purple-400 text-white'
-                          : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                      }`}
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      USDC
-                    </button>
-                  </div>
-                </div>
-
-                {/* Amount Input */}
-                <div className="mb-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <p
-                      className="text-slate-500 text-[8px]"
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      AMOUNT
-                    </p>
-                    <button
-                      onClick={handleWithdrawMax}
-                      className="text-purple-400 text-[8px] hover:text-purple-300"
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      MAX
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      value={withdrawAmount}
-                      onChange={(e) => setWithdrawAmount(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full bg-slate-900 border-2 border-slate-700 p-3 pr-16 text-white text-sm focus:border-purple-500 focus:outline-none"
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    />
-                    <span
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-[10px]"
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      {withdrawToken}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Error/Success Messages */}
-                {withdrawError && (
-                  <div className="mb-4 p-3 bg-red-900/50 border-2 border-red-500">
-                    <p
-                      className="text-red-400 text-[10px]"
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      {withdrawError}
-                    </p>
-                  </div>
-                )}
-
-                {withdrawSuccess && (
-                  <div className="mb-4 p-3 bg-green-900/50 border-2 border-green-500">
-                    <p
-                      className="text-green-400 text-[10px]"
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    >
-                      WITHDRAW SUCCESSFUL!
-                    </p>
-                  </div>
-                )}
-
-                {/* Withdraw Button */}
-                <button
-                  onClick={handleWithdrawFromVault}
-                  disabled={isWithdrawingFromVault || isConfirmingFromVault || !withdrawAmount}
-                  className="relative group w-full disabled:opacity-50"
-                >
-                  {/* Button Shadow */}
-                  <div className="absolute inset-0 bg-purple-900 translate-x-2 translate-y-2" />
-
-                  {/* Button */}
-                  <div
-                    className={`relative px-6 py-4 bg-purple-600 border-4 border-purple-400 text-white flex items-center justify-center gap-3 transition-transform ${
-                      !(isWithdrawingFromVault || isConfirmingFromVault) ? 'group-hover:-translate-y-1 group-active:translate-y-0' : ''
-                    }`}
-                  >
-                    {isWithdrawingFromVault || isConfirmingFromVault ? (
-                      <>
-                        <div className="flex gap-1">
-                          {[0, 1, 2].map((i) => (
-                            <div
-                              key={i}
-                              className="w-2 h-2 bg-white"
-                              style={{
-                                animation: `pixelBounce 0.6s ease-in-out infinite`,
-                                animationDelay: `${i * 0.15}s`,
-                              }}
-                            />
-                          ))}
+                      {/* Amount Input */}
+                      <div>
+                        <div className="flex justify-between items-center mb-2">
+                          <p
+                            className="text-slate-500 text-[8px]"
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          >
+                            AMOUNT
+                          </p>
+                          <button
+                            onClick={handleDepositMax}
+                            className="text-blue-400 text-[8px] hover:text-blue-300"
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          >
+                            MAX
+                          </button>
                         </div>
-                        <span
-                          className="text-xs"
-                          style={{ fontFamily: '"Press Start 2P", monospace' }}
-                        >
-                          {isConfirmingFromVault ? 'CONFIRMING...' : 'SENDING...'}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-lg">📤</span>
-                        <span
-                          className="text-xs"
-                          style={{ fontFamily: '"Press Start 2P", monospace' }}
-                        >
-                          WITHDRAW TO WALLET
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </button>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={depositAmount}
+                            onChange={(e) => setDepositAmount(e.target.value)}
+                            placeholder="0.00"
+                            className="w-full bg-slate-900 border-2 border-slate-700 p-3 pr-16 text-white text-sm focus:border-blue-500 focus:outline-none"
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          />
+                          <span
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-[10px]"
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          >
+                            {selectedToken}
+                          </span>
+                        </div>
+                      </div>
 
-                {/* Decorative Corners */}
-                <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-purple-400 -translate-x-1 -translate-y-1" />
-                <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-purple-400 translate-x-1 -translate-y-1" />
-                <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-purple-400 -translate-x-1 translate-y-1" />
-                <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-purple-400 translate-x-1 translate-y-1" />
+                      {/* Messages */}
+                      {depositError && (
+                        <div className="p-3 bg-red-900/30 border-2 border-red-500/50">
+                          <p className="text-red-400 text-[8px] text-center" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                            {depositError}
+                          </p>
+                        </div>
+                      )}
+                      {depositSuccess && (
+                        <div className="p-3 bg-green-900/30 border-2 border-green-500/50">
+                          <p className="text-green-400 text-[8px] text-center" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                            DEPOSIT SUCCESSFUL!
+                          </p>
+                        </div>
+                      )}
+                      {/* Action Button */}
+                      <button
+                        onClick={handleDeposit}
+                        disabled={isDepositing || isConfirmingDeposit || !depositAmount}
+                        className="relative group w-full disabled:opacity-50"
+                      >
+                        <div className="absolute inset-0 bg-blue-900 translate-x-2 translate-y-2" />
+                        <div className={`relative px-6 py-4 bg-blue-600 border-4 border-blue-400 text-white flex items-center justify-center gap-3 transition-transform ${
+                          !(isDepositing || isConfirmingDeposit) ? 'group-hover:-translate-y-1 group-active:translate-y-0' : ''
+                        }`}>
+                          {isDepositing || isConfirmingDeposit ? (
+                            <div className="flex items-center gap-3">
+                              <div className="flex gap-1">
+                                {[0, 1, 2].map((i) => (
+                                  <div key={i} className="w-2 h-2 bg-white animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+                                ))}
+                              </div>
+                              <span className="text-[10px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                                {isConfirmingDeposit ? 'CONFIRMING...' : 'SENDING...'}
+                              </span>
+                            </div>
+                          ) : (
+                            <>
+                              <span className="text-lg">📥</span>
+                              <span className="text-[10px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>DEPOSIT TO VAULT</span>
+                            </>
+                          )}
+                        </div>
+                      </button>
+                    </div>
+                  ) : (
+                    /* Withdraw Tab Content */
+                    <div className="space-y-6">
+                      {/* Token Selection */}
+                      <div>
+                        <p
+                          className="text-slate-500 text-[8px] mb-3"
+                          style={{ fontFamily: '"Press Start 2P", monospace' }}
+                        >
+                          SELECT TOKEN
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setWithdrawToken('ETH')}
+                            className={`flex-1 px-4 py-3 border-2 text-xs transition-colors ${
+                              withdrawToken === 'ETH'
+                                ? 'bg-purple-600 border-purple-400 text-white'
+                                : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                            }`}
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          >
+                            ETH
+                          </button>
+                          <button
+                            onClick={() => setWithdrawToken('USDC')}
+                            className={`flex-1 px-4 py-3 border-2 text-xs transition-colors ${
+                              withdrawToken === 'USDC'
+                                ? 'bg-purple-600 border-purple-400 text-white'
+                                : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                            }`}
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          >
+                            USDC
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Amount Input */}
+                      <div>
+                        <div className="flex justify-between items-center mb-2">
+                          <p
+                            className="text-slate-500 text-[8px]"
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          >
+                            AMOUNT
+                          </p>
+                          <button
+                            onClick={handleWithdrawMax}
+                            className="text-purple-400 text-[8px] hover:text-purple-300"
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          >
+                            MAX
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={withdrawAmount}
+                            onChange={(e) => setWithdrawAmount(e.target.value)}
+                            placeholder="0.00"
+                            className="w-full bg-slate-900 border-2 border-slate-700 p-3 pr-16 text-white text-sm focus:border-purple-500 focus:outline-none"
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          />
+                          <span
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-[10px]"
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          >
+                            {withdrawToken}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Messages */}
+                      {withdrawError && (
+                        <div className="p-3 bg-red-900/30 border-2 border-red-500/50">
+                          <p className="text-red-400 text-[8px] text-center" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                            {withdrawError}
+                          </p>
+                        </div>
+                      )}
+                      {withdrawSuccess && (
+                        <div className="p-3 bg-green-900/30 border-2 border-green-500/50">
+                          <p className="text-green-400 text-[8px] text-center" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                            WITHDRAW SUCCESSFUL!
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Action Button */}
+                      <button
+                        onClick={handleWithdrawFromVault}
+                        disabled={isWithdrawingFromVault || isConfirmingWithdraw || !withdrawAmount}
+                        className="relative group w-full disabled:opacity-50"
+                      >
+                        <div className="absolute inset-0 bg-purple-900 translate-x-2 translate-y-2" />
+                        <div className={`relative px-6 py-4 bg-purple-600 border-4 border-purple-400 text-white flex items-center justify-center gap-3 transition-transform ${
+                          !(isWithdrawingFromVault || isConfirmingWithdraw) ? 'group-hover:-translate-y-1 group-active:translate-y-0' : ''
+                        }`}>
+                          {isWithdrawingFromVault || isConfirmingWithdraw ? (
+                            <div className="flex items-center gap-3">
+                              <div className="flex gap-1">
+                                {[0, 1, 2].map((i) => (
+                                  <div key={i} className="w-2 h-2 bg-white animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+                                ))}
+                              </div>
+                              <span className="text-[10px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                                {isConfirmingWithdraw ? 'CONFIRMING...' : 'SENDING...'}
+                              </span>
+                            </div>
+                          ) : (
+                            <>
+                              <span className="text-lg">📤</span>
+                              <span className="text-[10px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>WITHDRAW TO WALLET</span>
+                            </>
+                          )}
+                        </div>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Decorative Corners */}
+                  <div className={`absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 -translate-x-1 -translate-y-1 transition-colors duration-300 ${
+                    activeVaultTab === 'deposit' ? 'border-blue-400' : 'border-purple-400'
+                  }`} />
+                  <div className={`absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 -translate-x-1 -translate-y-1 transition-colors duration-300 translate-x-1 ${
+                    activeVaultTab === 'deposit' ? 'border-blue-400' : 'border-purple-400'
+                  }`} />
+                  <div className={`absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 -translate-x-1 translate-y-1 transition-colors duration-300 ${
+                    activeVaultTab === 'deposit' ? 'border-blue-400' : 'border-purple-400'
+                  }`} />
+                  <div className={`absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 translate-x-1 translate-y-1 transition-colors duration-300 ${
+                    activeVaultTab === 'deposit' ? 'border-blue-400' : 'border-purple-400'
+                  }`} />
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Stats Preview */}
+          {/* Aave Bank Section */}
+          <div>
+            <AavePanel smartWallet={smartWallet ?? null} hasSmartWallet={hasSmartWallet} userAddress={address} onSuccess={refetchBalances} />
+          </div>
+          </div>
+          {/* End Right Column */}
+
+          {/* Stats Preview - Full Width */}
+          <div className="lg:col-span-2">
           <div className="grid grid-cols-3 gap-4">
             {[
               { label: 'LEVEL', value: '01' },
@@ -1140,6 +1056,7 @@ export default function AppPage() {
                 </div>
               </div>
             ))}
+          </div>
           </div>
         </div>
       </main>

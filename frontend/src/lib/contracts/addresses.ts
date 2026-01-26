@@ -1,8 +1,8 @@
 // Base Sepolia Testnet - Contract Addresses
 
-export const ENTRY_POINT_ADDRESS = '0x4290Cd4e3c7a781856c507EeaA02A4F8192d0922' as `0x${string}`
-export const CORE_ADDRESS = '0xaDc51D79177BA89E1b3c99994F95E5A825194e59' as `0x${string}`
-export const FACTORY_ADDRESS = '0xD7e5Ef23F53c98a01b63e99A91e1547229579c7A' as `0x${string}`
+export const ENTRY_POINT_ADDRESS = '0x5864A489a25e8cE84b22903dc8f3038F6b0484f3' as `0x${string}`
+export const CORE_ADDRESS = '0x641adC5d1e2AB02f772E86Dc3694d3e763fC549B' as `0x${string}`
+export const FACTORY_ADDRESS = '0x764f2D0F274d23B4cf51e5ae0c27e4020eD8ee2A' as `0x${string}`
 
-// Token Addresses on Base Sepolia
-export const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`
+// Token Addresses on Base Sepolia (It's Aave USDC Not Base Testnet USDC)
+export const USDC_ADDRESS = '0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f' as `0x${string}`

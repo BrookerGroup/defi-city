@@ -3,7 +3,7 @@ import { useWriteContract } from 'wagmi'
 import { createPublicClient, http, parseEther, parseUnits, encodeFunctionData } from 'viem'
 import { baseSepolia } from 'viem/chains'
 import { USDC_ADDRESS, ERC20ABI, SmartWalletABI } from '@/lib/contracts'
-import { TokenType } from './useWithdrawToSmartWallet'
+import { TokenType } from './useVaultDeposit'
 
 interface WithdrawResult {
   success: boolean
@@ -17,7 +17,7 @@ const publicClient = createPublicClient({
   transport: http('https://base-sepolia-rpc.publicnode.com'),
 })
 
-export function useWithdrawFromSmartWallet(
+export function useVaultWithdraw(
   ownerAddress?: `0x${string}`,
   smartWalletAddress?: `0x${string}` | null,
   refetchBalances?: () => void
@@ -26,9 +26,9 @@ export function useWithdrawFromSmartWallet(
   const [isConfirming, setIsConfirming] = useState(false)
   const { writeContractAsync } = useWriteContract()
 
-  // Withdraw ETH from Smart Wallet to EOA
+  // Withdraw ETH from Smart Wallet to EOA (Vault Withdraw)
   // Uses SmartWallet.execute(dest, value, func) where dest=owner, value=amount, func=empty
-  const withdrawETHFromVault = useCallback(
+  const withdrawETH = useCallback(
     async (amount: string): Promise<WithdrawResult> => {
       if (!ownerAddress || !smartWalletAddress) {
         return { success: false, error: 'Wallet not connected or Smart Wallet not found' }
@@ -45,7 +45,7 @@ export function useWithdrawFromSmartWallet(
           return { success: false, error: 'Insufficient ETH balance in Smart Wallet' }
         }
 
-        console.log('[Withdraw ETH from Vault] Sending', amount, 'ETH to', ownerAddress)
+        console.log('[Vault Withdraw ETH] Sending', amount, 'ETH to', ownerAddress)
 
         setIsConfirming(true)
 
@@ -58,14 +58,14 @@ export function useWithdrawFromSmartWallet(
           args: [ownerAddress, amountInWei, '0x'],
         })
 
-        console.log('[Withdraw ETH from Vault] Transaction sent:', hash)
+        console.log('[Vault Withdraw ETH] Transaction sent:', hash)
 
         // Wait for confirmation
         try {
           await publicClient.waitForTransactionReceipt({ hash })
-          console.log('[Withdraw ETH from Vault] Transaction confirmed!')
+          console.log('[Vault Withdraw ETH] Transaction confirmed!')
         } catch (e) {
-          console.log('[Withdraw ETH from Vault] Wait for receipt error:', e)
+          console.log('[Vault Withdraw ETH] Wait for receipt error:', e)
         }
 
         setIsConfirming(false)
@@ -78,7 +78,7 @@ export function useWithdrawFromSmartWallet(
 
         return { success: true, hash }
       } catch (error) {
-        console.error('[Withdraw ETH from Vault] Error:', error)
+        console.error('[Vault Withdraw ETH] Error:', error)
         setIsConfirming(false)
         setIsWithdrawing(false)
         const message = error instanceof Error ? error.message : 'Failed to withdraw ETH'
@@ -88,9 +88,9 @@ export function useWithdrawFromSmartWallet(
     [ownerAddress, smartWalletAddress, writeContractAsync, refetchBalances]
   )
 
-  // Withdraw USDC from Smart Wallet to EOA
+  // Withdraw USDC from Smart Wallet to EOA (Vault Withdraw)
   // Uses SmartWallet.execute(usdcAddress, 0, encodedTransferCall)
-  const withdrawUSDCFromVault = useCallback(
+  const withdrawUSDC = useCallback(
     async (amount: string): Promise<WithdrawResult> => {
       if (!ownerAddress || !smartWalletAddress) {
         return { success: false, error: 'Wallet not connected or Smart Wallet not found' }
@@ -113,7 +113,7 @@ export function useWithdrawFromSmartWallet(
           return { success: false, error: 'Insufficient USDC balance in Smart Wallet' }
         }
 
-        console.log('[Withdraw USDC from Vault] Sending', amount, 'USDC to', ownerAddress)
+        console.log('[Vault Withdraw USDC] Sending', amount, 'USDC to', ownerAddress)
 
         setIsConfirming(true)
 
@@ -132,14 +132,14 @@ export function useWithdrawFromSmartWallet(
           args: [USDC_ADDRESS, BigInt(0), transferCalldata],
         })
 
-        console.log('[Withdraw USDC from Vault] Transaction sent:', hash)
+        console.log('[Vault Withdraw USDC] Transaction sent:', hash)
 
         // Wait for confirmation
         try {
           await publicClient.waitForTransactionReceipt({ hash })
-          console.log('[Withdraw USDC from Vault] Transaction confirmed!')
+          console.log('[Vault Withdraw USDC] Transaction confirmed!')
         } catch (e) {
-          console.log('[Withdraw USDC from Vault] Wait for receipt error:', e)
+          console.log('[Vault Withdraw USDC] Wait for receipt error:', e)
         }
 
         setIsConfirming(false)
@@ -152,7 +152,7 @@ export function useWithdrawFromSmartWallet(
 
         return { success: true, hash }
       } catch (error) {
-        console.error('[Withdraw USDC from Vault] Error:', error)
+        console.error('[Vault Withdraw USDC] Error:', error)
         setIsConfirming(false)
         setIsWithdrawing(false)
         const message = error instanceof Error ? error.message : 'Failed to withdraw USDC'
@@ -163,17 +163,17 @@ export function useWithdrawFromSmartWallet(
   )
 
   // Generic withdraw function
-  const withdrawFromVault = useCallback(
+  const withdraw = useCallback(
     async (token: TokenType, amount: string): Promise<WithdrawResult> => {
-      return token === 'ETH' ? withdrawETHFromVault(amount) : withdrawUSDCFromVault(amount)
+      return token === 'ETH' ? withdrawETH(amount) : withdrawUSDC(amount)
     },
-    [withdrawETHFromVault, withdrawUSDCFromVault]
+    [withdrawETH, withdrawUSDC]
   )
 
   return {
-    withdrawFromVault,
-    withdrawETHFromVault,
-    withdrawUSDCFromVault,
+    withdraw,
+    withdrawETH,
+    withdrawUSDC,
     isWithdrawing,
     isConfirming,
   }

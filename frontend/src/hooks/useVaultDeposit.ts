@@ -1,12 +1,12 @@
 import { useState, useCallback, useEffect } from 'react'
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { useWriteContract } from 'wagmi'
 import { createPublicClient, http, parseEther, parseUnits, formatEther, formatUnits } from 'viem'
 import { baseSepolia } from 'viem/chains'
 import { USDC_ADDRESS, ERC20ABI } from '@/lib/contracts'
 
 export type TokenType = 'ETH' | 'USDC'
 
-interface WithdrawResult {
+interface DepositResult {
   success: boolean
   hash?: string
   error?: string
@@ -18,11 +18,11 @@ const publicClient = createPublicClient({
   transport: http('https://base-sepolia-rpc.publicnode.com'),
 })
 
-export function useWithdrawToSmartWallet(
+export function useVaultDeposit(
   ownerAddress?: `0x${string}`,
   smartWalletAddress?: `0x${string}` | null
 ) {
-  const [isWithdrawing, setIsWithdrawing] = useState(false)
+  const [isDepositing, setIsDepositing] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
   const { writeContractAsync } = useWriteContract()
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
@@ -33,22 +33,6 @@ export function useWithdrawToSmartWallet(
   const [smartWalletEthBalance, setSmartWalletEthBalance] = useState('0')
   const [smartWalletUsdcBalance, setSmartWalletUsdcBalance] = useState('0')
   const [isLoadingBalances, setIsLoadingBalances] = useState(false)
-
-  // Only use wagmi receipt for USDC (writeContractAsync)
-  const { isLoading: isWaitingUsdcReceipt, isSuccess: isUsdcConfirmed } = useWaitForTransactionReceipt({
-    hash: txHash,
-  })
-
-  // Reset USDC txHash when confirmed
-  useEffect(() => {
-    if (isUsdcConfirmed && txHash) {
-      setIsConfirming(false)
-      const timer = setTimeout(() => {
-        setTxHash(undefined)
-      }, 2000)
-      return () => clearTimeout(timer)
-    }
-  }, [isUsdcConfirmed, txHash])
 
   // Fetch balances directly from RPC
   const fetchBalances = useCallback(async () => {
@@ -114,29 +98,29 @@ export function useWithdrawToSmartWallet(
     fetchBalances()
   }, [fetchBalances])
 
-  // Withdraw ETH from EOA to Smart Wallet
-  const withdrawETH = useCallback(
-    async (amount: string): Promise<WithdrawResult> => {
+  // Deposit ETH from EOA to Smart Wallet (Vault)
+  const depositETH = useCallback(
+    async (amount: string): Promise<DepositResult> => {
       if (!ownerAddress || !smartWalletAddress) {
         return { success: false, error: 'Wallet not connected or Smart Wallet not found' }
       }
 
-      setIsWithdrawing(true)
+      setIsDepositing(true)
       try {
         const amountInWei = parseEther(amount)
 
         // Check balance
         const currentBalance = await publicClient.getBalance({ address: ownerAddress })
         if (amountInWei > currentBalance) {
-          setIsWithdrawing(false)
+          setIsDepositing(false)
           return { success: false, error: 'Insufficient ETH balance' }
         }
 
-        console.log('[Withdraw ETH] Sending', amount, 'ETH to', smartWalletAddress)
+        console.log('[Vault Deposit ETH] Sending', amount, 'ETH to', smartWalletAddress)
 
         const ethereum = (window as unknown as { ethereum?: { request: (args: { method: string; params: unknown[] }) => Promise<string> } }).ethereum
         if (!ethereum) {
-          setIsWithdrawing(false)
+          setIsDepositing(false)
           return { success: false, error: 'No wallet provider found' }
         }
 
@@ -151,42 +135,42 @@ export function useWithdrawToSmartWallet(
           }],
         }) as `0x${string}`
 
-        console.log('[Withdraw ETH] Transaction sent:', hash)
+        console.log('[Vault Deposit ETH] Transaction sent:', hash)
 
         // Wait for confirmation using viem
         try {
           await publicClient.waitForTransactionReceipt({ hash })
-          console.log('[Withdraw ETH] Transaction confirmed!')
+          console.log('[Vault Deposit ETH] Transaction confirmed!')
         } catch (e) {
-          console.log('[Withdraw ETH] Wait for receipt error (may still succeed):', e)
+          console.log('[Vault Deposit ETH] Wait for receipt error (may still succeed):', e)
         }
 
         setIsConfirming(false)
-        setIsWithdrawing(false)
+        setIsDepositing(false)
 
         // Refetch balances after delay
         setTimeout(fetchBalances, 2000)
 
         return { success: true, hash }
       } catch (error) {
-        console.error('[Withdraw ETH] Error:', error)
+        console.error('[Vault Deposit ETH] Error:', error)
         setIsConfirming(false)
-        setIsWithdrawing(false)
-        const message = error instanceof Error ? error.message : 'Failed to withdraw ETH'
+        setIsDepositing(false)
+        const message = error instanceof Error ? error.message : 'Failed to deposit ETH'
         return { success: false, error: message }
       }
     },
     [ownerAddress, smartWalletAddress, fetchBalances]
   )
 
-  // Withdraw USDC from EOA to Smart Wallet
-  const withdrawUSDC = useCallback(
-    async (amount: string): Promise<WithdrawResult> => {
+  // Deposit USDC from EOA to Smart Wallet (Vault)
+  const depositUSDC = useCallback(
+    async (amount: string): Promise<DepositResult> => {
       if (!ownerAddress || !smartWalletAddress) {
         return { success: false, error: 'Wallet not connected or Smart Wallet not found' }
       }
 
-      setIsWithdrawing(true)
+      setIsDepositing(true)
       setIsConfirming(true)
       try {
         const amountInUnits = parseUnits(amount, 6)
@@ -200,12 +184,12 @@ export function useWithdrawToSmartWallet(
         }) as bigint
 
         if (amountInUnits > currentBalance) {
-          setIsWithdrawing(false)
+          setIsDepositing(false)
           setIsConfirming(false)
           return { success: false, error: 'Insufficient USDC balance' }
         }
 
-        console.log('[Withdraw USDC] Sending', amount, 'USDC to', smartWalletAddress)
+        console.log('[Vault Deposit USDC] Sending', amount, 'USDC to', smartWalletAddress)
 
         const hash = await writeContractAsync({
           address: USDC_ADDRESS,
@@ -214,44 +198,50 @@ export function useWithdrawToSmartWallet(
           args: [smartWalletAddress, amountInUnits],
         })
 
-        console.log('[Withdraw USDC] Transaction sent:', hash)
-        setTxHash(hash)
-        setIsWithdrawing(false)
+        // Wait for confirmation using viem (more reliable for sequential logic)
+        try {
+          await publicClient.waitForTransactionReceipt({ hash })
+          console.log('[Vault Deposit USDC] Transaction confirmed!')
+        } catch (e) {
+          console.log('[Vault Deposit USDC] Wait for receipt error:', e)
+        }
+
+        setIsConfirming(false)
+        setIsDepositing(false)
 
         // Refetch balances after delay
-        setTimeout(fetchBalances, 3000)
+        setTimeout(fetchBalances, 2000)
 
         return { success: true, hash }
       } catch (error) {
-        console.error('[Withdraw USDC] Error:', error)
-        setIsWithdrawing(false)
+        console.error('[Vault Deposit USDC] Error:', error)
+        setIsDepositing(false)
         setIsConfirming(false)
-        const message = error instanceof Error ? error.message : 'Failed to withdraw USDC'
+        const message = error instanceof Error ? error.message : 'Failed to deposit USDC'
         return { success: false, error: message }
       }
     },
     [ownerAddress, smartWalletAddress, writeContractAsync, fetchBalances]
   )
 
-  // Generic withdraw function
-  const withdraw = useCallback(
-    async (token: TokenType, amount: string): Promise<WithdrawResult> => {
-      return token === 'ETH' ? withdrawETH(amount) : withdrawUSDC(amount)
+  // Generic deposit function
+  const deposit = useCallback(
+    async (token: TokenType, amount: string): Promise<DepositResult> => {
+      return token === 'ETH' ? depositETH(amount) : depositUSDC(amount)
     },
-    [withdrawETH, withdrawUSDC]
+    [depositETH, depositUSDC]
   )
 
   return {
     // Actions
-    withdraw,
-    withdrawETH,
-    withdrawUSDC,
+    deposit,
+    depositETH,
+    depositUSDC,
     refetchBalances: fetchBalances,
 
     // State
-    isWithdrawing,
-    isConfirming: isConfirming || isWaitingUsdcReceipt,
-    isConfirmed: isUsdcConfirmed,
+    isDepositing,
+    isConfirming,
     isLoadingBalances,
     txHash,
 

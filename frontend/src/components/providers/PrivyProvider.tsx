@@ -59,7 +59,9 @@ export function PrivyProvider({ children }: { children: React.ReactNode }) {
         defaultChain: baseSepolia,
         supportedChains: [baseSepolia],
         embeddedWallets: {
-          createOnLogin: 'off', // Disable embedded wallets
+          ethereum: {
+            createOnLogin: 'off', // Disable embedded wallets
+          },
         },
       }}
     >

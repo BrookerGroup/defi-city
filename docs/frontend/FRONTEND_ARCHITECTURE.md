@@ -74,6 +74,9 @@ frontend/src/
 │   │   ├── index.tsx            #    รวม providers ทั้งหมด
 │   │   ├── PrivyProvider.tsx    #    ตั้งค่า Privy (login wallet)
 │   │   └── WagmiProvider.tsx    #    ตั้งค่า Wagmi (อ่าน/เขียน contract)
+│   ├── aave/                    #    Aave Management (Bank)
+│   │   ├── AavePanel.tsx        #    หน้าจอจัดการเงินใน Aave (Supply/Borrow)
+│   │   └── AaveAssetCard.tsx    #    แสดงผลแต่ละเหรียญใน Aave
 │   └── landing/                 #    Components สำหรับ Landing Page
 │       ├── LandingPage.tsx      #    หน้า Landing หลัก
 │       ├── FeatureCard.tsx      #    การ์ด feature
@@ -96,8 +99,10 @@ frontend/src/
 │   ├── index.ts                 #    Export รวม
 │   ├── useSmartWallet.ts        #    ดึง Smart Wallet address
 │   ├── useCreateSmartAccount.ts #    สร้าง Town Hall (deploy wallet)
-│   ├── useWithdrawToSmartWallet.ts   # ฝากเงินเข้า Smart Wallet
-│   └── useWithdrawFromSmartWallet.ts # ถอนเงินจาก Smart Wallet
+│   ├── useVaultDeposit.ts       #    ฝากเงินจาก EOA เข้า Smart Wallet (Vault)
+│   ├── useVaultWithdraw.ts      #    ถอนเงินจาก Smart Wallet กลับ EOA
+│   ├── useAaveSupply.ts         #    Supply tokens เข้า Aave
+│   └── useAavePosition.ts       #    จัดการ Position ใน Aave (Supply/Borrow/Withdraw/Repay)
 │
 └── lib/                          # ← Config, Utility, Contract
     ├── constants.ts             #    ค่าคงที่ (chain, RPC, env)
@@ -248,10 +253,12 @@ LandingPage ประกอบด้วย sections เรียงต่อก�
 
 สถานะ 4: มี wallet address แล้ว
          → แสดง Dashboard เต็ม:
-           ├── Welcome Box (แสดง EOA address)
-           ├── Town Hall Box (สร้าง/ดู Smart Account)
-           ├── Deposit Box (ฝากเงินเข้า Smart Wallet)
-           ├── Withdraw Box (ถอนเงินจาก Smart Wallet)
+           ├── Welcome Box (สีเขียว 🟢 - แสดง EOA address & balance)
+           ├── Town Hall Box (สีส้ม 🟠 - สร้าง/ดู Smart Account balance)
+           ├── Vault Mgmt Box (รวม Deposit/Withdraw ไว้ด้วยกันแบบ Tabbed Interface)
+           │   ├── DEPOSIT Tab (สีฟ้า 🔵 - ฝากเงินเข้า Vault)
+           │   └── WITHDRAW Tab (สีม่วง 🟣 - ถอนเงินจาก Vault)
+           ├── Aave Bank Panel (จัดการ Supply/Borrow บน Aave)
            └── Stats Preview (Level, Coins, Land)
 ```
 
@@ -269,9 +276,13 @@ const address = wallet?.address
 // 3. ดึงข้อมูล Smart Wallet
 const { smartWallet, hasSmartWallet } = useSmartWallet(address)
 
-// 4. Hook สำหรับ deposit/withdraw
-const { withdraw, ethBalance, usdcBalance } = useWithdrawToSmartWallet(address, smartWallet)
-const { withdrawFromVault } = useWithdrawFromSmartWallet(address, smartWallet)
+// 4. Hook สำหรับ Vault actions
+const { deposit: vaultDeposit, ethBalance, usdcBalance } = useVaultDeposit(address, smartWallet)
+const { withdraw: vaultWithdraw } = useVaultWithdraw(address, smartWallet, refetchBalances)
+
+// 5. Hook สำหรับ Aave actions
+const { supply: aaveSupply } = useAaveSupply()
+const { position: aavePosition } = useAavePosition()
 ```
 
 ---
@@ -367,58 +378,82 @@ Contract deploy Smart Wallet + สร้าง Town Hall
 return { walletAddress, buildingId }
 ```
 
-### 7.3 `useWithdrawToSmartWallet` - ฝากเงินเข้า Smart Wallet
+### 7.3 `useVaultDeposit` - ฝากเงินเข้า Smart Wallet (Vault)
 
 ```
-ไฟล์: src/hooks/useWithdrawToSmartWallet.ts
+ไฟล์: src/hooks/useVaultDeposit.ts
 Input: ownerAddress, smartWalletAddress
-Output: { withdraw, ethBalance, usdcBalance, smartWalletEthBalance, ... }
+Output: { deposit, ethBalance, usdcBalance, smartWalletEthBalance, ... }
 ```
 
-**ชื่อ "withdraw" แต่จริงๆ คือ "deposit"** (ย้ายเงินจาก EOA → Smart Wallet)
+**ทำอะไร:** ย้ายเงินจากกระเป๋าส่วนตัว (EOA) เข้าสู่ระบบเมือง (Smart Wallet/Vault)
 
-**ทำอะไร:**
+1. สำหรับ ETH: ส่ง ETH ตรงจาก MetaMask ไป Smart Wallet (eth_sendTransaction)
+2. สำหรับ USDC: เรียก `USDC.transfer()` ไปยัง Smart Wallet
 
-สำหรับ ETH:
-```
-EOA Wallet (MetaMask)  ──── ETH ────→  Smart Wallet
-                    eth_sendTransaction
-```
+**ดึง balance อัตโนมัติ:**
+- ETH balance: ใช้ `publicClient.getBalance()` จาก viem
+- USDC balance: ใช้ `publicClient.readContract(ERC20.balanceOf)`
 
-สำหรับ USDC:
-```
-EOA Wallet (MetaMask)  ──── USDC ───→  Smart Wallet
-                    ERC20.transfer()
-```
-
-**ดึง balance ด้วย:**
-- ETH balance: ใช้ `getBalance()` จาก viem
-- USDC balance: ใช้ `ERC20.balanceOf()` (6 decimals สำหรับ USDC)
-
-### 7.4 `useWithdrawFromSmartWallet` - ถอนเงินจาก Smart Wallet
+### 7.4 `useVaultWithdraw` - ถอนเงินจาก Smart Wallet (Vault)
 
 ```
-ไฟล์: src/hooks/useWithdrawFromSmartWallet.ts
+ไฟล์: src/hooks/useVaultWithdraw.ts
 Input: ownerAddress, smartWalletAddress, refetchBalances
-Output: { withdrawFromVault, isWithdrawing, isConfirming }
+Output: { withdraw, isWithdrawing, isConfirming }
+```
+
+**ทำอะไร:** ย้ายเงินจาก Vault กลับคืนเข้ากระเป๋าส่วนตัว (EOA)
+
+1. สำหรับ ETH: เรียก `SmartWallet.execute(owner, amount, "0x")`
+2. สำหรับ USDC: เรียก `SmartWallet.execute(USDC_addr, 0, encoded_transfer_data)`
+
+Smart Wallet จะเป็นคนส่งเงินออกไปเอง โดยใช้ฟังก์ชัน `execute()` ซึ่งเซ็นลายเซ็นโดย Owner เท่านั้น
+
+### 7.5 `useAaveSupply` - Supply tokens เข้า Aave
+
+```
+ไฟล์: src/hooks/useAaveSupply.ts
+Input: ไม่มี (ใช้ wallet จาก Privy)
+Output: { supply, loading, error }
 ```
 
 **ทำอะไร:**
+1. ตรวจสอบ balance ของ user ว่าพอไหม
+2. Approve token ให้ Smart Wallet ใช้
+3. Transfer token จาก EOA ไป Smart Wallet
+4. เรียก BankAdapter.preparePlace() เพื่อเตรียม calldata
+5. Execute batch transaction ผ่าน Smart Wallet (approve → supply → record)
 
-สำหรับ ETH:
 ```
-Smart Wallet ──── ETH ────→ EOA Wallet (MetaMask)
-          SmartWallet.execute(owner, amount, "0x")
-```
-
-สำหรับ USDC:
-```
-Smart Wallet ──── USDC ───→ EOA Wallet (MetaMask)
-          SmartWallet.execute(USDC_addr, 0, encoded_transfer_data)
+User EOA ─── token ───→ Smart Wallet ─── supply ───→ Aave Protocol
+                              │
+                              └── executeBatch([approve, supply, record])
 ```
 
-Smart Wallet ใช้ฟังก์ชัน `execute()` เพื่อสั่งให้ตัวเองส่งเงินออกไป
-ฟังก์ชันนี้มีเฉพาะ owner เท่านั้นที่เรียกได้ (เพราะ Smart Wallet เป็น ERC-4337)
+### 7.6 `useAavePosition` - จัดการ Position ใน Aave
+
+```
+ไฟล์: src/hooks/useAavePosition.ts
+Input: ไม่มี
+Output: { position, loading, supply, borrow, withdraw, repay, getMaxBorrow, previewHealthFactor, marketData, assetPrices }
+```
+
+**ทำอะไร:**
+- **supply()** - ฝาก asset เข้า Aave เพื่อเป็น collateral
+- **borrow()** - ยืม asset โดยใช้ collateral ค้ำ (ต้องมี Health Factor > 1)
+- **withdraw()** - ถอน collateral ออก (ถ้า Health Factor ยังพอ)
+- **repay()** - คืน asset ที่ยืมไป
+- **getMaxBorrow()** - คำนวณจำนวนสูงสุดที่ยืมได้
+- **previewHealthFactor()** - จำลอง Health Factor ก่อนทำ transaction
+
+**Health Factor คืออะไร:**
+```
+Health Factor = (Total Collateral × Liquidation Threshold) / Total Borrowed
+
+ถ้า HF < 1 → จะถูก liquidate (ถูกยึด collateral)
+ถ้า HF > 1 → ปลอดภัย
+```
 
 ---
 
@@ -663,8 +698,9 @@ Lucide React + React Icons
 | **Blockchain** | `WagmiProvider.tsx`, `wagmi.ts` | เชื่อม chain |
 | **Smart Wallet** | `useSmartWallet.ts` | ดึง Smart Wallet address |
 | **Deploy** | `useCreateSmartAccount.ts` | สร้าง Town Hall |
-| **Deposit** | `useWithdrawToSmartWallet.ts` | ฝากเงิน EOA → Smart Wallet |
-| **Withdraw** | `useWithdrawFromSmartWallet.ts` | ถอนเงิน Smart Wallet → EOA |
+| **Deposit** | `useVaultDeposit.ts` | ฝากเงิน EOA → Smart Wallet |
+| **Withdraw** | `useVaultWithdraw.ts` | ถอนเงิน Smart Wallet → EOA |
+| **Aave** | `useAaveSupply.ts`, `useAavePosition.ts` | จัดการ Supply/Borrow บน Aave |
 | **Contract** | `addresses.ts`, `abis/*.ts` | ที่อยู่ + interface ของ contract |
 | **UI** | `components/landing/*` | หน้า Landing |
 | **Style** | `globals.css` | Tailwind + theme |
