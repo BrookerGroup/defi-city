@@ -193,7 +193,7 @@ contract MockAavePool is IAavePool {
 
     function getUserAccountData(
         address user
-    ) external view override returns (
+    ) public view override returns (
         uint256 totalCollateralBase,
         uint256 totalDebtBase,
         uint256 availableBorrowsBase,
@@ -351,10 +351,11 @@ contract MockAavePool is IAavePool {
     }
 
     /**
-     * @notice Mint tokens directly to this contract for liquidity (testing only)
+     * @notice Sync reserves with actual balance (testing only)
+     * @dev Call this after transferring tokens to the contract
      */
-    function addLiquidity(address asset, uint256 amount) external {
-        IERC20(asset).transferFrom(msg.sender, address(this), amount);
-        totalReserves[asset] += amount;
+    function addLiquidity(address asset, uint256 /* amount */) external {
+        // Simply sync totalReserves to actual balance
+        totalReserves[asset] = IERC20(asset).balanceOf(address(this));
     }
 }

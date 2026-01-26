@@ -86,11 +86,15 @@ contract MockAerodromePair is IAerodromePair {
 
         if (claimed0 > 0) {
             claimableFees0[msg.sender] = 0;
+            // Transfer token0 from pair to claimer
+            require(IERC20(token0).balanceOf(address(this)) >= claimed0, "Pair: insufficient token0");
             IERC20(token0).transfer(msg.sender, claimed0);
         }
 
         if (claimed1 > 0) {
             claimableFees1[msg.sender] = 0;
+            // Transfer token1 from pair to claimer
+            require(IERC20(token1).balanceOf(address(this)) >= claimed1, "Pair: insufficient token1");
             IERC20(token1).transfer(msg.sender, claimed1);
         }
 
@@ -108,21 +112,27 @@ contract MockAerodromePair is IAerodromePair {
 
     // ============ LP Token Functions ============
 
-    function mint(address to, uint256 amount0, uint256 amount1) external returns (uint256 liquidity) {
+    function mint(address to, uint256 /* amount0 */, uint256 /* amount1 */) external returns (uint256 liquidity) {
         uint256 balance0 = IERC20(token0).balanceOf(address(this));
         uint256 balance1 = IERC20(token1).balanceOf(address(this));
 
+        uint256 _reserve0 = reserve0; // gas savings
+        uint256 _reserve1 = reserve1;
         uint256 _totalSupply = totalSupply;
+
+        // Calculate actual amounts added by comparing balance to reserves
+        uint256 amount0 = balance0 - _reserve0;
+        uint256 amount1 = balance1 - _reserve1;
 
         if (_totalSupply == 0) {
             // First liquidity provider
             liquidity = _sqrt(amount0 * amount1) - MINIMUM_LIQUIDITY;
             _mint(address(0), MINIMUM_LIQUIDITY); // Lock minimum liquidity
         } else {
-            // Subsequent liquidity
+            // Subsequent liquidity - calculate based on proportion of reserves
             liquidity = _min(
-                (amount0 * _totalSupply) / reserve0,
-                (amount1 * _totalSupply) / reserve1
+                (amount0 * _totalSupply) / _reserve0,
+                (amount1 * _totalSupply) / _reserve1
             );
         }
 
@@ -229,6 +239,11 @@ contract MockAerodromePair is IAerodromePair {
      * @notice Simulate trading fees for testing
      * @dev Adds fees to a specific LP provider's claimable balance
      */
+    /**
+     * @notice Test helper to simulate trading fees for a user
+     * @dev NOTE: Pair must have sufficient token balance to pay out these fees
+     *      Call fundFeesForTesting() after this to transfer tokens to pair
+     */
     function addTradingFees(address user, uint256 amount0, uint256 amount1) external {
         if (amount0 > 0) {
             claimableFees0[user] += amount0;
@@ -240,6 +255,20 @@ contract MockAerodromePair is IAerodromePair {
         }
 
         emit FeesAdded(user, amount0, amount1);
+    }
+
+    /**
+     * @notice Test helper to fund pair with tokens for fee payouts
+     * @dev In tests, tokens should be transferred to pair before calling this
+     *      This function just verifies pair has enough balance
+     */
+    function fundFeesForTesting(uint256 amount0, uint256 amount1) external view {
+        if (amount0 > 0) {
+            require(IERC20(token0).balanceOf(address(this)) >= amount0, "Insufficient token0 in pair");
+        }
+        if (amount1 > 0) {
+            require(IERC20(token1).balanceOf(address(this)) >= amount1, "Insufficient token1 in pair");
+        }
     }
 
     /**
