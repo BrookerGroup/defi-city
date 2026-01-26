@@ -1,6 +1,6 @@
 /**
  * useAavePosition Hook
- * Manages user's Aave position with mock data (real integration later)
+ * Manages user's Aave position with real contract integration
  */
 
 import { useState, useCallback } from 'react'
@@ -12,6 +12,9 @@ import {
   AAVE_MARKET_DATA,
   ASSET_PRICES,
 } from '@/types/aave'
+import { useAaveSupply } from './useAaveSupply'
+import { usePrivy } from '@privy-io/react-auth'
+import { useSmartWallet } from './useContracts'
 
 // Initial empty position
 const EMPTY_POSITION: AaveUserPosition = {
@@ -79,60 +82,86 @@ function calculateNetAPY(
 export function useAavePosition() {
   const [position, setPosition] = useState<AaveUserPosition>(EMPTY_POSITION)
   const [loading, setLoading] = useState(false)
+  
+  // Get user address and smart wallet
+  const { user } = usePrivy()
+  const userAddress = user?.wallet?.address
+  const { smartWallet } = useSmartWallet(userAddress)
+  
+  // Real Aave supply hook
+  const { supply: realSupply, loading: supplyLoading, error: supplyError } = useAaveSupply()
 
-  // Supply asset
-  const supply = useCallback(async (asset: AaveAsset, amount: number) => {
+  // Supply asset - REAL INTEGRATION
+  // Note: x and y are optional - will auto-find empty position if not provided
+  const supply = useCallback(async (asset: AaveAsset, amount: number, x?: number, y?: number) => {
+    if (!userAddress || !smartWallet) {
+      return { 
+        success: false, 
+        error: 'Please connect wallet and create Smart Wallet first' 
+      }
+    }
+
     setLoading(true)
 
-    // Simulate transaction delay
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      // Call real supply function (will auto-find empty position if x/y not provided)
+      const result = await realSupply(userAddress, smartWallet, asset, amount, x, y)
+      
+      if (result.success) {
+        // Update local state optimistically (will be refreshed from blockchain later)
+        setPosition((prev) => {
+          const assetInfo = AAVE_MARKET_DATA.assets[asset]
+          const amountUSD = amount * ASSET_PRICES[asset]
 
-    setPosition((prev) => {
-      const assetInfo = AAVE_MARKET_DATA.assets[asset]
-      const amountUSD = amount * ASSET_PRICES[asset]
+          const existingIndex = prev.supplies.findIndex((s) => s.asset === asset)
+          let newSupplies: AaveSupplyPosition[]
+          
+          if (existingIndex >= 0) {
+            newSupplies = [...prev.supplies]
+            newSupplies[existingIndex] = {
+              ...newSupplies[existingIndex],
+              amount: newSupplies[existingIndex].amount + amount,
+              amountUSD: newSupplies[existingIndex].amountUSD + amountUSD,
+            }
+          } else {
+            newSupplies = [
+              ...prev.supplies,
+              {
+                asset,
+                amount,
+                amountUSD,
+                apy: assetInfo.supplyAPY,
+              },
+            ]
+          }
 
-      // Check if already has this asset supplied
-      const existingIndex = prev.supplies.findIndex((s) => s.asset === asset)
+          const totalSuppliedUSD = newSupplies.reduce((sum, s) => sum + s.amountUSD, 0)
+          const totalBorrowedUSD = prev.borrows.reduce((sum, b) => sum + b.amountUSD, 0)
+          const healthFactor = calculateHealthFactor(newSupplies, prev.borrows)
+          const netAPY = calculateNetAPY(newSupplies, prev.borrows, totalSuppliedUSD, totalBorrowedUSD)
 
-      let newSupplies: AaveSupplyPosition[]
-      if (existingIndex >= 0) {
-        newSupplies = [...prev.supplies]
-        newSupplies[existingIndex] = {
-          ...newSupplies[existingIndex],
-          amount: newSupplies[existingIndex].amount + amount,
-          amountUSD: newSupplies[existingIndex].amountUSD + amountUSD,
-        }
-      } else {
-        newSupplies = [
-          ...prev.supplies,
-          {
-            asset,
-            amount,
-            amountUSD,
-            apy: assetInfo.supplyAPY,
-          },
-        ]
+          return {
+            supplies: newSupplies,
+            borrows: prev.borrows,
+            totalSuppliedUSD,
+            totalBorrowedUSD,
+            netWorthUSD: totalSuppliedUSD - totalBorrowedUSD,
+            healthFactor,
+            netAPY,
+          }
+        })
       }
 
-      const totalSuppliedUSD = newSupplies.reduce((sum, s) => sum + s.amountUSD, 0)
-      const totalBorrowedUSD = prev.borrows.reduce((sum, b) => sum + b.amountUSD, 0)
-      const healthFactor = calculateHealthFactor(newSupplies, prev.borrows)
-      const netAPY = calculateNetAPY(newSupplies, prev.borrows, totalSuppliedUSD, totalBorrowedUSD)
-
+      setLoading(false)
+      return result
+    } catch (error: any) {
+      setLoading(false)
       return {
-        supplies: newSupplies,
-        borrows: prev.borrows,
-        totalSuppliedUSD,
-        totalBorrowedUSD,
-        netWorthUSD: totalSuppliedUSD - totalBorrowedUSD,
-        healthFactor,
-        netAPY,
+        success: false,
+        error: error.message || 'Supply failed'
       }
-    })
-
-    setLoading(false)
-    return { success: true }
-  }, [])
+    }
+  }, [userAddress, smartWallet, realSupply])
 
   // Borrow asset
   const borrow = useCallback(async (asset: AaveAsset, amount: number) => {

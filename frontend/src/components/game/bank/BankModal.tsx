@@ -1,9 +1,13 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { toast } from 'sonner'
+import { usePrivy } from '@privy-io/react-auth'
 import { AaveAsset, AAVE_MARKET_DATA, ASSET_PRICES } from '@/types/aave'
 import { useAavePosition } from '@/hooks/useAavePosition'
+import { useSmartWallet, useUserBuildings } from '@/hooks/useContracts'
+import { useTokenBalance } from '@/hooks'
 import { AssetSelector, AssetDropdown } from './AssetSelector'
 import { HealthFactorBar, RiskIndicator } from './HealthFactorBar'
 import { AavePositionPanel, BorrowingCapacity } from './AavePositionPanel'
@@ -17,6 +21,11 @@ interface BankModalProps {
 
 export function BankModal({ onClose, onConfirm }: BankModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('supply')
+  const { user } = usePrivy()
+  const userAddress = user?.wallet?.address
+  const { smartWallet } = useSmartWallet(userAddress)
+  const { buildings } = useUserBuildings(userAddress)
+  
   const {
     position,
     loading,
@@ -30,6 +39,17 @@ export function BankModal({ onClose, onConfirm }: BankModalProps) {
   // Supply tab state
   const [supplyAsset, setSupplyAsset] = useState<AaveAsset>('USDC')
   const [supplyAmount, setSupplyAmount] = useState('')
+  
+  // Get token balance for selected asset
+  const { balance: tokenBalance, loading: balanceLoading } = useTokenBalance(userAddress, supplyAsset)
+  
+  // Debug: Log smart wallet address (only once, not on every render)
+  useEffect(() => {
+    if (smartWallet && userAddress) {
+      console.log('Smart Wallet Address:', smartWallet)
+      console.log('User Address (EOA):', userAddress)
+    }
+  }, [smartWallet, userAddress])
 
   // Supply + Borrow tab state
   const [collateralAsset, setCollateralAsset] = useState<AaveAsset>('ETH')
@@ -61,13 +81,53 @@ export function BankModal({ onClose, onConfirm }: BankModalProps) {
   // Handle supply submit
   const handleSupply = async () => {
     const amount = parseFloat(supplyAmount)
-    if (isNaN(amount) || amount <= 0) return
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Please enter a valid amount')
+      return
+    }
 
-    const result = await supply(supplyAsset, amount)
-    if (result.success) {
-      setSupplyAmount('')
-      // Switch to position tab to show result
-      setActiveTab('position')
+    if (!userAddress) {
+      toast.error('Please connect your wallet first')
+      return
+    }
+
+    if (!smartWallet) {
+      toast.error('Please create a Smart Wallet first (create Town Hall)')
+      return
+    }
+
+    toast.loading('Supplying to Aave...', { id: 'supply' })
+    
+    try {
+      const result = await supply(supplyAsset, amount)
+      if (result.success) {
+        toast.success('Supply successful!', { 
+          id: 'supply',
+          description: 'Your tokens have been supplied to Aave Pool'
+        })
+        setSupplyAmount('')
+        // Switch to position tab to show result
+        setActiveTab('position')
+        onConfirm?.()
+      } else {
+        // Show detailed error with action button
+        const errorMsg = result.error || 'Supply failed'
+        toast.error(errorMsg, { 
+          id: 'supply',
+          duration: 10000, // Show longer for important errors
+          action: errorMsg.includes('Insufficient') ? {
+            label: 'Get Tokens',
+            onClick: () => {
+              window.open('https://www.coinbase.com/faucets/base-ethereum-goerli-faucet', '_blank')
+            }
+          } : undefined
+        })
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Supply failed', { 
+        id: 'supply',
+        duration: 10000
+      })
     }
   }
 
@@ -197,6 +257,18 @@ export function BankModal({ onClose, onConfirm }: BankModalProps) {
                 exit={{ opacity: 0, x: 20 }}
                 className="space-y-6"
               >
+                {/* Smart Wallet Info */}
+                {smartWallet && (
+                  <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Smart Wallet:</span>
+                      <span className="text-blue-400 font-mono">{smartWallet.slice(0, 6)}...{smartWallet.slice(-4)}</span>
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      💡 Tokens ไม่ต้องถูก transfer ไป Smart Wallet - supply จะใช้ tokens จาก EOA wallet ของคุณโดยตรง
+                    </div>
+                  </div>
+                )}
                 <SupplyTab
                   selectedAsset={supplyAsset}
                   onSelectAsset={setSupplyAsset}
@@ -205,6 +277,8 @@ export function BankModal({ onClose, onConfirm }: BankModalProps) {
                   onSubmit={handleSupply}
                   loading={loading}
                   marketData={marketData}
+                  tokenBalance={tokenBalance}
+                  balanceLoading={balanceLoading}
                 />
               </motion.div>
             )}
@@ -262,6 +336,8 @@ function SupplyTab({
   onSubmit,
   loading,
   marketData,
+  tokenBalance,
+  balanceLoading,
 }: {
   selectedAsset: AaveAsset
   onSelectAsset: (asset: AaveAsset) => void
@@ -270,11 +346,15 @@ function SupplyTab({
   onSubmit: () => void
   loading: boolean
   marketData: typeof AAVE_MARKET_DATA
+  tokenBalance?: string
+  balanceLoading?: boolean
 }) {
   const assetInfo = marketData.assets[selectedAsset]
   const amountNum = parseFloat(amount) || 0
   const usdValue = amountNum * ASSET_PRICES[selectedAsset]
   const yearlyEarnings = usdValue * (assetInfo.supplyAPY / 100)
+  const balanceNum = parseFloat(tokenBalance || '0')
+  const hasInsufficientBalance = amountNum > 0 && amountNum > balanceNum
 
   return (
     <div className="space-y-6">
@@ -290,22 +370,50 @@ function SupplyTab({
 
       {/* Amount Input */}
       <div>
-        <label className="block text-sm text-slate-400 mb-2">Amount</label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm text-slate-400">Amount</label>
+          {balanceLoading ? (
+            <span className="text-xs text-slate-500">Loading balance...</span>
+          ) : (
+            <span className="text-xs text-slate-400">
+              Balance: <span className={hasInsufficientBalance ? 'text-red-400' : 'text-slate-300'}>{tokenBalance || '0'} {selectedAsset}</span>
+            </span>
+          )}
+        </div>
         <div className="relative">
           <input
             type="number"
             value={amount}
             onChange={(e) => onAmountChange(e.target.value)}
             placeholder="0.00"
-            className="w-full px-4 py-4 rounded-xl bg-slate-800 border-2 border-slate-600
-              text-white text-xl font-medium placeholder-slate-500
-              focus:outline-none focus:border-blue-500 transition-colors"
+            className={`w-full px-4 py-4 rounded-xl bg-slate-800 border-2 text-white text-xl font-medium placeholder-slate-500
+              focus:outline-none transition-colors ${
+                hasInsufficientBalance 
+                  ? 'border-red-500 focus:border-red-500' 
+                  : 'border-slate-600 focus:border-blue-500'
+              }`}
           />
           <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
             {selectedAsset}
           </div>
+          {balanceNum > 0 && (
+            <button
+              type="button"
+              onClick={() => onAmountChange(balanceNum.toString())}
+              className="absolute right-16 top-1/2 -translate-y-1/2 text-xs text-blue-400 hover:text-blue-300"
+            >
+              MAX
+            </button>
+          )}
         </div>
-        {amountNum > 0 && (
+        {hasInsufficientBalance && (
+          <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded-lg">
+            <p className="text-xs text-red-400">
+              Insufficient balance. You need {amountNum.toFixed(6)} {selectedAsset} but only have {tokenBalance} {selectedAsset}.
+            </p>
+          </div>
+        )}
+        {amountNum > 0 && !hasInsufficientBalance && (
           <div className="flex items-center justify-between mt-2 text-sm">
             <span className="text-slate-400">
               ≈ ${usdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}

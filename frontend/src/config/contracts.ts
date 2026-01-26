@@ -6,9 +6,16 @@
 // Contract addresses - Base Sepolia Testnet
 export const CONTRACTS = {
   baseSepolia: {
-    WALLET_FACTORY: '0xD7e5Ef23F53c98a01b63e99A91e1547229579c7A',
-    DEFICITY_CORE: '0xaDc51D79177BA89E1b3c99994F95E5A825194e59',
-    ENTRY_POINT: '0x4290Cd4e3c7a781856c507EeaA02A4F8192d0922',
+    WALLET_FACTORY: '0x764f2D0F274d23B4cf51e5ae0c27e4020eD8ee2A',
+    DEFICITY_CORE: '0x641adC5d1e2AB02f772E86Dc3694d3e763fC549B',
+    ENTRY_POINT: '0x5864A489a25e8cE84b22903dc8f3038F6b0484f3',
+    BUILDING_REGISTRY: '0x4c85d20BEF9D52ae6f4dAA05DE758932A3042486',
+    BANK_ADAPTER: '0x16306E942AE4140ff4114C4548Bcb89500DaE5af',
+    AAVE_POOL_ADDRESSES_PROVIDER: '0xE4C23309117Aa30342BFaae6c95c6478e0A4Ad00',
+    // Token addresses (Base Sepolia)
+    USDC: '0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f',
+    USDT: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb',
+    WETH: '0x4200000000000000000000000000000000000006',
   },
   localhost: {
     WALLET_FACTORY: '',
@@ -60,6 +67,35 @@ export const ABIS = {
     // View functions
     'function owner() external view returns (address)',
     'function sessionKeys(address key) external view returns (tuple(bool active, uint256 validUntil, uint256 dailyLimit, uint256 spentToday, uint256 lastResetDay))',
+  ],
+
+  BUILDING_REGISTRY: [
+    'function preparePlace(address user, address userSmartWallet, string calldata buildingType, uint256 x, uint256 y, bytes calldata params) external view returns (address[] memory targets, uint256[] memory values, bytes[] memory datas)',
+    'function adapters(string calldata buildingType) external view returns (address)',
+    'function isRegistered(string calldata buildingType) external view returns (bool)',
+  ],
+
+  BANK_ADAPTER: [
+    'function preparePlace(address user, address userSmartWallet, bytes calldata params) external view returns (address[] memory targets, uint256[] memory values, bytes[] memory datas)',
+    'function BUILDING_TYPE() external pure returns (string memory)',
+  ],
+
+  ERC20: [
+    'function balanceOf(address account) external view returns (uint256)',
+    'function approve(address spender, uint256 amount) external returns (bool)',
+    'function allowance(address owner, address spender) external view returns (uint256)',
+    'function transfer(address to, uint256 amount) external returns (bool)',
+    'function transferFrom(address from, address to, uint256 amount) external returns (bool)',
+    'function decimals() external view returns (uint8)',
+    'function symbol() external view returns (string)',
+  ],
+
+  AAVE_POOL: [
+    'function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external',
+    'function withdraw(address asset, uint256 amount, address to) external returns (uint256)',
+    'function borrow(address asset, uint256 amount, uint256 interestRateMode, uint16 referralCode, address onBehalfOf) external',
+    'function repay(address asset, uint256 amount, uint256 rateMode, address onBehalfOf) external returns (uint256)',
+    'function getUserAccountData(address user) external view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)',
   ],
 } as const;
 
