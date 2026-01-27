@@ -21,15 +21,15 @@ jobs:
 
       - name: Install dependencies
         run: npm install
-        working-directory: ./frontend
+        working-directory: ./demo_frontend
 
       - name: Build project
         run: npm run build
-        working-directory: ./frontend
+        working-directory: ./demo_frontend
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: ./frontend/out
+          path: ./demo_frontend/out
 
   deploy:
     needs: build
