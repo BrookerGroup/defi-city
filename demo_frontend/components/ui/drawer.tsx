@@ -27,9 +27,9 @@ export function Drawer({ open, onOpenChange, children }: DrawerProps) {
 
   return (
     <>
-      {/* Overlay - darker background with blur */}
+      {/* Overlay - blur only */}
       <div
-        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40"
+        className="fixed inset-0 backdrop-blur-sm z-40"
         onClick={() => onOpenChange(false)}
       />
 

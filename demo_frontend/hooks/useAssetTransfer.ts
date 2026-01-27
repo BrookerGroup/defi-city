@@ -1,14 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useWriteContract, useSendTransaction, useWaitForTransactionReceipt } from "wagmi";
 import { ERC20_ABI } from "@/lib/config/tokens";
 import { SMART_WALLET_ABI } from "@/lib/contracts/SmartWallet";
 import { parseUnits, encodeFunctionData } from "viem";
 import { toast } from "sonner";
+import { getTxUrl } from "@/lib/utils/explorer";
 
 export function useAssetTransfer() {
   const [pendingTx, setPendingTx] = useState<string | null>(null);
+
+  // Track shown notifications to prevent duplicates
+  const shownNotifications = useRef<Set<string>>(new Set());
 
   // For ERC20 transfers
   const { writeContract: writeERC20, data: erc20Hash } = useWriteContract();
@@ -16,12 +20,40 @@ export function useAssetTransfer() {
   // For ETH transfers
   const { sendTransaction: sendETH, data: ethHash } = useSendTransaction();
 
+  const txHash = (erc20Hash || ethHash) as `0x${string}` | undefined;
+
   // Wait for transaction confirmation
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
-    hash: (erc20Hash || ethHash) as `0x${string}` | undefined,
+    hash: txHash,
   });
 
   const isPending = isConfirming;
+
+  // Show confirmation notification
+  useEffect(() => {
+    if (isConfirmed && txHash) {
+      const notificationKey = `confirmed-${txHash}`;
+
+      // Check if we already showed this notification
+      if (shownNotifications.current.has(notificationKey)) {
+        return;
+      }
+
+      const explorerUrl = getTxUrl(txHash);
+
+      toast.success("Transaction Confirmed!", {
+        duration: 10000,
+        action: {
+          label: "View on Explorer",
+          onClick: () => window.open(explorerUrl, "_blank", "noopener,noreferrer"),
+        },
+      });
+
+      shownNotifications.current.add(notificationKey);
+      setPendingTx(null);
+      console.log("[useAssetTransfer] Transaction confirmed:", txHash);
+    }
+  }, [isConfirmed, txHash]);
 
   /**
    * Deposit assets from EOA to AA wallet (Smart Wallet)
@@ -55,7 +87,6 @@ export function useAssetTransfer() {
         });
 
         console.log("[useAssetTransfer] ETH transaction sent");
-        toast.success("Depositing ETH to Smart Wallet...");
       } else {
         // Deposit ERC20
         const value = parseUnits(amount, decimals);
@@ -75,7 +106,6 @@ export function useAssetTransfer() {
         });
 
         console.log("[useAssetTransfer] ERC20 transfer transaction sent");
-        toast.success("Depositing tokens to Smart Wallet...");
       }
     } catch (error: any) {
       console.error("[useAssetTransfer] Deposit error:", error);
@@ -127,7 +157,6 @@ export function useAssetTransfer() {
         });
 
         console.log("[useAssetTransfer] ETH withdraw transaction sent");
-        toast.success("Withdrawing ETH from Smart Wallet...");
       } else {
         // Withdraw ERC20: SmartWallet.execute(tokenAddress, 0, encodedTransfer)
         const transferCalldata = encodeFunctionData({
@@ -151,7 +180,6 @@ export function useAssetTransfer() {
         });
 
         console.log("[useAssetTransfer] ERC20 withdraw transaction sent");
-        toast.success("Withdrawing tokens from Smart Wallet...");
       }
     } catch (error: any) {
       console.error("[useAssetTransfer] Withdraw error:", error);

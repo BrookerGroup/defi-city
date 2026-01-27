@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Building } from "@/types";
 import { useWalletBalances } from "@/hooks/useWalletBalances";
 import { useAssetTransfer } from "@/hooks/useAssetTransfer";
+import { useCityStats } from "@/hooks/useCityStats";
 import { toast } from "sonner";
 
 interface TownHallModalProps {
@@ -49,6 +50,9 @@ export function TownHallModal({
   const { assets: eoaAssets, isLoading: eoaLoading } = useWalletBalances(eoaAddress);
   const { assets: aaAssets, isLoading: aaLoading } = useWalletBalances(aaAddress);
 
+  // Calculate city stats from Smart Wallet assets
+  const cityStats = useCityStats(aaAssets);
+
   // Asset transfer hook
   const { deposit, withdraw, isPending, isConfirmed } = useAssetTransfer();
 
@@ -65,11 +69,11 @@ export function TownHallModal({
     setAmount("");
   }, [activeTab]);
 
-  // Refetch balances after transaction confirms
+  // Close modal after transaction confirms
   useEffect(() => {
     if (isConfirmed) {
-      toast.success("Transaction confirmed!");
       onOpenChange(false);
+      // Note: Toast notification with explorer link is handled by useAssetTransfer hook
     }
   }, [isConfirmed, onOpenChange]);
 
@@ -134,6 +138,29 @@ export function TownHallModal({
               : "Manage your assets"}
           </DialogDescription>
         </DialogHeader>
+
+        {/* City Stats */}
+        <div className="grid grid-cols-2 gap-4 py-4">
+          <Card className="p-4">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Total Value</p>
+              <p className="text-2xl font-bold">${cityStats.totalValue}</p>
+              <p className="text-xs text-muted-foreground">
+                {cityStats.totalValueETH} ETH
+              </p>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">APR</p>
+              <p className="text-2xl font-bold text-green-600">{cityStats.apr}%</p>
+              <p className="text-xs text-muted-foreground">
+                ${cityStats.yieldPerDay}/day
+              </p>
+            </div>
+          </Card>
+        </div>
 
         {/* Tabs */}
         <div className="flex gap-2 border-b">

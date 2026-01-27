@@ -12,7 +12,7 @@ interface GridProps {
 }
 
 export function Grid({ buildings, onCellClick, onBuildingClick, disabled }: GridProps) {
-  const GRID_SIZE = 10;
+  const GRID_SIZE = 6;
 
   console.log("[Grid] Received buildings:", buildings, "count:", buildings.length);
 
@@ -41,11 +41,14 @@ export function Grid({ buildings, onCellClick, onBuildingClick, disabled }: Grid
   }, [buildingMap]);
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-4">
+    <div className="w-full h-full flex items-center justify-center py-8 px-4">
       <div
         className="grid gap-2"
         style={{
           gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
+          maxWidth: "min(80vw, 70vh)",
+          aspectRatio: "1 / 1",
+          width: "100%",
         }}
       >
         {cells.map(({ x, y, building }) => (

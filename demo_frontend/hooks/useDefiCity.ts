@@ -1,11 +1,17 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { DEFICITY_CORE_ADDRESS, DEFICITY_CORE_ABI } from "@/lib/contracts/DefiCityCore";
-import { Building, UserStats } from "@/types";
+import { Building } from "@/types";
+import { toast } from "sonner";
+import { getTxUrl } from "@/lib/utils/explorer";
 
 export function useDefiCity(address?: string) {
   console.log("[useDefiCity] Hook called with address:", address);
+
+  // Track shown notifications to prevent duplicates
+  const shownNotifications = useRef<Set<string>>(new Set());
 
   // Read user's buildings
   const { data: buildings, refetch: refetchBuildings } = useReadContract({
@@ -19,17 +25,6 @@ export function useDefiCity(address?: string) {
   });
 
   console.log("[useDefiCity] Buildings data:", buildings);
-
-  // Read user stats
-  const { data: stats, refetch: refetchStats } = useReadContract({
-    address: DEFICITY_CORE_ADDRESS,
-    abi: DEFICITY_CORE_ABI,
-    functionName: "getUserStats",
-    args: address ? [address as `0x${string}`] : undefined,
-    query: {
-      enabled: !!address,
-    },
-  });
 
   // Check if user has wallet
   const { data: hasWallet } = useReadContract({
@@ -54,6 +49,31 @@ export function useDefiCity(address?: string) {
   console.log("[useDefiCity] Transaction hash:", hash);
   console.log("[useDefiCity] isPending:", isPending, "isConfirming:", isConfirming, "isConfirmed:", isConfirmed);
 
+  // Show confirmation notification
+  useEffect(() => {
+    if (isConfirmed && hash) {
+      const notificationKey = `confirmed-${hash}`;
+
+      // Check if we already showed this notification
+      if (shownNotifications.current.has(notificationKey)) {
+        return;
+      }
+
+      const explorerUrl = getTxUrl(hash);
+
+      toast.success("Town Hall Created Successfully!", {
+        duration: 10000,
+        action: {
+          label: "View on Explorer",
+          onClick: () => window.open(explorerUrl, "_blank", "noopener,noreferrer"),
+        },
+      });
+
+      shownNotifications.current.add(notificationKey);
+      console.log("[useDefiCity] Transaction confirmed:", hash);
+    }
+  }, [isConfirmed, hash]);
+
   const createTownHall = async (x: number, y: number) => {
     console.log("[useDefiCity] Creating Town Hall at:", x, y);
     writeContract({
@@ -69,12 +89,10 @@ export function useDefiCity(address?: string) {
 
   return {
     buildings: buildingsArray,
-    stats: stats as UserStats | undefined,
     hasWallet: hasWallet as boolean | undefined,
     createTownHall,
     isPending: isPending || isConfirming,
     isConfirmed,
     refetchBuildings,
-    refetchStats,
   };
 }

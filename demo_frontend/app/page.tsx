@@ -6,7 +6,6 @@ import { WalletConnect } from "@/components/wallet/WalletConnect";
 import { Grid } from "@/components/grid/Grid";
 import { PlaceBuildingModal } from "@/components/modals/PlaceBuildingModal";
 import { TownHallModal } from "@/components/modals/TownHallModal";
-import { PortfolioPanel } from "@/components/portfolio/PortfolioPanel";
 import { BuildingMenu } from "@/components/building/BuildingMenu";
 import { Drawer } from "@/components/ui/drawer";
 import { useDefiCity } from "@/hooks/useDefiCity";
@@ -52,7 +51,6 @@ export default function Home() {
 
   const {
     buildings,
-    stats,
     hasWallet,
     createTownHall,
     isPending,
@@ -110,7 +108,7 @@ export default function Home() {
 
     try {
       await createTownHall(selectedCell.x, selectedCell.y);
-      toast.success("Transaction submitted! Placing Town Hall...");
+      // Note: Toast notification with explorer link is handled by useDefiCity hook
     } catch (error: any) {
       console.error(error);
       toast.error(error?.message || "Failed to place Town Hall");
@@ -122,18 +120,18 @@ export default function Home() {
     console.log("[Page] isConfirmed changed:", isConfirmed);
     if (isConfirmed) {
       console.log("[Page] Transaction confirmed! Refetching buildings...");
-      toast.success("Town Hall placed successfully!");
       setModalOpen(false);
       refetchBuildings().then((result) => {
         console.log("[Page] Refetch result:", result);
       });
+      // Note: Toast notification with explorer link is handled by useDefiCity hook
     }
   }, [isConfirmed, refetchBuildings]);
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="h-screen flex flex-col bg-background">
       {/* Header */}
-      <header className="border-b">
+      <header className="border-b flex-shrink-0">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">DeFi City</h1>
@@ -146,13 +144,10 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <div className="container mx-auto py-8 space-y-6">
-        {/* Portfolio Stats */}
-        <PortfolioPanel stats={stats} buildingCount={buildings.length} />
-
+      <div className="flex-1 flex items-center justify-center overflow-hidden">
         {/* Empty State or Main Content */}
         {!authenticated ? (
-          <div className="flex flex-col items-center justify-center py-20">
+          <div className="flex flex-col items-center justify-center">
             <div className="text-6xl mb-4">🏙️</div>
             <h2 className="text-2xl font-bold mb-2">Welcome to DeFi City</h2>
             <p className="text-muted-foreground mb-6 text-center max-w-md">
@@ -160,15 +155,12 @@ export default function Home() {
             </p>
           </div>
         ) : (
-          <div className="flex justify-center">
-            {/* Map Grid */}
-            <Grid
-              buildings={buildings}
-              onCellClick={handleCellClick}
-              onBuildingClick={handleBuildingClick}
-              disabled={isPending}
-            />
-          </div>
+          <Grid
+            buildings={buildings}
+            onCellClick={handleCellClick}
+            onBuildingClick={handleBuildingClick}
+            disabled={isPending}
+          />
         )}
       </div>
 

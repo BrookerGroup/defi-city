@@ -17,7 +17,7 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 bg-black/80 backdrop-blur-sm",
+      "fixed inset-0 backdrop-blur-sm",
       className
     )}
     style={{ zIndex: 50 }}
