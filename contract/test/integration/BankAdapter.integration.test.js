@@ -1,24 +1,29 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
-const {
+import { expect  } from "chai";
+// Note: ethers will be obtained from network.connect()
+import hre from "hardhat";
+import {
   verifyNetwork,
   checkBalance,
   checkTokenBalance,
   waitForTx
-} = require("./helpers/networkHelpers");
-const {
+
+} from "./helpers/networkHelpers.js";
+import {
   getAllAddresses,
   attachContracts,
   verifyAllDeployed,
   getDeploymentInfo
-} = require("./helpers/deploymentLoader");
+
+} from "./helpers/deploymentLoader.js";
 
 describe("BankAdapter Integration Tests - Base Sepolia", function() {
+  let ethers;
+  let TEST_AMOUNT_USDC;
+  let MIN_ETH;
+
   // Configuration
   const NETWORK_TIMEOUT = 60000; // 1 minute for testnet transactions
   const CONFIRMATION_BLOCKS = 1;
-  const TEST_AMOUNT_USDC = ethers.parseUnits("100", 6); // 100 USDC
-  const MIN_ETH = ethers.parseEther("0.01"); // 0.01 ETH minimum
 
   let deployer;
   let addresses;
@@ -27,6 +32,14 @@ describe("BankAdapter Integration Tests - Base Sepolia", function() {
 
   // Set timeout for all tests
   this.timeout(NETWORK_TIMEOUT * 3);
+
+  before(async function () {
+    ({ ethers } = await hre.network.connect());
+
+    // Initialize constants that need ethers
+    TEST_AMOUNT_USDC = ethers.parseUnits("100", 6); // 100 USDC
+    MIN_ETH = ethers.parseEther("0.01"); // 0.01 ETH minimum
+  });
 
   before(async function() {
     console.log("\n========================================");
@@ -38,10 +51,10 @@ describe("BankAdapter Integration Tests - Base Sepolia", function() {
 
     try {
       // Verify network
-      await verifyNetwork();
+      await verifyNetwork(ethers);
 
       // Check deployer balance
-      const hasBalance = await checkBalance(deployer.address, MIN_ETH);
+      const hasBalance = await checkBalance(ethers, deployer.address, MIN_ETH);
       if (!hasBalance) {
         console.log("\n⚠️  Skipping tests - insufficient ETH balance");
         this.skip();
@@ -55,17 +68,17 @@ describe("BankAdapter Integration Tests - Base Sepolia", function() {
       console.log(`Integration deployed: ${deploymentInfo.integrationDeployedAt}`);
 
       // Verify contracts deployed
-      const allDeployed = await verifyAllDeployed(addresses);
+      const allDeployed = await verifyAllDeployed(ethers, addresses);
       if (!allDeployed) {
         console.log("\n⚠️  Skipping tests - contracts not deployed");
         this.skip();
       }
 
       // Attach to contracts
-      contracts = await attachContracts(addresses);
+      contracts = await attachContracts(ethers, addresses);
 
       // Check token balance
-      const hasTokens = await checkTokenBalance(
+      const hasTokens = await checkTokenBalance(ethers, 
         contracts.usdc,
         deployer.address,
         TEST_AMOUNT_USDC,

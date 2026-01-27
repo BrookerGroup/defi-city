@@ -1,8 +1,14 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
-const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
+import { expect  } from "chai";
+// Note: ethers will be obtained from network.connect()
+import hre from "hardhat";
 
 describe("DefiCityCore", function () {
+  let ethers;
+
+  before(async function () {
+    ({ ethers } = await hre.network.connect());
+  });
+
   // Fixture to deploy contracts
   async function deployDefiCityFixture() {
     const [owner, user1, user2, treasury] = await ethers.getSigners();
@@ -41,7 +47,7 @@ describe("DefiCityCore", function () {
 
   describe("Town Hall Creation", function () {
     it("Should successfully create Town Hall for new user", async function () {
-      const { core, factory, user1 } = await loadFixture(deployDefiCityFixture);
+      const { core, factory, user1 } = await deployDefiCityFixture();
 
       const x = 5;
       const y = 5;
@@ -90,7 +96,7 @@ describe("DefiCityCore", function () {
     });
 
     it("Should revert if user already has a wallet", async function () {
-      const { core, user1 } = await loadFixture(deployDefiCityFixture);
+      const { core, user1 } = await deployDefiCityFixture();
 
       // Create first Town Hall
       await core.connect(user1).createTownHall(5, 5);
@@ -102,7 +108,7 @@ describe("DefiCityCore", function () {
     });
 
     it("Should revert if grid position is occupied (same user)", async function () {
-      const { core, user1 } = await loadFixture(deployDefiCityFixture);
+      const { core, user1 } = await deployDefiCityFixture();
 
       const x = 5;
       const y = 5;
@@ -116,7 +122,7 @@ describe("DefiCityCore", function () {
     });
 
     it("Should allow different users to create Town Halls at same grid position", async function () {
-      const { core, user1, user2 } = await loadFixture(deployDefiCityFixture);
+      const { core, user1, user2 } = await deployDefiCityFixture();
 
       const x = 5;
       const y = 5;
@@ -138,7 +144,7 @@ describe("DefiCityCore", function () {
     });
 
     it("Should increment buildingIdCounter correctly", async function () {
-      const { core, user1, user2 } = await loadFixture(deployDefiCityFixture);
+      const { core, user1, user2 } = await deployDefiCityFixture();
 
       // Get initial counter
       const initialCounter = await core.buildingIdCounter();
@@ -169,7 +175,7 @@ describe("DefiCityCore", function () {
     });
 
     it("Should emit BuildingPlaced event with correct parameters", async function () {
-      const { core, user1 } = await loadFixture(deployDefiCityFixture);
+      const { core, user1 } = await deployDefiCityFixture();
 
       const x = 10;
       const y = 20;
@@ -197,7 +203,7 @@ describe("DefiCityCore", function () {
     });
 
     it("Should create unique SmartWallet for each user", async function () {
-      const { core, user1, user2 } = await loadFixture(deployDefiCityFixture);
+      const { core, user1, user2 } = await deployDefiCityFixture();
 
       // Create Town Halls for both users
       await core.connect(user1).createTownHall(5, 5);
@@ -218,7 +224,7 @@ describe("DefiCityCore", function () {
     });
 
     it("Should initialize user stats correctly", async function () {
-      const { core, user1 } = await loadFixture(deployDefiCityFixture);
+      const { core, user1 } = await deployDefiCityFixture();
 
       // Get stats before
       const statsBefore = await core.getUserStats(user1.address);
@@ -241,7 +247,7 @@ describe("DefiCityCore", function () {
     });
 
     it("Should add building to userBuildings array", async function () {
-      const { core, user1 } = await loadFixture(deployDefiCityFixture);
+      const { core, user1 } = await deployDefiCityFixture();
 
       // Create Town Hall
       const tx = await core.connect(user1).createTownHall(5, 5);
@@ -258,17 +264,17 @@ describe("DefiCityCore", function () {
     });
 
     it("Should work when contract is not paused", async function () {
-      const { core, user1 } = await loadFixture(deployDefiCityFixture);
+      const { core, user1 } = await deployDefiCityFixture();
 
       // Verify not paused
       expect(await core.paused()).to.be.false;
 
       // Should succeed
-      await expect(core.connect(user1).createTownHall(5, 5)).to.not.be.reverted;
+      await core.connect(user1).createTownHall(5, 5);
     });
 
     it("Should revert when contract is paused", async function () {
-      const { core, owner, user1 } = await loadFixture(deployDefiCityFixture);
+      const { core, owner, user1 } = await deployDefiCityFixture();
 
       // Pause contract
       await core.connect(owner).pause();
@@ -283,7 +289,7 @@ describe("DefiCityCore", function () {
 
   describe("Grid Management", function () {
     it("Should correctly track building position in user's grid", async function () {
-      const { core, user1 } = await loadFixture(deployDefiCityFixture);
+      const { core, user1 } = await deployDefiCityFixture();
 
       const x = 15;
       const y = 25;
@@ -299,7 +305,7 @@ describe("DefiCityCore", function () {
     });
 
     it("Should return empty building for unoccupied position", async function () {
-      const { core, user1 } = await loadFixture(deployDefiCityFixture);
+      const { core, user1 } = await deployDefiCityFixture();
 
       // Create Town Hall at (5, 5)
       await core.connect(user1).createTownHall(5, 5);
@@ -310,7 +316,7 @@ describe("DefiCityCore", function () {
     });
 
     it("Should maintain separate grids for different users", async function () {
-      const { core, user1, user2 } = await loadFixture(deployDefiCityFixture);
+      const { core, user1, user2 } = await deployDefiCityFixture();
 
       const x = 7;
       const y = 7;
@@ -335,15 +341,15 @@ describe("DefiCityCore", function () {
 
   describe("Access Control", function () {
     it("Should allow any user to create their first Town Hall", async function () {
-      const { core, user1, user2 } = await loadFixture(deployDefiCityFixture);
+      const { core, user1, user2 } = await deployDefiCityFixture();
 
       // Both users should be able to create Town Hall
-      await expect(core.connect(user1).createTownHall(5, 5)).to.not.be.reverted;
-      await expect(core.connect(user2).createTownHall(5, 5)).to.not.be.reverted;
+      await core.connect(user1).createTownHall(5, 5);
+      await core.connect(user2).createTownHall(5, 5);
     });
 
     it("Should not allow creating Town Hall for someone else", async function () {
-      const { core, user1 } = await loadFixture(deployDefiCityFixture);
+      const { core, user1 } = await deployDefiCityFixture();
 
       // User creating Town Hall is always msg.sender
       // So this test verifies that the owner is always the caller
@@ -356,7 +362,7 @@ describe("DefiCityCore", function () {
 
   describe("Integration Tests", function () {
     it("Should create complete town hall setup in one transaction", async function () {
-      const { core, factory, user1 } = await loadFixture(deployDefiCityFixture);
+      const { core, factory, user1 } = await deployDefiCityFixture();
 
       const x = 3;
       const y = 4;
@@ -390,7 +396,7 @@ describe("DefiCityCore", function () {
     });
 
     it("Should handle multiple users creating town halls simultaneously", async function () {
-      const { core, user1, user2 } = await loadFixture(deployDefiCityFixture);
+      const { core, user1, user2 } = await deployDefiCityFixture();
 
       // Create Town Halls for multiple users
       const tx1 = core.connect(user1).createTownHall(1, 1);

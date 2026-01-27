@@ -1,8 +1,13 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
-const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
+import { expect  } from "chai";
+// Note: ethers will be obtained from network.connect()
+import hre from "hardhat";
 
 describe("ShopAdapter E2E with SmartWallet and MockAerodrome", function () {
+  let ethers;
+
+  before(async function () {
+    ({ ethers } = await hre.network.connect());
+  });
 
   // Fixture to deploy complete ecosystem
   async function deployShopEcosystemFixture() {
@@ -84,7 +89,7 @@ describe("ShopAdapter E2E with SmartWallet and MockAerodrome", function () {
 
   describe("Add Liquidity E2E Flow", function () {
     it("Should complete full LP provision flow: User -> SmartWallet -> ShopAdapter -> MockAerodrome", async function () {
-      const { core, usdc, weth, mockRouter, shopAdapter, user1 } = await loadFixture(deployShopEcosystemFixture);
+      const { core, usdc, weth, mockRouter, shopAdapter, user1 } = await deployShopEcosystemFixture();
 
       // Step 1: User creates Town Hall (gets SmartWallet)
       await core.connect(user1).createTownHall(5, 5);
@@ -176,7 +181,7 @@ describe("ShopAdapter E2E with SmartWallet and MockAerodrome", function () {
     });
 
     it("Should create stable pool when stable=true", async function () {
-      const { core, usdc, weth, mockRouter, shopAdapter, user1 } = await loadFixture(deployShopEcosystemFixture);
+      const { core, usdc, weth, mockRouter, shopAdapter, user1 } = await deployShopEcosystemFixture();
 
       // Setup
       await core.connect(user1).createTownHall(5, 5);
@@ -223,7 +228,7 @@ describe("ShopAdapter E2E with SmartWallet and MockAerodrome", function () {
 
   describe("Harvest (Claim Fees) E2E Flow", function () {
     it("Should claim trading fees from LP position", async function () {
-      const { core, usdc, weth, mockRouter, shopAdapter, owner, user1 } = await loadFixture(deployShopEcosystemFixture);
+      const { core, usdc, weth, mockRouter, shopAdapter, owner, user1 } = await deployShopEcosystemFixture();
 
       // Setup: Create Town Hall and add liquidity
       await core.connect(user1).createTownHall(5, 5);
@@ -321,7 +326,7 @@ describe("ShopAdapter E2E with SmartWallet and MockAerodrome", function () {
     });
 
     it("Should claim both trading fees and AERO rewards when staked in gauge", async function () {
-      const { core, usdc, weth, aero, mockRouter, shopAdapter, owner, user1 } = await loadFixture(deployShopEcosystemFixture);
+      const { core, usdc, weth, aero, mockRouter, shopAdapter, owner, user1 } = await deployShopEcosystemFixture();
 
       // Setup and add liquidity
       await core.connect(user1).createTownHall(5, 5);
@@ -416,7 +421,7 @@ describe("ShopAdapter E2E with SmartWallet and MockAerodrome", function () {
 
   describe("Demolish (Remove Liquidity) E2E Flow", function () {
     it("Should remove liquidity and return underlying tokens", async function () {
-      const { core, usdc, weth, mockRouter, shopAdapter, user1 } = await loadFixture(deployShopEcosystemFixture);
+      const { core, usdc, weth, mockRouter, shopAdapter, user1 } = await deployShopEcosystemFixture();
 
       // Setup and add liquidity
       await core.connect(user1).createTownHall(5, 5);
@@ -496,7 +501,7 @@ describe("ShopAdapter E2E with SmartWallet and MockAerodrome", function () {
 
   describe("Multiple Users and Pools", function () {
     it("Should handle multiple users providing liquidity to same pool", async function () {
-      const { core, usdc, weth, mockRouter, shopAdapter, user1, user2 } = await loadFixture(deployShopEcosystemFixture);
+      const { core, usdc, weth, mockRouter, shopAdapter, user1, user2 } = await deployShopEcosystemFixture();
 
       // Setup both users
       await core.connect(user1).createTownHall(5, 5);

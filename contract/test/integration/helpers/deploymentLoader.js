@@ -1,16 +1,21 @@
-const { ethers } = require("hardhat");
-const fs = require("fs");
-const path = require("path");
+import hre from "hardhat";
+import { readFileSync, existsSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+import { isContractDeployed } from "./networkHelpers.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /**
  * Deployment loader utilities for integration tests
  */
 
-const DEPLOYMENTS_DIR = path.join(__dirname, "../../../deployments");
+const DEPLOYMENTS_DIR = join(__dirname, "../../../deployments");
 
 // Auto-detect network from hardhat config
 function getDeploymentFiles() {
-  const network = require("hardhat").network.name;
+  const network = hre.network.name;
 
   if (network === "localhost" || network === "hardhat") {
     return {
@@ -32,16 +37,16 @@ function getDeploymentFiles() {
  */
 function loadCoreDeployment(network) {
   const files = getDeploymentFiles();
-  const filePath = path.join(DEPLOYMENTS_DIR, files.core);
+  const filePath = join(DEPLOYMENTS_DIR, files.core);
 
-  if (!fs.existsSync(filePath)) {
+  if (!existsSync(filePath)) {
     throw new Error(
       `Core deployment file not found: ${filePath}\n` +
       `Please deploy contracts first: npm run deploy:integration:local (or deploy:integration)`
     );
   }
 
-  const deployment = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  const deployment = JSON.parse(readFileSync(filePath, "utf8"));
   console.log(`✓ Loaded core deployment from ${files.core}`);
 
   // For localhost, core contracts are in the same file
@@ -63,16 +68,16 @@ function loadCoreDeployment(network) {
  */
 function loadIntegrationDeployment(network) {
   const files = getDeploymentFiles();
-  const filePath = path.join(DEPLOYMENTS_DIR, files.integration);
+  const filePath = join(DEPLOYMENTS_DIR, files.integration);
 
-  if (!fs.existsSync(filePath)) {
+  if (!existsSync(filePath)) {
     throw new Error(
       `Integration deployment file not found: ${filePath}\n` +
       `Please deploy integration contracts first: npm run deploy:integration:local (or deploy:integration)`
     );
   }
 
-  const deployment = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  const deployment = JSON.parse(readFileSync(filePath, "utf8"));
   console.log(`✓ Loaded integration deployment from ${files.integration}`);
   return deployment;
 }
@@ -112,10 +117,11 @@ function getAllAddresses() {
 
 /**
  * Attach to deployed contracts
+ * @param {object} ethers - Ethers instance from network connection
  * @param {Object} addresses - Contract addresses
  * @returns {Promise<Object>} Attached contract instances
  */
-async function attachContracts(addresses) {
+async function attachContracts(ethers, addresses) {
   console.log("Attaching to deployed contracts...");
 
   // Core contracts
@@ -165,13 +171,12 @@ async function attachContracts(addresses) {
 
 /**
  * Verify all contracts are deployed
+ * @param {object} ethers - Ethers instance from network connection
  * @param {Object} addresses - Contract addresses to verify
  * @returns {Promise<boolean>} true if all contracts deployed
  */
-async function verifyAllDeployed(addresses) {
+async function verifyAllDeployed(ethers, addresses) {
   console.log("Verifying contract deployments...");
-
-  const { isContractDeployed } = require("./networkHelpers");
 
   const checks = [
     { name: "EntryPoint", address: addresses.core.entryPoint },
@@ -189,7 +194,7 @@ async function verifyAllDeployed(addresses) {
   ];
 
   for (const check of checks) {
-    const deployed = await isContractDeployed(check.address);
+    const deployed = await isContractDeployed(ethers, check.address);
     if (!deployed) {
       console.error(`❌ ${check.name} not deployed at ${check.address}`);
       return false;
@@ -219,7 +224,7 @@ function getDeploymentInfo() {
   };
 }
 
-module.exports = {
+export {
   loadCoreDeployment,
   loadIntegrationDeployment,
   getAllAddresses,

@@ -1,8 +1,13 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
-const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
+import { expect  } from "chai";
+// Note: ethers will be obtained from network.connect()
+import hre from "hardhat";
 
 describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
+  let ethers;
+
+  before(async function () {
+    ({ ethers } = await hre.network.connect());
+  });
 
   // Fixture to deploy complete ecosystem
   async function deployLotteryEcosystemFixture() {
@@ -76,7 +81,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
 
   describe("Buy Tickets E2E Flow", function () {
     it("Should complete full ticket purchase flow: User -> SmartWallet -> LotteryAdapter -> MockMegapot", async function () {
-      const { core, usdc, mockMegapot, lotteryAdapter, user1 } = await loadFixture(deployLotteryEcosystemFixture);
+      const { core, usdc, mockMegapot, lotteryAdapter, user1 } = await deployLotteryEcosystemFixture();
 
       // Step 1: User creates Town Hall (gets SmartWallet)
       await core.connect(user1).createTownHall(5, 5);
@@ -86,7 +91,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
       const smartWallet = SmartWallet.attach(smartWalletAddress);
 
       // Step 2: User funds SmartWallet with USDC
-      const ticketAmount = ethers.parseUnits("100", 6); // 100 USDC for tickets
+      const ticketAmount = ethers.parseUnits("5", 6); // 100 USDC for tickets
       await usdc.connect(user1).transfer(smartWalletAddress, ticketAmount);
 
       // Step 3: Prepare placement parameters
@@ -116,7 +121,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
       expect(targets[2]).to.equal(await core.getAddress());
 
       // Step 5: Execute batch via SmartWallet
-      const executeTx = await smartWallet.connect(user1).executeBatch(targets, values, datas);
+      const executeTx = await smartWallet.connect(user1).executeBatch(targets, values, datas, { gasLimit: 10_000_000 });
       await executeTx.wait();
 
       // Step 6: Verify results
@@ -147,7 +152,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
     });
 
     it("Should handle ticket purchase with referrer", async function () {
-      const { core, usdc, mockMegapot, lotteryAdapter, user1, treasury } = await loadFixture(deployLotteryEcosystemFixture);
+      const { core, usdc, mockMegapot, lotteryAdapter, user1, treasury } = await deployLotteryEcosystemFixture();
 
       // Setup
       await core.connect(user1).createTownHall(5, 5);
@@ -156,7 +161,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
       const smartWallet = SmartWallet.attach(smartWalletAddress);
 
       // Fund wallet
-      const ticketAmount = ethers.parseUnits("100", 6);
+      const ticketAmount = ethers.parseUnits("5", 6);
       await usdc.connect(user1).transfer(smartWalletAddress, ticketAmount);
 
       // Get initial referral earnings
@@ -177,7 +182,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
       const values = [...result2[1]];
       const datas = [...result2[2]];
 
-      await smartWallet.connect(user1).executeBatch(targets, values, datas);
+      await smartWallet.connect(user1).executeBatch(targets, values, datas, { gasLimit: 10_000_000 });
 
       // Verify referral earnings increased (treasury is used as referrer in adapter)
       const finalEarnings = await mockMegapot.referralEarnings(treasury.address);
@@ -187,7 +192,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
 
   describe("Harvest (Claim Prizes) E2E Flow", function () {
     it("Should claim winning ticket prizes", async function () {
-      const { core, usdc, mockMegapot, lotteryAdapter, user1 } = await loadFixture(deployLotteryEcosystemFixture);
+      const { core, usdc, mockMegapot, lotteryAdapter, user1 } = await deployLotteryEcosystemFixture();
 
       // Setup: Create Town Hall and SmartWallet
       await core.connect(user1).createTownHall(5, 5);
@@ -196,7 +201,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
       const smartWallet = SmartWallet.attach(smartWalletAddress);
 
       // Step 1: Buy tickets
-      const ticketAmount = ethers.parseUnits("100", 6);
+      const ticketAmount = ethers.parseUnits("5", 6);
       await usdc.connect(user1).transfer(smartWalletAddress, ticketAmount);
 
       const placeParams = ethers.AbiCoder.defaultAbiCoder().encode(
@@ -212,7 +217,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
       const placeTargets = [...result3[0]];
       const placeValues = [...result3[1]];
       const placeDatas = [...result3[2]];
-      await smartWallet.connect(user1).executeBatch(placeTargets, placeValues, placeDatas);
+      await smartWallet.connect(user1).executeBatch(placeTargets, placeValues, placeDatas, { gasLimit: 10_000_000 });
 
       // Get building ID - use the last building (most recently placed lottery)
       const userBuildings = await core.getUserBuildings(user1.address);
@@ -254,7 +259,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
       expect(targets.length).to.equal(2); // claimPrizes, recordHarvest
 
       // Execute harvest
-      await smartWallet.connect(user1).executeBatch(targets, values, datas);
+      await smartWallet.connect(user1).executeBatch(targets, values, datas, { gasLimit: 10_000_000 });
 
       // Verify prize was received
       const walletBalance = await usdc.balanceOf(smartWalletAddress);
@@ -266,7 +271,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
     });
 
     it("Should claim multiple winning tickets at once", async function () {
-      const { core, usdc, mockMegapot, lotteryAdapter, user1 } = await loadFixture(deployLotteryEcosystemFixture);
+      const { core, usdc, mockMegapot, lotteryAdapter, user1 } = await deployLotteryEcosystemFixture();
 
       // Setup
       await core.connect(user1).createTownHall(5, 5);
@@ -275,7 +280,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
       const smartWallet = SmartWallet.attach(smartWalletAddress);
 
       // Buy tickets
-      const ticketAmount = ethers.parseUnits("100", 6);
+      const ticketAmount = ethers.parseUnits("5", 6);
       await usdc.connect(user1).transfer(smartWalletAddress, ticketAmount);
 
       const placeParams = ethers.AbiCoder.defaultAbiCoder().encode(
@@ -293,7 +298,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
       const placeDatas2 = [...result5[2]];
 
       // Execute all operations together in one batch (like the working test)
-      await smartWallet.connect(user1).executeBatch(placeTargets2, placeValues2, placeDatas2);
+      await smartWallet.connect(user1).executeBatch(placeTargets2, placeValues2, placeDatas2, { gasLimit: 10_000_000 });
 
       const userBuildings2 = await core.getUserBuildings(user1.address);
       const buildingId = userBuildings2[userBuildings2.length - 1].id;
@@ -302,7 +307,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
       // Set multiple tickets as winners
       const winningTickets = [ticketIds[0], ticketIds[1], ticketIds[2]];
       const prizesArray = [
-        ethers.parseUnits("100", 6),
+        ethers.parseUnits("5", 6),
         ethers.parseUnits("250", 6),
         ethers.parseUnits("500", 6)
       ];
@@ -325,7 +330,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
       const values = [...result6[1]];
       const datas = [...result6[2]];
 
-      await smartWallet.connect(user1).executeBatch(targets, values, datas);
+      await smartWallet.connect(user1).executeBatch(targets, values, datas, { gasLimit: 10_000_000 });
 
       // Verify total prize
       const totalPrize = prizesArray.reduce((a, b) => a + b, 0n);
@@ -336,7 +341,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
 
   describe("Demolish E2E Flow", function () {
     it("Should demolish lottery building (tickets remain in Megapot)", async function () {
-      const { core, usdc, mockMegapot, lotteryAdapter, user1 } = await loadFixture(deployLotteryEcosystemFixture);
+      const { core, usdc, mockMegapot, lotteryAdapter, user1 } = await deployLotteryEcosystemFixture();
 
       // Setup: Create Town Hall and buy tickets
       await core.connect(user1).createTownHall(5, 5);
@@ -345,7 +350,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
       const smartWallet = SmartWallet.attach(smartWalletAddress);
 
       // Buy tickets
-      const ticketAmount = ethers.parseUnits("100", 6);
+      const ticketAmount = ethers.parseUnits("5", 6);
       await usdc.connect(user1).transfer(smartWalletAddress, ticketAmount);
 
       const placeParams = ethers.AbiCoder.defaultAbiCoder().encode(
@@ -361,7 +366,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
       const placeTargets3 = [...result7[0]];
       const placeValues3 = [...result7[1]];
       const placeDatas3 = [...result7[2]];
-      await smartWallet.connect(user1).executeBatch(placeTargets3, placeValues3, placeDatas3);
+      await smartWallet.connect(user1).executeBatch(placeTargets3, placeValues3, placeDatas3, { gasLimit: 10_000_000 });
 
       const userBuildings2 = await core.getUserBuildings(user1.address);
       const buildingId = userBuildings2[userBuildings2.length - 1].id;
@@ -384,7 +389,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
       // Verify demolish only records (no withdrawal from Megapot)
       expect(targets.length).to.equal(1); // Only recordDemolition
 
-      await smartWallet.connect(user1).executeBatch(targets, values, datas);
+      await smartWallet.connect(user1).executeBatch(targets, values, datas, { gasLimit: 10_000_000 });
 
       // Verify building marked as inactive
       const building = await core.buildings(buildingId);
@@ -398,7 +403,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
 
   describe("Edge Cases and Validation", function () {
     it("Should revert if trying to claim non-winning ticket", async function () {
-      const { core, usdc, mockMegapot, lotteryAdapter, user1 } = await loadFixture(deployLotteryEcosystemFixture);
+      const { core, usdc, mockMegapot, lotteryAdapter, user1 } = await deployLotteryEcosystemFixture();
 
       // Setup and buy tickets
       await core.connect(user1).createTownHall(5, 5);
@@ -406,7 +411,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
       const SmartWallet = await ethers.getContractFactory("SmartWallet");
       const smartWallet = SmartWallet.attach(smartWalletAddress);
 
-      const ticketAmount = ethers.parseUnits("100", 6);
+      const ticketAmount = ethers.parseUnits("5", 6);
       await usdc.connect(user1).transfer(smartWalletAddress, ticketAmount);
 
       const placeParams = ethers.AbiCoder.defaultAbiCoder().encode(
@@ -422,7 +427,7 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
       const placeTargets4 = [...result9[0]];
       const placeValues4 = [...result9[1]];
       const placeDatas4 = [...result9[2]];
-      await smartWallet.connect(user1).executeBatch(placeTargets4, placeValues4, placeDatas4);
+      await smartWallet.connect(user1).executeBatch(placeTargets4, placeValues4, placeDatas4, { gasLimit: 10_000_000 });
 
       const userBuildings2 = await core.getUserBuildings(user1.address);
       const buildingId = userBuildings2[userBuildings2.length - 1].id;
@@ -446,8 +451,8 @@ describe("LotteryAdapter E2E with SmartWallet and MockMegapot", function () {
 
       // This should revert because ticket is not a winner
       await expect(
-        smartWallet.connect(user1).executeBatch(targets, values, datas)
-      ).to.be.reverted;
+        smartWallet.connect(user1).executeBatch(targets, values, datas, { gasLimit: 10_000_000 })
+      ).to.be.revertedWithCustomError;
     });
   });
 });

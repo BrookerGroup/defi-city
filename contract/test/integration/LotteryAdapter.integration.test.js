@@ -1,24 +1,29 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
-const {
+import { expect  } from "chai";
+// Note: ethers will be obtained from network.connect()
+import hre from "hardhat";
+import {
   verifyNetwork,
   checkBalance,
   checkTokenBalance,
   waitForTx
-} = require("./helpers/networkHelpers");
-const {
+
+} from "./helpers/networkHelpers.js";
+import {
   getAllAddresses,
   attachContracts,
   verifyAllDeployed,
   getDeploymentInfo
-} = require("./helpers/deploymentLoader");
+
+} from "./helpers/deploymentLoader.js";
 
 describe("LotteryAdapter Integration Tests - Base Sepolia", function() {
+  let ethers;
+  let TEST_AMOUNT_USDC;
+  let MIN_ETH;
+
   // Configuration
   const NETWORK_TIMEOUT = 60000;
   const CONFIRMATION_BLOCKS = 1;
-  const TEST_AMOUNT_USDC = ethers.parseUnits("100", 6); // 100 USDC for tickets
-  const MIN_ETH = ethers.parseEther("0.01");
 
   let deployer;
   let addresses;
@@ -26,6 +31,14 @@ describe("LotteryAdapter Integration Tests - Base Sepolia", function() {
   let smartWalletAddress;
 
   this.timeout(NETWORK_TIMEOUT * 3);
+
+  before(async function () {
+    ({ ethers } = await hre.network.connect());
+
+    // Initialize constants that need ethers
+    TEST_AMOUNT_USDC = ethers.parseUnits("100", 6); // 100 USDC for tickets
+    MIN_ETH = ethers.parseEther("0.01");
+  });
 
   before(async function() {
     console.log("\n========================================");
@@ -36,9 +49,9 @@ describe("LotteryAdapter Integration Tests - Base Sepolia", function() {
     console.log(`Test account: ${deployer.address}`);
 
     try {
-      await verifyNetwork();
+      await verifyNetwork(ethers);
 
-      const hasBalance = await checkBalance(deployer.address, MIN_ETH);
+      const hasBalance = await checkBalance(ethers, deployer.address, MIN_ETH);
       if (!hasBalance) {
         console.log("\n⚠️  Skipping tests - insufficient ETH balance");
         this.skip();
@@ -48,15 +61,15 @@ describe("LotteryAdapter Integration Tests - Base Sepolia", function() {
       const deploymentInfo = getDeploymentInfo();
       console.log(`Integration deployed: ${deploymentInfo.integrationDeployedAt}`);
 
-      const allDeployed = await verifyAllDeployed(addresses);
+      const allDeployed = await verifyAllDeployed(ethers, addresses);
       if (!allDeployed) {
         console.log("\n⚠️  Skipping tests - contracts not deployed");
         this.skip();
       }
 
-      contracts = await attachContracts(addresses);
+      contracts = await attachContracts(ethers, addresses);
 
-      const hasTokens = await checkTokenBalance(
+      const hasTokens = await checkTokenBalance(ethers, 
         contracts.usdc,
         deployer.address,
         TEST_AMOUNT_USDC,

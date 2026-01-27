@@ -1,15 +1,15 @@
 {
   "name": "defi-city-contracts",
   "version": "1.0.0",
+  "type": "module",
   "description": "Smart contracts for DeFi City game",
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
-    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
-    "deploy:base": "hardhat run scripts/deploy.js --network base",
-    "deploy:integration": "hardhat run scripts/deploy-integration-base-sepolia.js --network baseSepolia",
-    "deploy:integration:local": "hardhat run scripts/deploy-integration-local.js --network localhost",
+    "deploy:core:local": "hardhat ignition deploy ignition/modules/CoreContracts.ts --network localhost",
+    "deploy:core:baseSepolia": "hardhat ignition deploy ignition/modules/CoreContracts.ts --network baseSepolia --parameters ignition/parameters/baseSepolia.json",
+    "deploy:integration:local": "hardhat ignition deploy ignition/modules/IntegrationContracts.ts --network localhost",
+    "deploy:integration:baseSepolia": "hardhat ignition deploy ignition/modules/IntegrationContracts.ts --network baseSepolia --parameters ignition/parameters/baseSepolia.json",
     "test:integration": "hardhat test test/integration/*.test.js --network baseSepolia",
     "test:integration:bank": "hardhat test test/integration/BankAdapter.integration.test.js --network baseSepolia",
     "test:integration:lottery": "hardhat test test/integration/LotteryAdapter.integration.test.js --network baseSepolia",
@@ -21,12 +21,15 @@
     "node": "hardhat node",
     "clean": "hardhat clean"
   },
-  "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
-    "hardhat": "^2.19.0"
-  },
   "dependencies": {
     "@openzeppelin/contracts": "^5.4.0",
     "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.2",
+    "@types/node": "^25.0.10",
+    "hardhat": "^3.1.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   }
 }

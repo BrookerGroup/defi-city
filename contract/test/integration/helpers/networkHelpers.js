@@ -1,4 +1,4 @@
-const { ethers } = require("hardhat");
+import hre from "hardhat";
 
 /**
  * Network utilities for Base Sepolia integration tests
@@ -9,16 +9,16 @@ const LOCALHOST_CHAIN_ID = 31337;
 
 /**
  * Verify connected to the expected network
+ * @param {object} ethers - Ethers instance from network connection
  * @param {number} expectedChainId - Expected chain ID (optional, auto-detect if not provided)
  * @throws {Error} if network doesn't match
  */
-async function verifyNetwork(expectedChainId) {
+async function verifyNetwork(ethers, expectedChainId) {
   const network = await ethers.provider.getNetwork();
   const chainId = Number(network.chainId);
 
   // Auto-detect expected chain ID from hardhat config
   if (!expectedChainId) {
-    const hre = require("hardhat");
     const networkName = hre.network.name;
 
     if (networkName === "localhost" || networkName === "hardhat") {
@@ -40,11 +40,12 @@ async function verifyNetwork(expectedChainId) {
 
 /**
  * Check if address has sufficient ETH balance
+ * @param {object} ethers - Ethers instance from network connection
  * @param {string} address - Address to check
  * @param {BigInt} minAmount - Minimum required amount in wei
  * @returns {Promise<boolean>} true if sufficient balance
  */
-async function checkBalance(address, minAmount) {
+async function checkBalance(ethers, address, minAmount) {
   const balance = await ethers.provider.getBalance(address);
 
   if (balance < minAmount) {
@@ -63,13 +64,14 @@ async function checkBalance(address, minAmount) {
 
 /**
  * Check if address has sufficient token balance
+ * @param {object} ethers - Ethers instance from network connection
  * @param {Contract} token - Token contract instance
  * @param {string} address - Address to check
  * @param {BigInt} minAmount - Minimum required amount
  * @param {string} tokenName - Token name for logging
  * @returns {Promise<boolean>} true if sufficient balance
  */
-async function checkTokenBalance(token, address, minAmount, tokenName = "Token") {
+async function checkTokenBalance(ethers, token, address, minAmount, tokenName = "Token") {
   try {
     const balance = await token.balanceOf(address);
     const decimals = await token.decimals();
@@ -123,10 +125,11 @@ async function waitForTx(tx, confirmations = 1, timeout = 60000) {
 
 /**
  * Check if contract is deployed at address
+ * @param {object} ethers - Ethers instance from network connection
  * @param {string} address - Contract address
  * @returns {Promise<boolean>} true if contract exists
  */
-async function isContractDeployed(address) {
+async function isContractDeployed(ethers, address) {
   try {
     const code = await ethers.provider.getCode(address);
     return code !== "0x";
@@ -156,9 +159,10 @@ async function estimateGas(contract, method, args = []) {
 
 /**
  * Get current gas price
+ * @param {object} ethers - Ethers instance from network connection
  * @returns {Promise<BigInt>} Current gas price in wei
  */
-async function getCurrentGasPrice() {
+async function getCurrentGasPrice(ethers) {
   const feeData = await ethers.provider.getFeeData();
   console.log(`  Current gas price: ${ethers.formatUnits(feeData.gasPrice, "gwei")} gwei`);
   return feeData.gasPrice;
@@ -166,9 +170,10 @@ async function getCurrentGasPrice() {
 
 /**
  * Wait for specific number of blocks
+ * @param {object} ethers - Ethers instance from network connection
  * @param {number} blocks - Number of blocks to wait
  */
-async function waitForBlocks(blocks) {
+async function waitForBlocks(ethers, blocks) {
   console.log(`⏳ Waiting for ${blocks} blocks...`);
   const startBlock = await ethers.provider.getBlockNumber();
 
@@ -186,8 +191,9 @@ async function waitForBlocks(blocks) {
   });
 }
 
-module.exports = {
+export {
   BASE_SEPOLIA_CHAIN_ID,
+  LOCALHOST_CHAIN_ID,
   verifyNetwork,
   checkBalance,
   checkTokenBalance,
