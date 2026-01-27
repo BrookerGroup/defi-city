@@ -20,6 +20,7 @@
     "test:integration:local:shop": "hardhat test test/integration/ShopAdapter.integration.test.js --network localhost",
     "verify:baseSepolia": "hardhat run scripts/verify-contracts.ts --network baseSepolia",
     "verify:localhost": "hardhat run scripts/verify-contracts.ts --network localhost",
+    "verify:wallets": "hardhat run scripts/auto-verify-wallets.ts --network baseSepolia",
     "node": "hardhat node",
     "clean": "hardhat clean"
   },

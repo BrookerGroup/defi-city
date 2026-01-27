@@ -1,7 +1,7 @@
 {
   "network": "baseSepolia",
-  "buildingRegistry": "0xf9d324bD7882dF199b12AA0EBA000F2691a101Be",
-  "defiCityCore": "0x264A9da1e4e880B38e77412a9CC61Dc1bAC257c0",
-  "walletFactory": "0xCec03121fe65e6D2186F6BD13641f4632C1f5db0",
-  "treasury": "0x05ca1c1250e1515e56b3fd5946bb59cad0fa7e76"
+  "buildingRegistry": "0x90e4f5c8A17F896641A51Df540a54DB5df6C807B",
+  "defiCityCore": "0xf9678a801Bf0E16C3781157A859741B87c9bC8eF",
+  "walletFactory": "0xdA507eDd7A24Fe36f2f3d8EC47FC29b3dFa76c85",
+  "treasury": "0x05CA1c1250e1515e56B3Fd5946bB59cAd0fa7e76"
 }
