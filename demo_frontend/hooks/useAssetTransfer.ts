@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useWriteContract, useSendTransaction, useWaitForTransactionReceipt } from "wagmi";
 import { ERC20_ABI } from "@/lib/config/tokens";
-import { parseUnits } from "viem";
+import { SMART_WALLET_ABI } from "@/lib/contracts/SmartWallet";
+import { parseUnits, encodeFunctionData } from "viem";
 import { toast } from "sonner";
 
 export function useAssetTransfer() {
@@ -86,7 +87,7 @@ export function useAssetTransfer() {
 
   /**
    * Withdraw assets from AA wallet (Smart Wallet) to EOA
-   * Note: This requires calling SmartWallet's execute function with owner signature
+   * Note: This calls SmartWallet's execute function as the owner
    */
   const withdraw = async (
     tokenAddress: string,
@@ -96,26 +97,62 @@ export function useAssetTransfer() {
     smartWalletAddress: string,
     eoaAddress: string
   ) => {
+    console.log("[useAssetTransfer] Withdraw called with:", {
+      tokenAddress,
+      amount,
+      decimals,
+      isNative,
+      smartWalletAddress,
+      eoaAddress,
+    });
+
     try {
       setPendingTx("withdraw");
 
-      // TODO: Implement SmartWallet.execute() call
-      // This requires:
-      // 1. Encoding the transfer call (ETH or ERC20)
-      // 2. Calling SmartWallet.execute(dest, value, data)
-      // 3. Getting proper signature from owner
+      const value = parseUnits(amount, decimals);
 
-      console.log("[useAssetTransfer] Withdraw not yet implemented", {
-        tokenAddress,
-        amount,
-        decimals,
-        isNative,
-        smartWalletAddress,
-        eoaAddress,
-      });
+      if (isNative) {
+        // Withdraw ETH: SmartWallet.execute(eoaAddress, amount, "0x")
+        console.log("[useAssetTransfer] Withdrawing ETH via SmartWallet.execute:", {
+          smartWalletAddress,
+          dest: eoaAddress,
+          value: value.toString(),
+        });
 
-      toast.info("Withdraw functionality coming soon");
-      setPendingTx(null);
+        writeERC20({
+          address: smartWalletAddress as `0x${string}`,
+          abi: SMART_WALLET_ABI,
+          functionName: "execute",
+          args: [eoaAddress as `0x${string}`, value, "0x"],
+        });
+
+        console.log("[useAssetTransfer] ETH withdraw transaction sent");
+        toast.success("Withdrawing ETH from Smart Wallet...");
+      } else {
+        // Withdraw ERC20: SmartWallet.execute(tokenAddress, 0, encodedTransfer)
+        const transferCalldata = encodeFunctionData({
+          abi: ERC20_ABI,
+          functionName: "transfer",
+          args: [eoaAddress as `0x${string}`, value],
+        });
+
+        console.log("[useAssetTransfer] Withdrawing ERC20 via SmartWallet.execute:", {
+          smartWalletAddress,
+          tokenAddress,
+          transferCalldata,
+          value: value.toString(),
+        });
+
+        writeERC20({
+          address: smartWalletAddress as `0x${string}`,
+          abi: SMART_WALLET_ABI,
+          functionName: "execute",
+          args: [tokenAddress as `0x${string}`, BigInt(0), transferCalldata],
+        });
+
+        console.log("[useAssetTransfer] ERC20 withdraw transaction sent");
+        toast.success("Withdrawing tokens from Smart Wallet...");
+      }
     } catch (error: any) {
       console.error("[useAssetTransfer] Withdraw error:", error);
       toast.error(error?.message || "Failed to withdraw");
