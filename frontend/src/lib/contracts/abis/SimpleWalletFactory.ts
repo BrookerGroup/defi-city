@@ -42,7 +42,10 @@ export const SimpleWalletFactoryABI = [
 // DefiCityCore ABI (for Town Hall)
 export const DefiCityCoreABI = [
   {
-    inputs: [],
+    inputs: [
+      { internalType: 'uint256', name: 'x', type: 'uint256' },
+      { internalType: 'uint256', name: 'y', type: 'uint256' },
+    ],
     name: 'createTownHall',
     outputs: [
       { internalType: 'address', name: 'walletAddress', type: 'address' },

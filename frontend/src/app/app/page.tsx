@@ -105,7 +105,7 @@ export default function AppPage() {
     if (!address) return
     const result = await createSmartAccount()
     if (result.success) {
-      setTimeout(() => refetch(), 3000)
+      refetch()
     }
   }
 
