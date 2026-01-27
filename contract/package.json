@@ -18,6 +18,8 @@
     "test:integration:local:bank": "hardhat test test/integration/BankAdapter.integration.test.js --network localhost",
     "test:integration:local:lottery": "hardhat test test/integration/LotteryAdapter.integration.test.js --network localhost",
     "test:integration:local:shop": "hardhat test test/integration/ShopAdapter.integration.test.js --network localhost",
+    "verify:baseSepolia": "hardhat run scripts/verify-contracts.ts --network baseSepolia",
+    "verify:localhost": "hardhat run scripts/verify-contracts.ts --network localhost",
     "node": "hardhat node",
     "clean": "hardhat clean"
   },
