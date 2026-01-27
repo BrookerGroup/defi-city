@@ -75,9 +75,9 @@ export default function AppPage() {
 
   const selectedBuilding = useMemo(() => {
     if (!selectedCoords) return null
-    // Find building at this coordinate from ALL buildings (including hidden/ghost ones)
-    // to ensure we can upgrade them and avoid "Grid Occupied" errors.
-    const found = allBuildings.find(b => b.x === selectedCoords.x && b.y === selectedCoords.y) || null
+    // Only match active buildings - demolished buildings (active=false) should be treated
+    // as empty tiles so a new building can be created via recordBuildingPlacement
+    const found = allBuildings.find(b => b.x === selectedCoords.x && b.y === selectedCoords.y && b.active) || null
     console.log(`[App] Selected building at ${selectedCoords.x},${selectedCoords.y}:`, found)
     return found
   }, [selectedCoords, allBuildings])
