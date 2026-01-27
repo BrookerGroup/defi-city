@@ -2,7 +2,8 @@
 
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { useMemo, useState, useEffect, useCallback } from 'react'
-import { useSmartWallet, useCreateSmartAccount, useVaultDeposit, useVaultWithdraw, useCityBuildings, TokenType } from '@/hooks'
+import { useSmartWallet, useCreateSmartAccount, useVaultDeposit, useVaultWithdraw, useCityBuildings, useMoveBuilding, TokenType } from '@/hooks'
+import type { Building } from '@/hooks/useCityBuildings'
 import { AavePanel } from '@/components/aave'
 import { CityGrid } from '@/components/game/CityGrid'
 
@@ -61,6 +62,9 @@ export default function AppPage() {
     isWithdrawing: isWithdrawingFromVault,
     isConfirming: isConfirmingWithdraw,
   } = useVaultWithdraw(address, smartWallet, refetchBalances)
+
+  // Move Building
+  const { moveBuilding, loading: isMovingBuilding } = useMoveBuilding()
 
   // City Map & Buildings
   const { buildings, allBuildings, loading: buildingsLoading, refresh: refreshBuildings } = useCityBuildings(address, smartWallet)
@@ -142,6 +146,15 @@ export default function AppPage() {
       setWithdrawError(result.error || 'Withdrawal failed')
     }
   }
+
+  const handleMoveBuilding = useCallback(async (building: Building, newX: number, newY: number) => {
+    if (!smartWallet) return
+    const result = await moveBuilding(smartWallet, building, newX, newY)
+    if (result.success) {
+      refreshBuildings()
+      setTimeout(() => refreshBuildings(), 3000)
+    }
+  }, [smartWallet, moveBuilding, refreshBuildings])
 
   // Loading state
   if (!ready) {
@@ -446,13 +459,15 @@ export default function AppPage() {
               setShowBuildModal(true)
             }}
             isLoading={buildingsLoading}
+            onMoveBuilding={handleMoveBuilding}
+            isMoving={isMovingBuilding}
           />
           <div className="mt-4 p-4 bg-slate-900/50 border-2 border-slate-800 text-center">
             <p className="text-slate-400 text-[8px] leading-relaxed" style={{ fontFamily: '"Press Start 2P", monospace' }}>
               {selectedCoords ? (
                 <span className="text-blue-400">📍 SELECTED: ({selectedCoords.x}, {selectedCoords.y}) - CLICK TILE TO BUILD</span>
               ) : (
-                '🏗️ CLICK AN EMPTY TILE TO BUILD'
+                '🏗️ CLICK TILE TO BUILD | DRAG BUILDING TO MOVE'
               )}
             </p>
           </div>

@@ -55,6 +55,7 @@ export const ABIS = {
     'function getUserStats(address user) external view returns (tuple(uint256 totalDeposited, uint256 totalWithdrawn, uint256 totalHarvested, uint256 buildingCount, uint256 cityCreatedAt))',
     'function userGridBuildings(address user, uint256 x, uint256 y) external view returns (uint256)',
     'function recordDemolition(address user, uint256 buildingId, uint256 returnedAmount) external',
+    'function recordBuildingPlacement(address user, string calldata buildingType, address asset, uint256 amount, uint256 x, uint256 y, bytes calldata metadata) external returns (uint256)',
     // Events
     'event BuildingPlaced(uint256 indexed buildingId, address indexed user, address indexed smartWallet, string buildingType, address asset, uint256 amount, uint256 x, uint256 y)',
   ],
