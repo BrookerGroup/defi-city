@@ -1,0 +1,7 @@
+{
+  "network": "baseSepolia",
+  "buildingRegistry": "0xf9d324bD7882dF199b12AA0EBA000F2691a101Be",
+  "defiCityCore": "0x264A9da1e4e880B38e77412a9CC61Dc1bAC257c0",
+  "walletFactory": "0xCec03121fe65e6D2186F6BD13641f4632C1f5db0",
+  "treasury": "0x05ca1c1250e1515e56b3fd5946bb59cad0fa7e76"
+}

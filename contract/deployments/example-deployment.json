@@ -1,0 +1,63 @@
+{
+  "network": "baseSepolia",
+  "chainId": 84532,
+  "deployedAt": "2024-01-27T10:30:00Z",
+  "deployer": "0xYourDeployerAddress",
+  "treasury": "0xYourTreasuryAddress",
+  "entryPoint": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
+  "contracts": {
+    "core": {
+      "buildingRegistry": "0xBuildingRegistryAddress",
+      "defiCityCore": "0xDefiCityCoreAddress",
+      "walletFactory": "0xWalletFactoryAddress"
+    },
+    "tokens": {
+      "mockUSDC": "0xMockUSDCAddress",
+      "mockWETH": "0xMockWETHAddress",
+      "mockAERO": "0xMockAEROAddress"
+    },
+    "protocols": {
+      "mockAavePool": "0xMockAavePoolAddress",
+      "mockMegapot": "0xMockMegapotAddress",
+      "mockAerodromeRouter": "0xMockAerodromeRouterAddress"
+    },
+    "adapters": {
+      "bankAdapter": "0xBankAdapterAddress",
+      "lotteryAdapter": "0xLotteryAdapterAddress",
+      "shopAdapter": "0xShopAdapterAddress"
+    }
+  },
+  "transactions": {
+    "buildingRegistry": "0xTxHash1",
+    "defiCityCore": "0xTxHash2",
+    "walletFactory": "0xTxHash3",
+    "setWalletFactory": "0xTxHash4",
+    "mockUSDC": "0xTxHash5",
+    "mockWETH": "0xTxHash6",
+    "mockAERO": "0xTxHash7",
+    "mockAavePool": "0xTxHash8",
+    "mockMegapot": "0xTxHash9",
+    "mockAerodromeRouter": "0xTxHash10",
+    "bankAdapter": "0xTxHash11",
+    "lotteryAdapter": "0xTxHash12",
+    "shopAdapter": "0xTxHash13",
+    "registerBank": "0xTxHash14",
+    "registerLottery": "0xTxHash15",
+    "registerShop": "0xTxHash16"
+  },
+  "verification": {
+    "buildingRegistry": true,
+    "defiCityCore": true,
+    "walletFactory": true,
+    "mockUSDC": true,
+    "mockWETH": true,
+    "mockAERO": true,
+    "mockAavePool": true,
+    "mockMegapot": true,
+    "mockAerodromeRouter": true,
+    "bankAdapter": true,
+    "lotteryAdapter": true,
+    "shopAdapter": true
+  },
+  "notes": "Example deployment file structure. Replace with actual addresses after deployment."
+}
