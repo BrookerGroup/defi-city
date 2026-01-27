@@ -5,10 +5,13 @@ import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { WalletConnect } from "@/components/wallet/WalletConnect";
 import { Grid } from "@/components/grid/Grid";
 import { PlaceBuildingModal } from "@/components/modals/PlaceBuildingModal";
+import { TownHallModal } from "@/components/modals/TownHallModal";
 import { PortfolioPanel } from "@/components/portfolio/PortfolioPanel";
 import { BuildingMenu } from "@/components/building/BuildingMenu";
+import { Drawer } from "@/components/ui/drawer";
 import { useDefiCity } from "@/hooks/useDefiCity";
 import { toast } from "sonner";
+import { Building } from "@/types";
 
 export default function Home() {
   const { authenticated, user } = usePrivy();
@@ -60,10 +63,13 @@ export default function Home() {
   console.log("[Page] Render - address:", address, "hasWallet:", hasWallet, "buildings.length:", buildings.length);
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [townHallModalOpen, setTownHallModalOpen] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{
     x: number;
     y: number;
   } | null>(null);
+  const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
   const [selectedBuildingType, setSelectedBuildingType] = useState<string | null>(null);
 
   // Check if Town Hall already exists
@@ -73,18 +79,29 @@ export default function Home() {
 
   console.log("[Page] Has Town Hall:", hasTownHall);
 
-  // Handle cell click
+  // Handle cell click - open drawer to select building
   const handleCellClick = (x: number, y: number) => {
     if (!authenticated) {
       toast.error("Please connect your wallet first");
       return;
     }
-    if (!selectedBuildingType) {
-      toast.error("Please select a building type first");
-      return;
-    }
     setSelectedCell({ x, y });
+    setDrawerOpen(true);
+  };
+
+  // Handle building selection from drawer
+  const handleBuildingSelect = (buildingId: string) => {
+    setSelectedBuildingType(buildingId);
+    setDrawerOpen(false);
+    // Open modal to confirm placement
     setModalOpen(true);
+  };
+
+  // Handle building click (for existing buildings)
+  const handleBuildingClick = (building: Building) => {
+    console.log("[Page] Building clicked:", building);
+    setSelectedBuilding(building);
+    setTownHallModalOpen(true);
   };
 
   // Handle place building
@@ -143,28 +160,28 @@ export default function Home() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-6">
+          <div className="flex justify-center">
             {/* Map Grid */}
-            <div>
-              <Grid
-                buildings={buildings}
-                onCellClick={handleCellClick}
-                disabled={isPending || !selectedBuildingType}
-              />
-            </div>
-
-            {/* Building Menu */}
-            <div>
-              <BuildingMenu
-                selectedBuildingId={selectedBuildingType}
-                onSelectBuilding={setSelectedBuildingType}
-                disabled={isPending}
-                hasTownHall={hasTownHall}
-              />
-            </div>
+            <Grid
+              buildings={buildings}
+              onCellClick={handleCellClick}
+              onBuildingClick={handleBuildingClick}
+              disabled={isPending}
+            />
           </div>
         )}
       </div>
+
+      {/* Building Selection Drawer */}
+      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <BuildingMenu
+          selectedBuildingId={selectedBuildingType}
+          onSelectBuilding={handleBuildingSelect}
+          disabled={isPending}
+          hasTownHall={hasTownHall}
+          cellPosition={selectedCell}
+        />
+      </Drawer>
 
       {/* Place Building Modal */}
       <PlaceBuildingModal
@@ -175,6 +192,13 @@ export default function Home() {
         buildingType={selectedBuildingType}
         onPlaceBuilding={handlePlaceBuilding}
         isLoading={isPending}
+      />
+
+      {/* Town Hall Management Modal */}
+      <TownHallModal
+        open={townHallModalOpen}
+        onOpenChange={setTownHallModalOpen}
+        building={selectedBuilding}
       />
     </main>
   );

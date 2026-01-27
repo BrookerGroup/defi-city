@@ -7,10 +7,11 @@ import { useMemo } from "react";
 interface GridProps {
   buildings: Building[];
   onCellClick: (x: number, y: number) => void;
+  onBuildingClick?: (building: Building) => void;
   disabled?: boolean;
 }
 
-export function Grid({ buildings, onCellClick, disabled }: GridProps) {
+export function Grid({ buildings, onCellClick, onBuildingClick, disabled }: GridProps) {
   const GRID_SIZE = 10;
 
   console.log("[Grid] Received buildings:", buildings, "count:", buildings.length);
@@ -54,6 +55,7 @@ export function Grid({ buildings, onCellClick, disabled }: GridProps) {
             y={y}
             building={building}
             onClick={() => onCellClick(x, y)}
+            onBuildingClick={onBuildingClick}
             disabled={disabled}
           />
         ))}

@@ -8,6 +8,7 @@ interface GridCellProps {
   y: number;
   building?: Building;
   onClick: () => void;
+  onBuildingClick?: (building: Building) => void;
   disabled?: boolean;
 }
 
@@ -19,7 +20,7 @@ const BUILDING_EMOJIS: Record<string, string> = {
   // Add more building types here
 };
 
-export function GridCell({ x, y, building, onClick, disabled }: GridCellProps) {
+export function GridCell({ x, y, building, onClick, onBuildingClick, disabled }: GridCellProps) {
   const isEmpty = !building;
 
   // Get emoji for building type
@@ -29,17 +30,24 @@ export function GridCell({ x, y, building, onClick, disabled }: GridCellProps) {
 
   console.log("[GridCell]", x, y, "building:", building?.buildingType, "emoji:", buildingEmoji);
 
+  const handleClick = () => {
+    if (building && onBuildingClick) {
+      onBuildingClick(building);
+    } else if (isEmpty) {
+      onClick();
+    }
+  };
+
   return (
     <button
-      onClick={onClick}
-      disabled={disabled || !isEmpty}
+      onClick={handleClick}
+      disabled={disabled}
       className={cn(
         "aspect-square w-full relative transition-all duration-200",
         "flex flex-col items-center justify-center",
         isEmpty && "border-2 border-dashed border-border hover:border-primary hover:bg-accent cursor-pointer",
-        building && "bg-card border-2 border-border cursor-default",
-        !isEmpty && "hover:shadow-lg",
-        disabled && "opacity-50 cursor-not-allowed"
+        building && "bg-card border-2 border-border cursor-pointer hover:shadow-lg hover:scale-105",
+        disabled && isEmpty && "opacity-50 cursor-not-allowed"
       )}
     >
       {building ? (

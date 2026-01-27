@@ -35,6 +35,7 @@ interface BuildingMenuProps {
   onSelectBuilding: (buildingId: string) => void;
   disabled?: boolean;
   hasTownHall?: boolean;
+  cellPosition?: { x: number; y: number } | null;
 }
 
 export function BuildingMenu({
@@ -42,14 +43,21 @@ export function BuildingMenu({
   onSelectBuilding,
   disabled = false,
   hasTownHall = false,
+  cellPosition = null,
 }: BuildingMenuProps) {
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-xl font-bold mb-1">Buildings</h2>
-        <p className="text-sm text-muted-foreground">
-          Select a building to place on the map
-        </p>
+        {cellPosition ? (
+          <p className="text-sm text-muted-foreground">
+            Placing building at position ({cellPosition.x}, {cellPosition.y})
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Select a building to place on the map
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -92,10 +100,11 @@ export function BuildingMenu({
         })}
       </div>
 
-      {selectedBuildingId && (
+      {cellPosition && (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-900">
-            💡 Click any empty cell on the map to place your building
+            💡 Select a building type above to place at ({cellPosition.x},{" "}
+            {cellPosition.y})
           </p>
         </div>
       )}
