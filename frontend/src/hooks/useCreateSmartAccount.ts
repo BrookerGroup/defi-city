@@ -13,23 +13,16 @@ export function useCreateSmartAccount() {
   const createSmartAccount = async () => {
     setIsDeploying(true)
     try {
-      // Default position for town hall (center of map)
-      const GRID_SIZE = 12
-      const centerX = Math.floor(GRID_SIZE / 2)
-      const centerY = Math.floor(GRID_SIZE / 2)
-
       console.log('[Create Smart Account] Starting deployment...', {
-        x: centerX,
-        y: centerY,
         contract: CORE_ADDRESS,
       })
 
-      // Call DefiCityCore.createTownHall(x, y) - uses msg.sender as owner
+      // Call DefiCityCore.createTownHall() - uses msg.sender as owner
       const hash = await writeContractAsync({
         address: CORE_ADDRESS,
         abi: DefiCityCoreABI,
         functionName: 'createTownHall',
-        args: [BigInt(centerX), BigInt(centerY)],
+        args: [],
       })
 
       console.log('[Create Smart Account] Transaction sent:', hash)

@@ -7,11 +7,27 @@ export const ASSET_PRICES: Record<string, number> = {
   USDC: 1,
   USDT: 1,
   ETH: 2000,
-  WBTC: 40000,
+}
+
+interface AssetMarketData {
+  symbol: string
+  name: string
+  decimals: number
+  icon: string
+  color: string
+  supplyAPY: number
+  borrowAPY: number
+  ltv: number
+  liquidationThreshold: number
+}
+
+interface AaveMarketData {
+  assets: Record<string, AssetMarketData>
+  lastUpdated: number
 }
 
 // Mock Aave market data
-export const AAVE_MARKET_DATA: any = {
+export const AAVE_MARKET_DATA: AaveMarketData = {
   assets: {
     USDC: {
       symbol: 'USDC',
@@ -45,17 +61,6 @@ export const AAVE_MARKET_DATA: any = {
       borrowAPY: 3.1,
       ltv: 0.8,
       liquidationThreshold: 0.825,
-    },
-    WBTC: {
-      symbol: 'WBTC',
-      name: 'Wrapped Bitcoin',
-      decimals: 8,
-      icon: 'B',
-      color: '#F7931A',
-      supplyAPY: 0.5,
-      borrowAPY: 2.2,
-      ltv: 0.7,
-      liquidationThreshold: 0.75,
     },
   },
   lastUpdated: Date.now(),

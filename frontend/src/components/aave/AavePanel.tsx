@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { useAaveSupply, useAavePosition } from '@/hooks'
+import { useAaveSupply, useAavePosition, useAaveMarketData, useAaveWithdraw } from '@/hooks'
 import { ASSET_PRICES, AAVE_MARKET_DATA } from '@/config/aave'
 
 type TabType = 'supply' | 'borrow'
@@ -12,6 +12,11 @@ interface AavePanelProps {
   userAddress?: string
   onSuccess?: () => void
   selectedCoords?: { x: number; y: number } | null
+  usedAssets?: string[]
+  existingAsset?: string
+  vaultBalances?: Record<string, string>
+  buildingId?: number
+  allBuildings?: any[]
 }
 
 // Initial empty position
@@ -48,23 +53,33 @@ function calculateHealthFactor(
   return totalCollateralETH / totalBorrowETH
 }
 
-export function AavePanel({ 
-  smartWallet, 
-  hasSmartWallet, 
-  userAddress, 
+export function AavePanel({
+  smartWallet,
+  hasSmartWallet,
+  userAddress,
   onSuccess,
-  selectedCoords 
+  selectedCoords,
+  usedAssets = [],
+  existingAsset,
+  vaultBalances = {},
+  buildingId,
+  allBuildings = [],
 }: AavePanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('supply')
-  const [selectedAsset, setSelectedAsset] = useState<string>('USDC')
+  const [selectedAsset, setSelectedAsset] = useState<string>(existingAsset || 'USDC')
   const [amount, setAmount] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [position, setPosition] = useState<any>(EMPTY_POSITION)
 
   // Use the hooks
-  const { supply: realSupply, loading } = useAaveSupply()
+  const { supply: realSupply, loading: loadingSupply } = useAaveSupply()
+  const { withdraw: realWithdraw, loading: loadingWithdraw } = useAaveWithdraw()
   const { position: realPosition, loading: loadingPosition, refresh: refreshPosition } = useAavePosition(smartWallet)
+  const { marketData: aaveMarketData, loading: loadingMarketData } = useAaveMarketData()
+
+  // Combined loading state
+  const loading = loadingSupply || loadingWithdraw
 
   // Sync real position to local state
   useEffect(() => {
@@ -73,7 +88,19 @@ export function AavePanel({
     }
   }, [realPosition])
 
-  const assets: string[] = ['USDC']
+  // Sync selectedAsset when existingAsset changes
+  useEffect(() => {
+    if (existingAsset) {
+      console.log(`[AavePanel] Syncing selectedAsset to existingAsset: ${existingAsset}`)
+      setSelectedAsset(existingAsset)
+    } else {
+      // Default to first available (non-used) asset
+      const available = ['USDC', 'USDT', 'ETH'].find(a => !usedAssets.includes(a))
+      if (available) setSelectedAsset(available)
+    }
+  }, [existingAsset, usedAssets])
+
+  const assets: string[] = ['USDC', 'USDT', 'ETH']
   const marketData = AAVE_MARKET_DATA
   const currentAssetInfo = marketData.assets[selectedAsset]
 
@@ -117,7 +144,7 @@ export function AavePanel({
             asset: supplyAsset,
             amount: supplyAmount,
             amountUSD,
-            apy: AAVE_MARKET_DATA.assets[supplyAsset].supplyAPY,
+            apy: aaveMarketData[supplyAsset]?.supplyAPY || AAVE_MARKET_DATA.assets[supplyAsset].supplyAPY,
           })
         }
       }
@@ -137,7 +164,7 @@ export function AavePanel({
             asset: borrowAsset,
             amount: borrowAmount,
             amountUSD,
-            apy: AAVE_MARKET_DATA.assets[borrowAsset].borrowAPY,
+            apy: aaveMarketData[borrowAsset]?.borrowAPY || AAVE_MARKET_DATA.assets[borrowAsset].borrowAPY,
           })
         }
       }
@@ -156,6 +183,56 @@ export function AavePanel({
         activeTab === 'borrow' ? parseFloat(amount) : 0
       )
     : position.healthFactor
+
+  const handleWithdraw = async (asset: string, amount: number) => {
+    if (!hasSmartWallet || !smartWallet) {
+      setError('Please create Town Hall first')
+      return
+    }
+
+    setError(null)
+    setSuccess(false)
+
+    // Find all buildings for this asset to demolish if withdrawing full balance
+    let buildingIdsToDemolish: number[] = []
+
+    // Check if we are withdrawing (close to) the full balance
+    const currentSupply = position.supplies.find((s: any) => s.asset === asset)
+    const currentBalance = currentSupply?.amount || 0
+    // Use 99% threshold for safety with interest/dust
+    const isFullWithdrawal = amount >= currentBalance * 0.99 
+
+    if (isFullWithdrawal && allBuildings.length > 0) {
+      buildingIdsToDemolish = allBuildings
+        .filter((b: any) => b.asset === asset && b.active)
+        .map((b: any) => b.id)
+      
+      console.log(`[AavePanel] Full withdrawal detected for ${asset}. Demolishing buildings: ${buildingIdsToDemolish.join(', ')}`)
+    } else if (buildingId) {
+      // Fallback: strictly the selected building if not a full withdrawal (rarely used now)
+      // buildingIdsToDemolish = [buildingId]
+      console.log(`[AavePanel] Partial withdrawal for ${asset}. No buildings will be demolished to maintain UI consistency.`)
+    }
+
+    console.log(`[AavePanel] Withdrawing ${amount} ${asset} (demolishing ids: ${buildingIdsToDemolish.join(', ')})`)
+    const result = await realWithdraw(smartWallet, asset, amount, buildingIdsToDemolish)
+
+    if (result.success) {
+      setSuccess(true)
+      
+      // Trigger external refresh (closes modal)
+      if (onSuccess) {
+        onSuccess()
+      }
+
+      setTimeout(() => {
+        refreshPosition()
+      }, 2000)
+      setTimeout(() => setSuccess(false), 5000)
+    } else {
+      setError(result.error || 'Withdraw failed')
+    }
+  }
 
   const handleSubmit = async () => {
     if (!amount || parseFloat(amount) <= 0) {
@@ -176,12 +253,13 @@ export function AavePanel({
     if (activeTab === 'supply') {
       // Call supply with userAddress, smartWallet, and coordinates
       const result = await realSupply(
-        userAddress, 
-        smartWallet, 
-        selectedAsset, 
+        userAddress,
+        smartWallet,
+        selectedAsset,
         parsedAmount,
         selectedCoords?.x,
-        selectedCoords?.y
+        selectedCoords?.y,
+        !!buildingId
       )
       
       if (result.success) {
@@ -222,7 +300,7 @@ export function AavePanel({
                 asset: selectedAsset,
                 amount: parsedAmount,
                 amountUSD,
-                apy: assetInfo.supplyAPY,
+                apy: aaveMarketData[selectedAsset]?.supplyAPY || assetInfo.supplyAPY,
               },
             ]
           }
@@ -344,17 +422,15 @@ export function AavePanel({
             >
               SUPPLY
             </button>
-            <button
-              onClick={() => setActiveTab('borrow')}
-              className={`px-3 py-1 text-[8px] border-2 transition-colors ${
-                activeTab === 'borrow'
-                  ? 'bg-purple-600 border-purple-400 text-white'
-                  : 'bg-slate-700 border-slate-600 text-slate-400 hover:border-slate-500'
-              }`}
-              style={{ fontFamily: '"Press Start 2P", monospace' }}
-            >
-              BORROW
-            </button>
+            {!existingAsset && (
+              <button
+                disabled
+                className="px-3 py-1 text-[8px] border-2 bg-slate-700 border-slate-600 text-slate-600 cursor-not-allowed opacity-50"
+                style={{ fontFamily: '"Press Start 2P", monospace' }}
+              >
+                BORROW
+              </button>
+            )}
           </div>
         </div>
 
@@ -417,25 +493,49 @@ export function AavePanel({
             className="text-slate-500 text-[8px] mb-2"
             style={{ fontFamily: '"Press Start 2P", monospace' }}
           >
-            SELECT ASSET
+            {existingAsset ? `ASSET: ${existingAsset}` : 'SELECT ASSET'}
           </p>
           <div className="grid grid-cols-4 gap-2">
-            {assets.map((asset) => (
-              <button
-                key={asset}
-                onClick={() => setSelectedAsset(asset)}
-                className={`px-2 py-2 border-2 text-[8px] transition-colors ${
-                  selectedAsset === asset
-                    ? 'bg-purple-600 border-purple-400 text-white'
-                    : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                }`}
-                style={{ fontFamily: '"Press Start 2P", monospace' }}
-              >
-                {asset}
-              </button>
-            ))}
+            {assets.map((asset) => {
+              const isUsed = !existingAsset && usedAssets.includes(asset)
+              const isLocked = !!existingAsset && asset !== existingAsset
+              const isDisabled = isUsed || isLocked
+
+              return (
+                <button
+                  key={asset}
+                  onClick={() => !isDisabled && setSelectedAsset(asset)}
+                  disabled={isDisabled}
+                  className={`px-2 py-2 border-2 text-[8px] transition-colors ${
+                    isDisabled
+                      ? 'bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed opacity-40'
+                      : selectedAsset === asset
+                        ? 'bg-purple-600 border-purple-400 text-white'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                  }`}
+                  style={{ fontFamily: '"Press Start 2P", monospace' }}
+                >
+                  {asset}
+                  {isUsed && <span className="block text-[5px] text-red-400 mt-0.5">BUILT</span>}
+                </button>
+              )
+            })}
           </div>
         </div>
+
+        {/* Vault Balance Display */}
+        {activeTab === 'supply' && vaultBalances[selectedAsset] && (
+          <div className="bg-slate-900/50 border border-slate-700 p-3 mb-4">
+            <div className="flex justify-between items-center">
+              <p className="text-slate-500 text-[7px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                VAULT BALANCE
+              </p>
+              <p className="text-cyan-400 text-[9px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                {parseFloat(vaultBalances[selectedAsset]).toFixed(selectedAsset === 'ETH' ? 6 : 2)} {selectedAsset}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Amount Input */}
         <div className="mb-4">
@@ -488,8 +588,8 @@ export function AavePanel({
               style={{ fontFamily: '"Press Start 2P", monospace' }}
             >
               {activeTab === 'supply'
-                ? `${currentAssetInfo.supplyAPY}%`
-                : `${currentAssetInfo.borrowAPY}%`}
+                ? `${aaveMarketData[selectedAsset]?.supplyAPY || currentAssetInfo.supplyAPY}%`
+                : `${aaveMarketData[selectedAsset]?.borrowAPY || currentAssetInfo.borrowAPY}%`}
             </p>
           </div>
           <div className="bg-slate-900/50 border border-slate-700 p-2 text-center">
@@ -590,14 +690,17 @@ export function AavePanel({
                 className="text-xs"
                 style={{ fontFamily: '"Press Start 2P", monospace' }}
               >
-                {activeTab === 'supply' ? 'SUPPLY' : 'BORROW'}
+                {activeTab === 'supply'
+                  ? (existingAsset ? 'SUPPLY MORE' : 'SUPPLY & BUILD')
+                  : 'BORROW'}
               </span>
             )}
           </div>
         </button>
 
         {/* Current Positions */}
-        {(position.supplies.length > 0 || position.borrows.length > 0) && (
+        {(position.supplies.filter((s: any) => s.amount > 0.0001).length > 0 || 
+          position.borrows.filter((b: any) => b.amount > 0.0001).length > 0) && (
           <div className="mt-4 pt-4 border-t-2 border-slate-700">
             <p
               className="text-slate-500 text-[8px] mb-3"
@@ -613,29 +716,42 @@ export function AavePanel({
                   className="text-green-400 text-[6px] mb-2"
                   style={{ fontFamily: '"Press Start 2P", monospace' }}
                 >
-                  SUPPLIED:
+                  {existingAsset ? `POSITION: ${existingAsset}` : 'SUPPLIED:'}
                 </p>
                 <div className="space-y-1">
-                  {position.supplies.map((s: any) => (
-                    <div
-                      key={s.asset}
-                      className="flex justify-between bg-slate-900/50 p-2"
-                    >
-                      <span
-                        className="text-white text-[8px]"
-                        style={{ fontFamily: '"Press Start 2P", monospace' }}
+                  {position.supplies
+                    .filter((s: any) => (!existingAsset || s.asset === existingAsset) && s.amount > 0.0001)
+                    .map((s: any) => (
+                      <div
+                        key={s.asset}
+                        className="flex justify-between items-center bg-slate-900/50 p-2"
                       >
-                        {s.amount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} {s.asset}
-                        <span className="text-slate-500 ml-2">
-                          (~${s.amountUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                      <div className="flex flex-col">
+                        <span
+                          className="text-white text-[8px]"
+                          style={{ fontFamily: '"Press Start 2P", monospace' }}
+                        >
+                          {s.amount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} {s.asset}
+                          <span className="text-slate-500 ml-2">
+                            (~${s.amountUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                          </span>
                         </span>
-                      </span>
-                      <span
-                        className="text-green-400 text-[8px]"
+                        <span
+                          className="text-green-400 text-[6px] mt-1"
+                          style={{ fontFamily: '"Press Start 2P", monospace' }}
+                        >
+                          +{s.apy}% APY
+                        </span>
+                      </div>
+                      
+                      <button
+                        onClick={() => handleWithdraw(s.asset, s.amount)}
+                        disabled={loading}
+                        className="px-2 py-1 bg-red-900/40 border border-red-700 text-red-400 text-[6px] hover:bg-red-800/60 hover:text-white transition-colors disabled:opacity-50"
                         style={{ fontFamily: '"Press Start 2P", monospace' }}
                       >
-                        +{s.apy}%
-                      </span>
+                        {loadingWithdraw ? '...' : 'WITHDRAW'}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -652,9 +768,11 @@ export function AavePanel({
                   BORROWED:
                 </p>
                 <div className="space-y-1">
-                  {position.borrows.map((b: any) => (
-                    <div
-                      key={b.asset}
+                  {position.borrows
+                    .filter((b: any) => b.amount > 0.0001)
+                    .map((b: any) => (
+                      <div
+                        key={b.asset}
                       className="flex justify-between bg-slate-900/50 p-2"
                     >
                       <span

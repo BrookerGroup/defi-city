@@ -13,16 +13,16 @@ import { ASSET_PRICES, AAVE_MARKET_DATA } from '@/config/aave'
 const ASSET_ADDRESSES: Record<string, string> = {
   USDC: CONTRACTS.baseSepolia.USDC,
   USDT: CONTRACTS.baseSepolia.USDT,
-  ETH: CONTRACTS.baseSepolia.WETH,
-  WBTC: '0x0000000000000000000000000000000000000000',
+  ETH: CONTRACTS.baseSepolia.ETH,
 }
 
 const ASSET_DECIMALS: Record<string, number> = {
   USDC: 6,
   USDT: 6,
   ETH: 18,
-  WBTC: 8,
 }
+
+const RAY = 10n ** 27n
 
 export function useAavePosition(smartWalletAddress: string | null) {
   const { wallets } = useWallets()
@@ -48,46 +48,55 @@ export function useAavePosition(smartWalletAddress: string | null) {
       // 1. Get global account data
       const accountData = await pool.getUserAccountData(smartWalletAddress)
       
-      // Aave V3 Base currency is typically USD with 8 decimals (for totalCollateralBase, totalDebtBase)
+      // Aave V3 Base currency is typically USD with 8 decimals
       const totalSuppliedUSD = Number(ethers.formatUnits(accountData.totalCollateralBase, 8))
       const totalBorrowedUSD = Number(ethers.formatUnits(accountData.totalDebtBase, 8))
       const healthFactor = accountData.healthFactor === ethers.MaxUint256 
         ? Infinity 
         : Number(ethers.formatUnits(accountData.healthFactor, 18))
       
-      // 2. Get specific asset data (USDC and ETH for now)
+      // 2. Get specific asset data
       const supplies: any[] = []
       const borrows: any[] = []
       
-      const assets: string[] = ['USDC']
+      const assets: string[] = ['USDC', 'USDT', 'ETH']
       
       for (const asset of assets) {
         const assetAddress = ASSET_ADDRESSES[asset]
-        if (assetAddress === ethers.ZeroAddress) continue
+        if (!assetAddress || assetAddress === ethers.ZeroAddress) continue
         
         const userData = await dataProvider.getUserReserveData(assetAddress, smartWalletAddress)
+        const reserveData = await dataProvider.getReserveData(assetAddress)
         
         const supplyAmount = userData.currentATokenBalance
         const borrowAmount = userData.currentStableDebt + userData.currentVariableDebt
         
+        // Calculate real APYs
+        const supplyAPY = (Number(reserveData.liquidityRate) / Number(RAY)) * 100
+        const borrowAPY = (Number(reserveData.variableBorrowRate) / Number(RAY)) * 100
+        
         if (supplyAmount > 0n) {
           const amount = Number(ethers.formatUnits(supplyAmount, ASSET_DECIMALS[asset]))
-          supplies.push({
-            asset,
-            amount,
-            amountUSD: amount * ASSET_PRICES[asset],
-            apy: AAVE_MARKET_DATA.assets[asset].supplyAPY // Ideally fetch this too
-          })
+          if (amount > 0.00001) {
+            supplies.push({
+              asset,
+              amount,
+              amountUSD: amount * ASSET_PRICES[asset],
+              apy: parseFloat(supplyAPY.toFixed(2))
+            })
+          }
         }
         
         if (borrowAmount > 0n) {
           const amount = Number(ethers.formatUnits(borrowAmount, ASSET_DECIMALS[asset]))
-          borrows.push({
-            asset,
-            amount,
-            amountUSD: amount * ASSET_PRICES[asset],
-            apy: AAVE_MARKET_DATA.assets[asset].borrowAPY
-          })
+          if (amount > 0.00001) {
+            borrows.push({
+              asset,
+              amount,
+              amountUSD: amount * ASSET_PRICES[asset],
+              apy: parseFloat(borrowAPY.toFixed(2))
+            })
+          }
         }
       }
       
@@ -98,7 +107,7 @@ export function useAavePosition(smartWalletAddress: string | null) {
         totalBorrowedUSD,
         netWorthUSD: totalSuppliedUSD - totalBorrowedUSD,
         healthFactor,
-        netAPY: 0, // Simplified
+        netAPY: 0, 
       })
       
       setError(null)

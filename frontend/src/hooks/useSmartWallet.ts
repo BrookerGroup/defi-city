@@ -16,14 +16,14 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 export function useSmartWallet(ownerAddress?: string) {
   const [smartWallet, setSmartWallet] = useState<`0x${string}` | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true) // Start true to wait for data
   const [isError, setIsError] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
   const fetchWalletAddress = useCallback(async () => {
     if (!ownerAddress) {
       setSmartWallet(null)
-      setLoading(false)
+      // Keep loading true when no address - we're waiting for address
       return
     }
 

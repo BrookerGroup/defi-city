@@ -9,6 +9,7 @@ interface IsometricBuildingProps {
   level?: number  // 1-5, affects building height
   delay?: number
   floatSpeed?: number
+  asset?: string  // USDC, USDT, ETH, etc.
 }
 
 const BUILDING_COLORS = {
@@ -36,6 +37,25 @@ const BUILDING_COLORS = {
     accent: '#7C3AED',
     window: '#F3E8FF',
   },
+  // Asset-specific colors
+  usdc: {
+    roof: '#0EA5E9', // Sky Blue (ฟ้า)
+    wall: '#7DD3FC',
+    accent: '#0369A1',
+    window: '#E0F2FE',
+  },
+  usdt: {
+    roof: '#10B981', // Green (เขียว)
+    wall: '#6EE7B7',
+    accent: '#059669',
+    window: '#D1FAE5',
+  },
+  eth: {
+    roof: '#4F46E5', // Indigo/Blue (น้ำเงิน)
+    wall: '#818CF8',
+    accent: '#3730A3',
+    window: '#E0E7FF',
+  },
 }
 
 export function IsometricBuilding({
@@ -43,7 +63,8 @@ export function IsometricBuilding({
   size = 'md',
   level = 1,
   delay = 0,
-  floatSpeed = 3
+  floatSpeed = 3,
+  asset
 }: IsometricBuildingProps) {
   const [randomFloat] = useState(() => Math.random() * 10)
 
@@ -63,7 +84,10 @@ export function IsometricBuilding({
   }
 
   const { width, height } = sizeConfig[size]
-  const colors = BUILDING_COLORS[type]
+  
+  // Determine color based on asset if provided, otherwise fallback to type
+  const colorKey = (asset?.toLowerCase() as keyof typeof BUILDING_COLORS) || type
+  const colors = BUILDING_COLORS[colorKey as keyof typeof BUILDING_COLORS] || BUILDING_COLORS[type]
 
   // Calculate number of floors based on level
   const floors = Math.min(level, 3)

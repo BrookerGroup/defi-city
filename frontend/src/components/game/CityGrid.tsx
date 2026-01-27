@@ -10,6 +10,7 @@ import { useState, useMemo, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { IsometricBuilding } from '../landing/IsometricBuilding'
 import { Building } from '@/hooks/useCityBuildings'
+import { GRID_SIZE } from '@/lib/constants'
 
 interface CityGridProps {
   buildings: Building[]
@@ -19,7 +20,7 @@ interface CityGridProps {
 }
 
 export function CityGrid({ buildings, selectedCoords, onSelectTile, isLoading }: CityGridProps) {
-  const gridSize = 13
+  const centerCoord = Math.ceil(GRID_SIZE / 2)
   
   // Camera rotation state
   const [rotateX, setRotateX] = useState(60)
@@ -29,6 +30,7 @@ export function CityGrid({ buildings, selectedCoords, onSelectTile, isLoading }:
   
   // Create a map for quick building lookup
   const buildingMap = useMemo(() => {
+    console.log(`[Grid] Recalculating buildingMap for ${buildings.length} buildings`, buildings)
     const map = new Map<string, Building>()
     buildings.forEach(b => {
       map.set(`${b.x},${b.y}`, b)
@@ -77,11 +79,11 @@ export function CityGrid({ buildings, selectedCoords, onSelectTile, isLoading }:
   const getTileStyle = (x: number, y: number) => {
     const isSelected = selectedCoords?.x === x && selectedCoords?.y === y
     const hasBuilding = buildingMap.has(`${x},${y}`)
-    const isTownHallPos = x === 7 && y === 7
+    const isTownHallPos = x === centerCoord && y === centerCoord
     
-    if (hasBuilding) return 'bg-emerald-900/40 border-emerald-600/60'
     if (isSelected) return 'bg-blue-500/40 border-blue-400 shadow-lg shadow-blue-500/30'
     if (isTownHallPos) return 'bg-amber-900/30 border-amber-600/50'
+    if (hasBuilding) return 'bg-emerald-900/40 border-emerald-600/60'
     
     return 'bg-slate-800/50 border-slate-700/50 hover:bg-slate-700/60 hover:border-slate-500'
   }
@@ -125,24 +127,24 @@ export function CityGrid({ buildings, selectedCoords, onSelectTile, isLoading }:
           transition={{ type: 'spring', stiffness: 100, damping: 20 }}
           style={{ 
             display: 'grid',
-            gridTemplateColumns: `repeat(${gridSize}, 48px)`,
-            gridTemplateRows: `repeat(${gridSize}, 48px)`,
+            gridTemplateColumns: `repeat(${GRID_SIZE}, 48px)`,
+            gridTemplateRows: `repeat(${GRID_SIZE}, 48px)`,
             gap: '2px',
             transformStyle: 'preserve-3d',
             transformOrigin: 'center center',
             width: 'fit-content',
           }}
         >
-          {Array.from({ length: gridSize * gridSize }).map((_, i) => {
-            const x = (i % gridSize) + 1
-            const y = Math.floor(i / gridSize) + 1
+          {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, i) => {
+            const x = (i % GRID_SIZE) + 1
+            const y = Math.floor(i / GRID_SIZE) + 1
             const building = buildingMap.get(`${x},${y}`)
             const isSelected = selectedCoords?.x === x && selectedCoords?.y === y
             
             return (
               <motion.div
                 key={`${x}-${y}`}
-                onClick={() => !building && !isDragging && onSelectTile(x, y)}
+                onClick={() => !isDragging && onSelectTile(x, y)}
                 className={`relative border-2 cursor-pointer transition-all duration-200 ${getTileStyle(x, y)}`}
                 style={{ 
                   width: '48px', 
@@ -167,12 +169,13 @@ export function CityGrid({ buildings, selectedCoords, onSelectTile, isLoading }:
                       bottom: '0',
                     }}
                   >
-                    <div style={{ transform: `scale(${0.8 + building.level * 0.15})` }}>
+                    <div style={{ transform: `scaleY(${0.8 + Math.log10(Math.max(building.amountUSD, 1) + 1) * 0.4})`, transformOrigin: 'bottom center' }}>
                       <IsometricBuilding 
                         type={building.type.toLowerCase() as any} 
                         size="sm" 
                         level={building.level}
                         floatSpeed={3}
+                        asset={building.asset}
                       />
                     </div>
                   </div>
@@ -190,7 +193,7 @@ export function CityGrid({ buildings, selectedCoords, onSelectTile, isLoading }:
                 )}
                 
                 {/* Town Hall Preview (if not built yet but this is the center) */}
-                {x === 7 && y === 7 && !building && (
+                {x === centerCoord && y === centerCoord && !building && (
                   <div className="absolute inset-0 flex items-center justify-center opacity-30">
                     <span 
                       className="text-[8px] text-amber-500 font-bold" 
@@ -198,6 +201,16 @@ export function CityGrid({ buildings, selectedCoords, onSelectTile, isLoading }:
                     >
                       CORE
                     </span>
+                  </div>
+                )}
+
+                {/* Coordinate Label (Selected tile only) */}
+                {isSelected && (
+                  <div 
+                    className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-700 px-2 py-0.5 rounded text-[8px] text-white whitespace-nowrap z-50 pointer-events-none"
+                    style={{ transform: `rotateZ(${-rotateZ}deg) rotateX(${-rotateX}deg)` }}
+                  >
+                    {x}, {y}
                   </div>
                 )}
               </motion.div>

@@ -8,6 +8,7 @@ import { ethers } from 'ethers'
 import { useWallets } from '@privy-io/react-auth'
 import { CONTRACTS, ABIS } from '@/config/contracts'
 import { ASSET_PRICES } from '@/config/aave'
+import { GRID_SIZE } from '@/lib/constants'
 
 export interface Building {
   id: number
@@ -27,17 +28,19 @@ export interface Building {
 // Asset addresses and decimals
 const ASSET_ADDRESSES: Record<string, string> = {
   USDC: CONTRACTS.baseSepolia.USDC,
-  ETH: CONTRACTS.baseSepolia.WETH,
+  USDT: CONTRACTS.baseSepolia.USDT,
+  ETH: CONTRACTS.baseSepolia.ETH,
 }
 
 const ASSET_DECIMALS: Record<string, number> = {
   USDC: 6,
+  USDT: 6,
   ETH: 18,
 }
 
 // Calculate building level based on USD value
 function calculateLevel(amountUSD: number): number {
-  if (amountUSD >= 5000) return 5
+  if (amountUSD >= 2000) return 5
   if (amountUSD >= 1000) return 4
   if (amountUSD >= 500) return 3
   if (amountUSD >= 100) return 2
@@ -46,20 +49,21 @@ function calculateLevel(amountUSD: number): number {
 
 // Assign building positions in a pattern
 function assignPosition(index: number): { x: number; y: number } {
-  // Positions around center (7,7 is reserved for Town Hall)
+  const center = Math.ceil(GRID_SIZE / 2)
+  // Positions around center
   const positions = [
-    { x: 6, y: 7 },  // Left of center
-    { x: 8, y: 7 },  // Right of center
-    { x: 7, y: 6 },  // Above center
-    { x: 7, y: 8 },  // Below center
-    { x: 6, y: 6 },  // Top-left
-    { x: 8, y: 8 },  // Bottom-right
-    { x: 6, y: 8 },  // Bottom-left
-    { x: 8, y: 6 },  // Top-right
-    { x: 5, y: 7 },  // Far left
-    { x: 9, y: 7 },  // Far right
-    { x: 7, y: 5 },  // Far top
-    { x: 7, y: 9 },  // Far bottom
+    { x: center - 1, y: center },     // Left
+    { x: center + 1, y: center },     // Right
+    { x: center, y: center - 1 },     // Top
+    { x: center, y: center + 1 },     // Bottom
+    { x: center - 1, y: center - 1 }, // Top-left
+    { x: center + 1, y: center + 1 }, // Bottom-right
+    { x: center - 1, y: center + 1 }, // Bottom-left
+    { x: center + 1, y: center - 1 }, // Top-right
+    { x: center - 2, y: center },     // Far left
+    { x: center + 2, y: center },     // Far right
+    { x: center, y: center - 2 },     // Far top
+    { x: center, y: center + 2 },     // Far bottom
   ]
   return positions[index % positions.length]
 }
@@ -67,6 +71,7 @@ function assignPosition(index: number): { x: number; y: number } {
 export function useCityBuildings(userAddress?: string, smartWalletAddress?: string | null) {
   const { wallets } = useWallets()
   const [buildings, setBuildings] = useState<Building[]>([])
+  const [allBuildings, setAllBuildings] = useState<Building[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -85,97 +90,104 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
       const network = 'baseSepolia'
       const addresses = CONTRACTS[network]
       
+      const core = new ethers.Contract(addresses.DEFICITY_CORE, ABIS.DEFICITY_CORE, provider)
       const dataProvider = new ethers.Contract(addresses.AAVE_DATA_PROVIDER, ABIS.AAVE_DATA_PROVIDER, provider)
       
-      console.log(`[City] Fetching Aave positions for ${smartWalletAddress}...`)
+      console.log(`[City] Fetching real buildings for ${userAddress}...`)
       
-      const generatedBuildings: Building[] = []
-      let buildingIndex = 0
-      
-      // Always add Town Hall at center when Smart Wallet exists
-      generatedBuildings.push({
-        id: buildingIndex,
-        owner: userAddress || '',
-        smartWallet: smartWalletAddress,
-        type: 'townhall',
-        asset: 'CORE',
-        amount: 0,
-        amountUSD: 0,
-        level: 1,
-        placedAt: Date.now(),
-        x: 7,  // Center of 13x13 grid
-        y: 7,
-        active: true
-      })
-      buildingIndex++
-      
-      // Check USDC supply
-      const usdcAddress = ASSET_ADDRESSES.USDC
-      const usdcData = await dataProvider.getUserReserveData(usdcAddress, smartWalletAddress)
-      const usdcSupply = usdcData.currentATokenBalance
-      
-      if (usdcSupply > 0n) {
-        const amount = Number(ethers.formatUnits(usdcSupply, ASSET_DECIMALS.USDC))
-        const amountUSD = amount * ASSET_PRICES.USDC
-        const level = calculateLevel(amountUSD)
-        const pos = assignPosition(buildingIndex)
+      // 1. Fetch buildings from DefiCityCore
+      const contractBuildings = await core.getUserBuildings(userAddress)
+      console.log(`[City] Found ${contractBuildings.length} buildings in contract`)
+
+      // 2. Fetch Aave positions for amount updates
+      const aavePositions: Record<string, bigint> = {}
+      for (const [symbol, address] of Object.entries(ASSET_ADDRESSES)) {
+        try {
+          const data = await dataProvider.getUserReserveData(address, smartWalletAddress)
+          aavePositions[symbol] = data.currentATokenBalance
+        } catch (e) {
+          aavePositions[symbol] = 0n
+        }
+      }
+
+      // 3. Map contract buildings to our UI structure
+      const mappedBuildings = contractBuildings.map((b: any) => {
+        // Find asset symbol by address
+        const assetSymbol = Object.entries(ASSET_ADDRESSES).find(([_, addr]) => 
+          addr.toLowerCase() === b.asset.toLowerCase()
+        )?.[0] || 'CORE'
+
+        // Determine if this is an Aave asset building
+        const isAaveAsset = assetSymbol !== 'CORE'
+
+        // Use live Aave amount if applicable. 
+        // For Aave assets, if liveAmount is 0, we use 0 (don't fall back to b.amount)
+        const liveAmountBigInt = aavePositions[assetSymbol]
+        let amount: number
         
-        generatedBuildings.push({
-          id: buildingIndex,
-          owner: userAddress || '',
-          smartWallet: smartWalletAddress,
-          type: 'bank',
-          asset: 'USDC',
+        if (isAaveAsset) {
+          amount = Number(ethers.formatUnits(liveAmountBigInt || 0n, ASSET_DECIMALS[assetSymbol] || 18))
+        } else {
+          amount = Number(ethers.formatUnits(b.amount, ASSET_DECIMALS[assetSymbol] || 18))
+        }
+
+        const amountUSD = amount * (ASSET_PRICES[assetSymbol] || 1)
+        
+        const centerCoord = Math.ceil(GRID_SIZE / 2)
+        const isTownHall = b.buildingType.toLowerCase() === 'townhall'
+        const displayX = isTownHall ? centerCoord : Number(b.coordinateX)
+        const displayY = isTownHall ? centerCoord : Number(b.coordinateY)
+
+        const needsForceMsg = isTownHall && Number(b.coordinateX) !== centerCoord && Number(b.coordinateX) !== 0
+        console.log(`[City] Building ${b.id}: type=${b.buildingType}, active=${b.active}, pos=(${displayX}, ${displayY})${needsForceMsg ? ' (MODIFIED FROM ' + b.coordinateX + ',' + b.coordinateY + ')' : ''}`)
+
+        return {
+          id: Number(b.id),
+          owner: b.owner,
+          smartWallet: b.smartWallet,
+          type: b.buildingType,
+          asset: assetSymbol,
           amount,
           amountUSD,
-          level,
-          placedAt: Date.now(),
-          x: pos.x,
-          y: pos.y,
-          active: true
-        })
-        buildingIndex++
-      }
-      
-      // Check ETH supply (future: can add more assets)
-      const ethAddress = ASSET_ADDRESSES.ETH
-      try {
-        const ethData = await dataProvider.getUserReserveData(ethAddress, smartWalletAddress)
-        const ethSupply = ethData.currentATokenBalance
-        
-        if (ethSupply > 0n) {
-          const amount = Number(ethers.formatUnits(ethSupply, ASSET_DECIMALS.ETH))
-          const amountUSD = amount * ASSET_PRICES.ETH
-          const level = calculateLevel(amountUSD)
-          const pos = assignPosition(buildingIndex)
-          
-          generatedBuildings.push({
-            id: buildingIndex,
-            owner: userAddress || '',
-            smartWallet: smartWalletAddress,
-            type: 'shop',  // Use shop type for ETH
-            asset: 'ETH',
-            amount,
-            amountUSD,
-            level,
-            placedAt: Date.now(),
-            x: pos.x,
-            y: pos.y,
-            active: true
-          })
-          buildingIndex++
+          level: calculateLevel(amountUSD),
+          placedAt: Number(b.placedAt) * 1000,
+          x: displayX,
+          y: displayY,
+          active: b.active
         }
-      } catch (err) {
-        // ETH might not be available, skip
-        console.log('[City] ETH reserve not available')
-      }
+      })
+
+      // Filter: must be active AND (if it's an Aave building, amount must be > 0)
+      let activeBuildings = mappedBuildings.filter((b: any) => {
+        if (!b.active) return false
+        if (b.asset !== 'CORE' && b.amount <= 0) return false
+        return true
+      })
+
+      // Deduplication: Only show the LATEST building (highest ID) for each unique Aave asset
+      // This prevents "ghost" buildings from legacy data showing up when funds are supplied
+      const latestByAsset: Record<string, any> = {}
       
-      console.log(`[City] Generated ${generatedBuildings.length} buildings from Aave positions`)
-      setBuildings(generatedBuildings)
+      activeBuildings.forEach((b: any) => {
+        if (b.asset === 'CORE') return // Keep CORE (Town Hall)
+        if (!latestByAsset[b.asset] || b.id > latestByAsset[b.asset].id) {
+          latestByAsset[b.asset] = b
+        }
+      })
+
+      const deduplicatedBuildings = activeBuildings.filter((b: any) => {
+        if (b.asset === 'CORE') return true
+        return latestByAsset[b.asset] && b.id === latestByAsset[b.asset].id
+      })
+      
+      console.log(`[City] Total: ${contractBuildings.length}, Visible Active: ${deduplicatedBuildings.length} (Deduplicated ${activeBuildings.length - deduplicatedBuildings.length})`)
+      
+      setBuildings(deduplicatedBuildings)
+      setAllBuildings(mappedBuildings)
       setError(null)
     } catch (err: any) {
-      console.error('[City] Error fetching Aave positions:', err)
-      setError(err.message || 'Failed to fetch positions')
+      console.error('[City] Error fetching buildings:', err)
+      setError(err.message || 'Failed to fetch buildings')
       setBuildings([])
     } finally {
       setLoading(false)
@@ -188,6 +200,7 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
 
   return {
     buildings,
+    allBuildings,
     loading,
     error,
     refresh: fetchBuildings

@@ -209,17 +209,11 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
      * @return walletAddress Address of the created SmartWallet
      * @return buildingId ID of the Town Hall building
      */
-    function createTownHall(
-        uint256 x,
-        uint256 y
-    ) external nonReentrant whenNotPaused returns (address walletAddress, uint256 buildingId) {
+    function createTownHall() external nonReentrant whenNotPaused returns (address walletAddress, uint256 buildingId) {
         address user = msg.sender;
 
         // Check if user already has a wallet
         if (userSmartWallets[user] != address(0)) revert WalletAlreadyRegistered();
-
-        // Check grid position (user's own grid)
-        if (userGridBuildings[user][x][y] != 0) revert GridOccupied();
 
         // 1. Create SmartWallet via Factory
         SmartWallet wallet = walletFactory.createWallet(user, 0);
@@ -236,14 +230,14 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
             asset: address(0),
             amount: 0,
             placedAt: block.timestamp,
-            coordinateX: x,
-            coordinateY: y,
+            coordinateX: 0,
+            coordinateY: 0,
             active: true,
             metadata: abi.encode("First Town Hall")
         });
 
         userBuildings[user].push(buildingId);
-        userGridBuildings[user][x][y] = buildingId;
+        // Note: We don't mark userGridBuildings for Town Hall as it behaves as a background/central entity
         userStats[user].buildingCount++;
 
         emit BuildingPlaced(
@@ -253,8 +247,8 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
             "townhall",
             address(0),
             0,
-            x,
-            y
+            0,
+            0
         );
 
         return (walletAddress, buildingId);

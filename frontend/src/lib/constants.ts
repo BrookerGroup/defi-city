@@ -7,3 +7,6 @@ export const RPC_URL =
 
 export const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID || ''
 export const WALLETCONNECT_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || ''
+
+// Game Configuration
+export const GRID_SIZE = 13

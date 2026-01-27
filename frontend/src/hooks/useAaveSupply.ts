@@ -7,14 +7,14 @@ import { useState, useCallback } from 'react'
 import { ethers } from 'ethers'
 import { useWallets } from '@privy-io/react-auth'
 import { CONTRACTS, ABIS, SUPPORTED_CHAINS } from '@/config/contracts'
+import { GRID_SIZE } from '@/lib/constants'
 // import { AaveAsset } from '@/types/aave'
 
 // Asset addresses mapping
 const ASSET_ADDRESSES: Record<string, string> = {
   USDC: CONTRACTS.baseSepolia.USDC,
   USDT: CONTRACTS.baseSepolia.USDT,
-  ETH: CONTRACTS.baseSepolia.WETH,
-  WBTC: '0x0000000000000000000000000000000000000000', // Add when available
+  ETH: CONTRACTS.baseSepolia.ETH,
 }
 
 // Asset decimals mapping
@@ -22,7 +22,6 @@ const ASSET_DECIMALS: Record<string, number> = {
   USDC: 6,
   USDT: 6,
   ETH: 18,
-  WBTC: 8,
 }
 
 export function useAaveSupply() {
@@ -52,30 +51,44 @@ export function useAaveSupply() {
       console.error('Error fetching buildings for position check:', error)
     }
     
-    // Find first empty position (try common positions)
-    const maxAttempts = 100
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // Try positions in a grid pattern
-      const x = Math.floor(attempt / 10) + 1
-      const y = (attempt % 10) + 1
-      const key = `${x},${y}`
-      
-      if (!occupied.has(key)) {
-        // Double check with contract
+    const center = Math.ceil(GRID_SIZE / 2)
+    
+    // Find first empty position (try common positions around center)
+    const priorityPositions = [
+      { x: center - 1, y: center }, { x: center + 1, y: center }, { x: center, y: center - 1 }, { x: center, y: center + 1 }, // Cardinal
+      { x: center - 1, y: center - 1 }, { x: center + 1, y: center + 1 }, { x: center - 1, y: center + 1 }, { x: center + 1, y: center - 1 }, // Ordinal
+      { x: center - 2, y: center }, { x: center + 2, y: center }, { x: center, y: center - 2 }, { x: center, y: center + 2 }, // Far Cardinal
+    ]
+
+    for (const pos of priorityPositions) {
+      if (!occupied.has(`${pos.x},${pos.y}`)) {
         try {
-          const buildingId = await core.userGridBuildings(userAddress, x, y)
+          const buildingId = await core.userGridBuildings(userAddress, pos.x, pos.y)
           if (buildingId.toString() === '0') {
+            return [pos.x, pos.y]
+          }
+        } catch (e) {
+          return [pos.x, pos.y]
+        }
+      }
+    }
+
+    // Fallback: search within grid area
+    for (let x = 1; x <= GRID_SIZE; x++) {
+      for (let y = 1; y <= GRID_SIZE; y++) {
+        if (x === center && y === center) continue
+        if (!occupied.has(`${x},${y}`)) {
+          try {
+            const buildingId = await core.userGridBuildings(userAddress, x, y)
+            if (buildingId.toString() === '0') return [x, y]
+          } catch (e) {
             return [x, y]
           }
-        } catch (error) {
-          // If check fails, use the position anyway
-          return [x, y]
         }
       }
     }
     
-    // Fallback: return a high position
-    return [10, 10]
+    return [10, 10] // Deep fallback
   }, [])
 
   const getContracts = async () => {
@@ -131,12 +144,18 @@ export function useAaveSupply() {
       asset: any,
       amount: number,
       x?: number,
-      y?: number
+      y?: number,
+      isUpgrade?: boolean
     ) => {
+      setLoading(true)
+      setError(null)
+
+      try {
         const {
           bankAdapter,
           core,
           signer,
+          provider,
           smartWalletAbi,
           erc20Abi,
           addresses,
@@ -149,18 +168,6 @@ export function useAaveSupply() {
           y = foundY
           console.log(`Using auto-found position: (${x}, ${y})`)
         }
-      setLoading(true)
-      setError(null)
-
-      try {
-        const {
-          bankAdapter,
-          core,
-          signer,
-          smartWalletAbi,
-          erc20Abi,
-          addresses,
-        } = await getContracts()
 
         const assetAddress = ASSET_ADDRESSES[asset]
         const decimals = ASSET_DECIMALS[asset]
@@ -171,14 +178,10 @@ export function useAaveSupply() {
         let balanceFormatted: string
         const amountFormatted = amount.toString()
 
-        const { provider } = await getContracts()
-
         if (asset === 'ETH') {
-          // Check Smart Wallet native ETH balance
           smartWalletBalance = await provider.getBalance(smartWalletAddress)
           balanceFormatted = ethers.formatEther(smartWalletBalance)
         } else {
-          // For ERC20 tokens, check Smart Wallet balance
           const tokenContract = new ethers.Contract(assetAddress, erc20Abi, signer)
           smartWalletBalance = await tokenContract.balanceOf(smartWalletAddress)
           balanceFormatted = ethers.formatUnits(smartWalletBalance, decimals)
@@ -194,7 +197,7 @@ export function useAaveSupply() {
         console.log(`Amount to supply: ${amountFormatted} ${asset}`)
 
         // Get token contract (for WETH for ETH operations, or the actual token)
-        const token = new ethers.Contract(assetAddress, erc20Abi, signer)
+        const token = asset !== 'ETH' ? new ethers.Contract(assetAddress, erc20Abi, signer) : null
 
         // 4. Prepare PlaceParams
         const placeParams = {
@@ -234,11 +237,33 @@ export function useAaveSupply() {
         )
 
         // Convert read-only arrays to regular arrays to avoid "read-only property" error
-        const targetsArray = Array.from(targets) as string[]
-        const valuesArray = Array.from(values) as bigint[]
-        const datasArray = Array.from(datas) as string[]
+        let targetsArray = Array.from(targets) as string[]
+        let valuesArray = Array.from(values) as bigint[]
+        let datasArray = Array.from(datas) as string[]
 
-        console.log('preparePlace returned:', {
+        // For ETH, we need to wrap native ETH to WETH first
+        if (asset === 'ETH') {
+          console.log('[Supply] Detected ETH: Prepending WETH.deposit() to batch')
+          const wethInterface = new ethers.Interface(['function deposit()'])
+          const depositData = wethInterface.encodeFunctionData('deposit')
+          
+          targetsArray.unshift(assetAddress) // WETH address
+          valuesArray.unshift(amountWei)      // Native ETH value
+          datasArray.unshift(depositData)    // deposit() calldata
+        }
+
+        // When upgrading an existing building, skip the building placement call (last element)
+        if (isUpgrade && targetsArray.length >= 3) {
+          console.log('[Supply] Upgrade mode: skipping building placement call')
+          // If ETH, we have 4 calls (Deposit, Approve, Supply, Record), we keep first 3
+          // If not ETH, we have 3 calls (Approve, Supply, Record), we keep first 2
+          const limit = asset === 'ETH' ? 3 : 2
+          targetsArray = targetsArray.slice(0, limit)
+          valuesArray = valuesArray.slice(0, limit)
+          datasArray = datasArray.slice(0, limit)
+        }
+
+        console.log('Final batch calls:', {
           targets: targetsArray.map((t: string) => t),
           values: valuesArray.map((v: bigint) => v.toString()),
           datasCount: datasArray.length,
@@ -257,7 +282,9 @@ export function useAaveSupply() {
         console.log('Data lengths:', datasArray.map((d: string) => d.length))
         
         // Verify Smart Wallet has balance before executing batch
-        const finalBalance = await token.balanceOf(smartWalletAddress)
+        const finalBalance = asset === 'ETH' 
+          ? await provider.getBalance(smartWalletAddress)
+          : await token!.balanceOf(smartWalletAddress)
         console.log('Final Smart Wallet balance:', ethers.formatUnits(finalBalance, decimals), asset)
         
         if (finalBalance < amountWei) {
@@ -266,34 +293,48 @@ export function useAaveSupply() {
         
         // Decode calls for debugging
         console.log('Decoding batch calls for debugging...')
+        let callIdx = 0
+        
+        if (asset === 'ETH') {
+          console.log(`Call ${callIdx + 1} - Deposit (Wrap ETH):`, {
+            target: targetsArray[callIdx],
+            value: ethers.formatUnits(valuesArray[callIdx], 18),
+          })
+          callIdx++
+        }
+
         try {
           const approveIface = new ethers.Interface(['function approve(address,uint256)'])
-          const approveParams = approveIface.decodeFunctionData('approve', datasArray[0])
-          console.log('Call 1 - Approve:', {
-            token: targetsArray[0],
+          const approveParams = approveIface.decodeFunctionData('approve', datasArray[callIdx])
+          console.log(`Call ${callIdx + 1} - Approve:`, {
+            token: targetsArray[callIdx],
             spender: approveParams[0],
             amount: approveParams[1].toString(),
             amountFormatted: ethers.formatUnits(approveParams[1], decimals),
           })
+          callIdx++
         } catch (err: any) {
           console.error('Error decoding approve:', err)
+          callIdx++
         }
         
         try {
           const supplyIface = new ethers.Interface(['function supply(address,uint256,address,uint16)'])
-          const supplyParams = supplyIface.decodeFunctionData('supply', datasArray[1])
-          console.log('Call 2 - Supply:', {
+          const supplyParams = supplyIface.decodeFunctionData('supply', datasArray[callIdx])
+          console.log(`Call ${callIdx + 1} - Supply:`, {
             asset: supplyParams[0],
             amount: supplyParams[1].toString(),
             amountFormatted: ethers.formatUnits(supplyParams[1], decimals),
             onBehalfOf: supplyParams[2],
             referralCode: supplyParams[3],
           })
+          callIdx++
         } catch (err: any) {
           console.error('Error decoding supply:', err)
+          callIdx++
         }
         
-        console.log('Call 3 - RecordBuildingPlacement (DefiCityCore)')
+        console.log(`Call ${callIdx + 1} - RecordBuildingPlacement (DefiCityCore)`)
         
         // Estimate gas first
         try {
@@ -305,13 +346,39 @@ export function useAaveSupply() {
           console.log('Gas estimate:', gasEstimate.toString())
         } catch (estimateError: any) {
           console.error('Gas estimation failed:', estimateError)
-          
-          // Try to get more details about which call failed
-          if (estimateError.data) {
-            console.error('Error data:', estimateError.data)
+
+          // Test each call individually to find which one fails
+          const callLabels = asset === 'ETH' 
+            ? ['Wrap ETH (Deposit)', 'Approve (WETH)', 'Supply (Aave Pool)', 'Record Building']
+            : ['Approve (Token)', 'Supply (Aave Pool)', 'Record Building'];
+
+          console.log('[Debug] Batch Execution components:', targetsArray.map((t, i) => ({
+              label: callLabels[i],
+              target: t,
+              value: valuesArray[i].toString(),
+              dataLength: datasArray[i].length
+          })));
+
+          const individualFailures: string[] = [];
+          for (let i = 0; i < targetsArray.length; i++) {
+            const label = callLabels[i] || `Call ${i + 1}`;
+            try {
+              await smartWallet.execute.estimateGas(
+                targetsArray[i],
+                valuesArray[i],
+                datasArray[i]
+              )
+              console.log(`  Call ${i + 1} (${label}): OK`)
+            } catch (callError: any) {
+              const actualError = callError.reason || callError.data?.message || callError.data || callError.message || 'Unknown error'
+              console.error(`  Call ${i + 1} (${label}): FAILED`, actualError)
+              individualFailures.push(`${label}: ${actualError.toString().slice(0, 100)}`);
+            }
           }
-          
-          throw new Error(`Transaction will fail: ${estimateError.reason || estimateError.message}`)
+
+          // Throw the original BATCH error but with more context
+          const batchErrorMsg = estimateError.reason || estimateError.message || 'Batch simulation failed';
+          throw new Error(`Simulation failed. Batch error: ${batchErrorMsg}. Sub-calls: ${individualFailures.join(' | ')}`)
         }
 
         const executeTx = await smartWallet.executeBatch(

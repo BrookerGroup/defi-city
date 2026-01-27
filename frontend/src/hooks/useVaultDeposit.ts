@@ -3,6 +3,10 @@ import { useWriteContract } from 'wagmi'
 import { createPublicClient, http, parseEther, parseUnits, formatEther, formatUnits } from 'viem'
 import { baseSepolia } from 'viem/chains'
 import { USDC_ADDRESS, ERC20ABI } from '@/lib/contracts'
+import { CONTRACTS } from '@/config/contracts'
+
+const USDT_ADDRESS = CONTRACTS.baseSepolia.USDT as `0x${string}`
+const ETH_ADDRESS = CONTRACTS.baseSepolia.ETH as `0x${string}`
 
 export type TokenType = 'ETH' | 'USDC'
 
@@ -32,6 +36,7 @@ export function useVaultDeposit(
   const [usdcBalance, setUsdcBalance] = useState('0')
   const [smartWalletEthBalance, setSmartWalletEthBalance] = useState('0')
   const [smartWalletUsdcBalance, setSmartWalletUsdcBalance] = useState('0')
+  const [smartWalletUsdtBalance, setSmartWalletUsdtBalance] = useState('0')
   const [isLoadingBalances, setIsLoadingBalances] = useState(false)
 
   // Fetch balances directly from RPC
@@ -84,6 +89,19 @@ export function useVaultDeposit(
           console.log('[Balances] Smart Wallet USDC:', swUsdcFormatted)
         } catch {
           setSmartWalletUsdcBalance('0')
+        }
+
+        try {
+          const swUsdt = await publicClient.readContract({
+            address: USDT_ADDRESS,
+            abi: ERC20ABI,
+            functionName: 'balanceOf',
+            args: [smartWalletAddress],
+          }) as bigint
+          const swUsdtFormatted = formatUnits(swUsdt, 6)
+          setSmartWalletUsdtBalance(swUsdtFormatted)
+        } catch {
+          setSmartWalletUsdtBalance('0')
         }
       }
     } catch (err) {
@@ -252,5 +270,6 @@ export function useVaultDeposit(
     // Smart Wallet Balances
     smartWalletEthBalance,
     smartWalletUsdcBalance,
+    smartWalletUsdtBalance,
   }
 }
