@@ -6,11 +6,14 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface BuildingRegistryInterface extends Interface {
-    getFunction(nameOrSignature: "adapters" | "buildingTypes" | "calculateFee" | "estimateYield" | "getAdapter" | "getAllBuildingTypes" | "getBuildingTypeCount" | "getPlacementFee" | "getRequiredProtocols" | "isBuildingTypeRegistered" | "isRegistered" | "owner" | "prepareDemolish" | "prepareHarvest" | "preparePlace" | "registerAdapter" | "removeAdapter" | "renounceOwnership" | "transferOwnership" | "upgradeAdapter" | "validatePlacement"): FunctionFragment;
+    getFunction(nameOrSignature: "ADAPTER_MANAGER_ROLE" | "DEFAULT_ADMIN_ROLE" | "PAUSER_ROLE" | "adapters" | "buildingTypes" | "calculateFee" | "estimateYield" | "getAdapter" | "getAllBuildingTypes" | "getBuildingTypeCount" | "getPlacementFee" | "getRequiredProtocols" | "getRoleAdmin" | "grantRole" | "hasRole" | "isBuildingTypeRegistered" | "isRegistered" | "pause" | "paused" | "prepareDemolish" | "prepareHarvest" | "preparePlace" | "registerAdapter" | "removeAdapter" | "renounceRole" | "revokeRole" | "supportsInterface" | "unpause" | "upgradeAdapter" | "validatePlacement"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "AdapterRegistered" | "AdapterRemoved" | "AdapterUpgraded" | "OwnershipTransferred"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "AdapterRegistered" | "AdapterRemoved" | "AdapterUpgraded" | "Paused" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
 
-    encodeFunctionData(functionFragment: 'adapters', values: [string]): string;
+    encodeFunctionData(functionFragment: 'ADAPTER_MANAGER_ROLE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'PAUSER_ROLE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'adapters', values: [string]): string;
 encodeFunctionData(functionFragment: 'buildingTypes', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'calculateFee', values: [string, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'estimateYield', values: [string, BigNumberish]): string;
@@ -19,20 +22,29 @@ encodeFunctionData(functionFragment: 'getAllBuildingTypes', values?: undefined):
 encodeFunctionData(functionFragment: 'getBuildingTypeCount', values?: undefined): string;
 encodeFunctionData(functionFragment: 'getPlacementFee', values: [string]): string;
 encodeFunctionData(functionFragment: 'getRequiredProtocols', values: [string]): string;
+encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): string;
+encodeFunctionData(functionFragment: 'grantRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'hasRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'isBuildingTypeRegistered', values: [string]): string;
 encodeFunctionData(functionFragment: 'isRegistered', values: [string]): string;
-encodeFunctionData(functionFragment: 'owner', values?: undefined): string;
+encodeFunctionData(functionFragment: 'pause', values?: undefined): string;
+encodeFunctionData(functionFragment: 'paused', values?: undefined): string;
 encodeFunctionData(functionFragment: 'prepareDemolish', values: [string, AddressLike, AddressLike, BigNumberish, BytesLike]): string;
 encodeFunctionData(functionFragment: 'prepareHarvest', values: [string, AddressLike, AddressLike, BigNumberish, BytesLike]): string;
 encodeFunctionData(functionFragment: 'preparePlace', values: [string, AddressLike, AddressLike, BytesLike]): string;
 encodeFunctionData(functionFragment: 'registerAdapter', values: [string, AddressLike]): string;
 encodeFunctionData(functionFragment: 'removeAdapter', values: [string]): string;
-encodeFunctionData(functionFragment: 'renounceOwnership', values?: undefined): string;
-encodeFunctionData(functionFragment: 'transferOwnership', values: [AddressLike]): string;
+encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
+encodeFunctionData(functionFragment: 'unpause', values?: undefined): string;
 encodeFunctionData(functionFragment: 'upgradeAdapter', values: [string, AddressLike]): string;
 encodeFunctionData(functionFragment: 'validatePlacement', values: [string, BytesLike]): string;
 
-    decodeFunctionResult(functionFragment: 'adapters', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'ADAPTER_MANAGER_ROLE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'PAUSER_ROLE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'adapters', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'buildingTypes', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'calculateFee', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'estimateYield', data: BytesLike): Result;
@@ -41,16 +53,22 @@ decodeFunctionResult(functionFragment: 'getAllBuildingTypes', data: BytesLike): 
 decodeFunctionResult(functionFragment: 'getBuildingTypeCount', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getPlacementFee', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getRequiredProtocols', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'getRoleAdmin', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'grantRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'hasRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'isBuildingTypeRegistered', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'isRegistered', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'owner', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'pause', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'paused', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'prepareDemolish', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'prepareHarvest', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'preparePlace', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'registerAdapter', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'removeAdapter', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'renounceOwnership', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'upgradeAdapter', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'validatePlacement', data: BytesLike): Result;
   }
@@ -92,10 +110,58 @@ decodeFunctionResult(functionFragment: 'validatePlacement', data: BytesLike): Re
 
   
 
-    export namespace OwnershipTransferredEvent {
-      export type InputTuple = [previousOwner: AddressLike, newOwner: AddressLike];
-      export type OutputTuple = [previousOwner: string, newOwner: string];
-      export interface OutputObject {previousOwner: string, newOwner: string };
+    export namespace PausedEvent {
+      export type InputTuple = [account: AddressLike];
+      export type OutputTuple = [account: string];
+      export interface OutputObject {account: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace RoleAdminChangedEvent {
+      export type InputTuple = [role: BytesLike, previousAdminRole: BytesLike, newAdminRole: BytesLike];
+      export type OutputTuple = [role: string, previousAdminRole: string, newAdminRole: string];
+      export interface OutputObject {role: string, previousAdminRole: string, newAdminRole: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace RoleGrantedEvent {
+      export type InputTuple = [role: BytesLike, account: AddressLike, sender: AddressLike];
+      export type OutputTuple = [role: string, account: string, sender: string];
+      export interface OutputObject {role: string, account: string, sender: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace RoleRevokedEvent {
+      export type InputTuple = [role: BytesLike, account: AddressLike, sender: AddressLike];
+      export type OutputTuple = [role: string, account: string, sender: string];
+      export interface OutputObject {role: string, account: string, sender: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace UnpausedEvent {
+      export type InputTuple = [account: AddressLike];
+      export type OutputTuple = [account: string];
+      export interface OutputObject {account: string };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -137,6 +203,30 @@ decodeFunctionResult(functionFragment: 'validatePlacement', data: BytesLike): Re
 
 
     
+    
+    ADAPTER_MANAGER_ROLE: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    DEFAULT_ADMIN_ROLE: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    PAUSER_ROLE: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
     
     adapters: TypedContractMethod<
       [arg0: string, ],
@@ -210,6 +300,30 @@ decodeFunctionResult(functionFragment: 'validatePlacement', data: BytesLike): Re
     
 
     
+    getRoleAdmin: TypedContractMethod<
+      [role: BytesLike, ],
+      [string],
+      'view'
+    >
+    
+
+    
+    grantRole: TypedContractMethod<
+      [role: BytesLike, account: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    hasRole: TypedContractMethod<
+      [role: BytesLike, account: AddressLike, ],
+      [boolean],
+      'view'
+    >
+    
+
+    
     isBuildingTypeRegistered: TypedContractMethod<
       [buildingType: string, ],
       [boolean],
@@ -226,9 +340,17 @@ decodeFunctionResult(functionFragment: 'validatePlacement', data: BytesLike): Re
     
 
     
-    owner: TypedContractMethod<
+    pause: TypedContractMethod<
       [],
-      [string],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    paused: TypedContractMethod<
+      [],
+      [boolean],
       'view'
     >
     
@@ -274,16 +396,32 @@ decodeFunctionResult(functionFragment: 'validatePlacement', data: BytesLike): Re
     
 
     
-    renounceOwnership: TypedContractMethod<
-      [],
+    renounceRole: TypedContractMethod<
+      [role: BytesLike, callerConfirmation: AddressLike, ],
       [void],
       'nonpayable'
     >
     
 
     
-    transferOwnership: TypedContractMethod<
-      [newOwner: AddressLike, ],
+    revokeRole: TypedContractMethod<
+      [role: BytesLike, account: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    supportsInterface: TypedContractMethod<
+      [interfaceId: BytesLike, ],
+      [boolean],
+      'view'
+    >
+    
+
+    
+    unpause: TypedContractMethod<
+      [],
       [void],
       'nonpayable'
     >
@@ -308,7 +446,22 @@ decodeFunctionResult(functionFragment: 'validatePlacement', data: BytesLike): Re
 
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
 
-    getFunction(nameOrSignature: 'adapters'): TypedContractMethod<
+    getFunction(nameOrSignature: 'ADAPTER_MANAGER_ROLE'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'DEFAULT_ADMIN_ROLE'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'PAUSER_ROLE'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'adapters'): TypedContractMethod<
       [arg0: string, ],
       [string],
       'view'
@@ -353,6 +506,21 @@ getFunction(nameOrSignature: 'getRequiredProtocols'): TypedContractMethod<
       [string[]],
       'view'
     >;
+getFunction(nameOrSignature: 'getRoleAdmin'): TypedContractMethod<
+      [role: BytesLike, ],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'grantRole'): TypedContractMethod<
+      [role: BytesLike, account: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'hasRole'): TypedContractMethod<
+      [role: BytesLike, account: AddressLike, ],
+      [boolean],
+      'view'
+    >;
 getFunction(nameOrSignature: 'isBuildingTypeRegistered'): TypedContractMethod<
       [buildingType: string, ],
       [boolean],
@@ -363,9 +531,14 @@ getFunction(nameOrSignature: 'isRegistered'): TypedContractMethod<
       [boolean],
       'view'
     >;
-getFunction(nameOrSignature: 'owner'): TypedContractMethod<
+getFunction(nameOrSignature: 'pause'): TypedContractMethod<
       [],
-      [string],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'paused'): TypedContractMethod<
+      [],
+      [boolean],
       'view'
     >;
 getFunction(nameOrSignature: 'prepareDemolish'): TypedContractMethod<
@@ -393,13 +566,23 @@ getFunction(nameOrSignature: 'removeAdapter'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
-getFunction(nameOrSignature: 'renounceOwnership'): TypedContractMethod<
-      [],
+getFunction(nameOrSignature: 'renounceRole'): TypedContractMethod<
+      [role: BytesLike, callerConfirmation: AddressLike, ],
       [void],
       'nonpayable'
     >;
-getFunction(nameOrSignature: 'transferOwnership'): TypedContractMethod<
-      [newOwner: AddressLike, ],
+getFunction(nameOrSignature: 'revokeRole'): TypedContractMethod<
+      [role: BytesLike, account: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'supportsInterface'): TypedContractMethod<
+      [interfaceId: BytesLike, ],
+      [boolean],
+      'view'
+    >;
+getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
+      [],
       [void],
       'nonpayable'
     >;
@@ -417,7 +600,11 @@ getFunction(nameOrSignature: 'validatePlacement'): TypedContractMethod<
     getEvent(key: 'AdapterRegistered'): TypedContractEvent<AdapterRegisteredEvent.InputTuple, AdapterRegisteredEvent.OutputTuple, AdapterRegisteredEvent.OutputObject>;
 getEvent(key: 'AdapterRemoved'): TypedContractEvent<AdapterRemovedEvent.InputTuple, AdapterRemovedEvent.OutputTuple, AdapterRemovedEvent.OutputObject>;
 getEvent(key: 'AdapterUpgraded'): TypedContractEvent<AdapterUpgradedEvent.InputTuple, AdapterUpgradedEvent.OutputTuple, AdapterUpgradedEvent.OutputObject>;
-getEvent(key: 'OwnershipTransferred'): TypedContractEvent<OwnershipTransferredEvent.InputTuple, OwnershipTransferredEvent.OutputTuple, OwnershipTransferredEvent.OutputObject>;
+getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
+getEvent(key: 'RoleAdminChanged'): TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
+getEvent(key: 'RoleGranted'): TypedContractEvent<RoleGrantedEvent.InputTuple, RoleGrantedEvent.OutputTuple, RoleGrantedEvent.OutputObject>;
+getEvent(key: 'RoleRevoked'): TypedContractEvent<RoleRevokedEvent.InputTuple, RoleRevokedEvent.OutputTuple, RoleRevokedEvent.OutputObject>;
+getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, UnpausedEvent.OutputTuple, UnpausedEvent.OutputObject>;
 
     filters: {
       
@@ -433,8 +620,24 @@ getEvent(key: 'OwnershipTransferred'): TypedContractEvent<OwnershipTransferredEv
       AdapterUpgraded: TypedContractEvent<AdapterUpgradedEvent.InputTuple, AdapterUpgradedEvent.OutputTuple, AdapterUpgradedEvent.OutputObject>;
     
 
-      'OwnershipTransferred(address,address)': TypedContractEvent<OwnershipTransferredEvent.InputTuple, OwnershipTransferredEvent.OutputTuple, OwnershipTransferredEvent.OutputObject>;
-      OwnershipTransferred: TypedContractEvent<OwnershipTransferredEvent.InputTuple, OwnershipTransferredEvent.OutputTuple, OwnershipTransferredEvent.OutputObject>;
+      'Paused(address)': TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
+      Paused: TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
+    
+
+      'RoleAdminChanged(bytes32,bytes32,bytes32)': TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
+      RoleAdminChanged: TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
+    
+
+      'RoleGranted(bytes32,address,address)': TypedContractEvent<RoleGrantedEvent.InputTuple, RoleGrantedEvent.OutputTuple, RoleGrantedEvent.OutputObject>;
+      RoleGranted: TypedContractEvent<RoleGrantedEvent.InputTuple, RoleGrantedEvent.OutputTuple, RoleGrantedEvent.OutputObject>;
+    
+
+      'RoleRevoked(bytes32,address,address)': TypedContractEvent<RoleRevokedEvent.InputTuple, RoleRevokedEvent.OutputTuple, RoleRevokedEvent.OutputObject>;
+      RoleRevoked: TypedContractEvent<RoleRevokedEvent.InputTuple, RoleRevokedEvent.OutputTuple, RoleRevokedEvent.OutputObject>;
+    
+
+      'Unpaused(address)': TypedContractEvent<UnpausedEvent.InputTuple, UnpausedEvent.OutputTuple, UnpausedEvent.OutputObject>;
+      Unpaused: TypedContractEvent<UnpausedEvent.InputTuple, UnpausedEvent.OutputTuple, UnpausedEvent.OutputObject>;
     
     };
   }

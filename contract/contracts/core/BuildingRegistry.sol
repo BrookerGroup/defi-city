@@ -2,7 +2,8 @@
 pragma solidity ^0.8.20;
 
 import "../interfaces/IBuildingAdapter.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
@@ -10,8 +11,17 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * @notice Central registry for building type adapters
  * @dev Routes building operations to the correct adapter contract
  *      Allows adding/upgrading adapters without redeploying core logic
+ *      Uses AccessControl for granular permissions
  */
-contract BuildingRegistry is Ownable, ReentrancyGuard {
+contract BuildingRegistry is AccessControl, Pausable, ReentrancyGuard {
+
+    // ============ Access Control Roles ============
+
+    /// @notice Role for managing adapters (register, upgrade, remove)
+    bytes32 public constant ADAPTER_MANAGER_ROLE = keccak256("ADAPTER_MANAGER_ROLE");
+
+    /// @notice Role for pausing/unpausing the contract
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     // ============ State Variables ============
 
@@ -54,7 +64,12 @@ contract BuildingRegistry is Ownable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor() Ownable(msg.sender) {}
+    constructor() {
+        // Grant all roles to deployer initially
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(ADAPTER_MANAGER_ROLE, msg.sender);
+        _grantRole(PAUSER_ROLE, msg.sender);
+    }
 
     // ============ Core Functions ============
 
@@ -74,7 +89,7 @@ contract BuildingRegistry is Ownable, ReentrancyGuard {
         address user,
         address userSmartWallet,
         bytes calldata params
-    ) external view returns (
+    ) external view whenNotPaused returns (
         address[] memory targets,
         uint256[] memory values,
         bytes[] memory datas
@@ -106,7 +121,7 @@ contract BuildingRegistry is Ownable, ReentrancyGuard {
         address userSmartWallet,
         uint256 buildingId,
         bytes calldata params
-    ) external view returns (
+    ) external view whenNotPaused returns (
         address[] memory targets,
         uint256[] memory values,
         bytes[] memory datas
@@ -139,7 +154,7 @@ contract BuildingRegistry is Ownable, ReentrancyGuard {
         address userSmartWallet,
         uint256 buildingId,
         bytes calldata params
-    ) external view returns (
+    ) external view whenNotPaused returns (
         address[] memory targets,
         uint256[] memory values,
         bytes[] memory datas
@@ -159,14 +174,14 @@ contract BuildingRegistry is Ownable, ReentrancyGuard {
 
     /**
      * @notice Register a new building adapter
-     * @dev Only owner can register. Validates adapter implements IBuildingAdapter.
+     * @dev Only ADAPTER_MANAGER_ROLE can register. Validates adapter implements IBuildingAdapter.
      * @param buildingType Type of building (e.g., "bank")
      * @param adapter Address of the adapter contract
      */
     function registerAdapter(
         string calldata buildingType,
         address adapter
-    ) external onlyOwner {
+    ) external onlyRole(ADAPTER_MANAGER_ROLE) {
         if (bytes(buildingType).length == 0) revert InvalidBuildingType();
         if (adapter == address(0)) revert InvalidAdapter();
         if (isRegistered[buildingType]) revert AdapterAlreadyRegistered();
@@ -197,7 +212,7 @@ contract BuildingRegistry is Ownable, ReentrancyGuard {
     function upgradeAdapter(
         string calldata buildingType,
         address newAdapter
-    ) external onlyOwner {
+    ) external onlyRole(ADAPTER_MANAGER_ROLE) {
         if (!isRegistered[buildingType]) revert AdapterNotFound();
         if (newAdapter == address(0)) revert InvalidAdapter();
 
@@ -222,7 +237,7 @@ contract BuildingRegistry is Ownable, ReentrancyGuard {
      * @dev Use carefully - existing buildings of this type will not be operable
      * @param buildingType Type of building to remove
      */
-    function removeAdapter(string calldata buildingType) external onlyOwner {
+    function removeAdapter(string calldata buildingType) external onlyRole(ADAPTER_MANAGER_ROLE) {
         if (!isRegistered[buildingType]) revert AdapterNotFound();
 
         address oldAdapter = adapters[buildingType];
@@ -345,5 +360,25 @@ contract BuildingRegistry is Ownable, ReentrancyGuard {
      */
     function getBuildingTypeCount() external view returns (uint256) {
         return buildingTypes.length;
+    }
+
+    // ============ Emergency Functions ============
+
+    /**
+     * @notice Pause the contract
+     * @dev Prevents all prepare operations during emergency
+     *      Only PAUSER_ROLE can pause
+     */
+    function pause() external onlyRole(PAUSER_ROLE) {
+        _pause();
+    }
+
+    /**
+     * @notice Unpause the contract
+     * @dev Re-enables prepare operations
+     *      Only PAUSER_ROLE can unpause
+     */
+    function unpause() external onlyRole(PAUSER_ROLE) {
+        _unpause();
     }
 }
