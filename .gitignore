@@ -9,3 +9,4 @@ frontend/package-lock.json
 frontend/out/
 frontend/public/.DS_Store
 contract/ignition/deployments/
+contract/types/
