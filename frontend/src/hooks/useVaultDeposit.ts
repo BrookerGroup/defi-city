@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { useWriteContract } from 'wagmi'
+import { useWriteContract, useSendTransaction } from 'wagmi'
 import { createPublicClient, http, parseEther, parseUnits, formatEther, formatUnits } from 'viem'
 import { baseSepolia } from 'viem/chains'
 import { USDC_ADDRESS, ERC20ABI } from '@/lib/contracts'
@@ -29,6 +29,7 @@ export function useVaultDeposit(
   const [isDepositing, setIsDepositing] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
   const { writeContractAsync } = useWriteContract()
+  const { sendTransactionAsync } = useSendTransaction()
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
 
   // Balance states
@@ -136,22 +137,12 @@ export function useVaultDeposit(
 
         console.log('[Vault Deposit ETH] Sending', amount, 'ETH to', smartWalletAddress)
 
-        const ethereum = (window as unknown as { ethereum?: { request: (args: { method: string; params: unknown[] }) => Promise<string> } }).ethereum
-        if (!ethereum) {
-          setIsDepositing(false)
-          return { success: false, error: 'No wallet provider found' }
-        }
-
-        // Send transaction
+        // Send transaction via wagmi (works with Privy wallet connector)
         setIsConfirming(true)
-        const hash = await ethereum.request({
-          method: 'eth_sendTransaction',
-          params: [{
-            from: ownerAddress,
-            to: smartWalletAddress,
-            value: `0x${amountInWei.toString(16)}`,
-          }],
-        }) as `0x${string}`
+        const hash = await sendTransactionAsync({
+          to: smartWalletAddress,
+          value: amountInWei,
+        })
 
         console.log('[Vault Deposit ETH] Transaction sent:', hash)
 
