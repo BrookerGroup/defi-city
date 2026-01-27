@@ -1,11 +1,12 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 
 interface IsometricBuildingProps {
   type: 'townhall' | 'bank' | 'shop' | 'lottery'
   size?: 'sm' | 'md' | 'lg'
+  level?: number  // 1-5, affects building height
   delay?: number
   floatSpeed?: number
 }
@@ -40,19 +41,34 @@ const BUILDING_COLORS = {
 export function IsometricBuilding({
   type,
   size = 'md',
+  level = 1,
   delay = 0,
   floatSpeed = 3
 }: IsometricBuildingProps) {
   const [randomFloat] = useState(() => Math.random() * 10)
 
+  // Scale height based on level
+  const heightMultiplier = useMemo(() => {
+    if (level >= 5) return 1.6
+    if (level >= 4) return 1.4
+    if (level >= 3) return 1.2
+    if (level >= 2) return 1.1
+    return 1.0
+  }, [level])
+
   const sizeConfig = {
-    sm: { width: 80, height: 80 },
-    md: { width: 112, height: 112 },
-    lg: { width: 144, height: 144 }
+    sm: { width: 80, height: 80 * heightMultiplier },
+    md: { width: 112, height: 112 * heightMultiplier },
+    lg: { width: 144, height: 144 * heightMultiplier }
   }
 
   const { width, height } = sizeConfig[size]
   const colors = BUILDING_COLORS[type]
+
+  // Calculate number of floors based on level
+  const floors = Math.min(level, 3)
+  const buildingHeight = 45 + (floors - 1) * 25
+  const viewBoxHeight = 100 + (floors - 1) * 25
 
   return (
     <motion.div
@@ -69,81 +85,156 @@ export function IsometricBuilding({
         ease: "backOut"
       }}
     >
-      {/* Gentle bounce animation */}
-      <motion.div
-        animate={{
-          y: [0, -6, 0],
-        }}
-        transition={{
-          duration: floatSpeed,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: randomFloat
-        }}
-        className="relative w-full h-full flex items-center justify-center"
+      {/* Static container - no bounce animation */}
+      <div
+        className="relative w-full h-full flex items-end justify-center"
       >
         <svg
           width={width * 0.9}
           height={height * 0.9}
-          viewBox="0 0 100 100"
+          viewBox={`0 0 100 ${viewBoxHeight}`}
           className="transition-transform group-hover:scale-110"
+          style={{ overflow: 'visible' }}
         >
           {/* Shadow */}
-          <ellipse cx="50" cy="90" rx="35" ry="8" fill="rgba(0,0,0,0.3)" />
+          <ellipse cx="50" cy={viewBoxHeight - 10} rx="35" ry="8" fill="rgba(0,0,0,0.3)" />
 
           {/* Building base */}
-          <rect x="15" y="80" width="70" height="8" fill={colors.accent} />
+          <rect x="15" y={viewBoxHeight - 20} width="70" height="8" fill={colors.accent} />
 
-          {/* Building body */}
-          <rect x="18" y="35" width="64" height="45" fill={colors.wall} stroke={colors.accent} strokeWidth="3" />
+          {/* Building body - extends up based on floors */}
+          <rect 
+            x="18" 
+            y={viewBoxHeight - 20 - buildingHeight} 
+            width="64" 
+            height={buildingHeight} 
+            fill={colors.wall} 
+            stroke={colors.accent} 
+            strokeWidth="3" 
+          />
+
+          {/* Additional floors indicators */}
+          {floors >= 2 && (
+            <line 
+              x1="18" 
+              y1={viewBoxHeight - 50} 
+              x2="82" 
+              y2={viewBoxHeight - 50} 
+              stroke={colors.accent} 
+              strokeWidth="2"
+            />
+          )}
+          {floors >= 3 && (
+            <line 
+              x1="18" 
+              y1={viewBoxHeight - 75} 
+              x2="82" 
+              y2={viewBoxHeight - 75} 
+              stroke={colors.accent} 
+              strokeWidth="2"
+            />
+          )}
 
           {/* Roof based on type */}
           {type === 'townhall' ? (
             <>
-              <polygon points="50,5 85,35 15,35" fill={colors.roof} stroke={colors.accent} strokeWidth="2" />
-              <rect x="47" y="0" width="6" height="10" fill={colors.accent} />
-              <polygon points="53,0 53,6 63,3" fill="#ef4444" />
+              <polygon 
+                points={`50,${viewBoxHeight - 20 - buildingHeight - 30} 85,${viewBoxHeight - 20 - buildingHeight} 15,${viewBoxHeight - 20 - buildingHeight}`} 
+                fill={colors.roof} 
+                stroke={colors.accent} 
+                strokeWidth="2" 
+              />
+              <rect x="47" y={viewBoxHeight - 20 - buildingHeight - 40} width="6" height="10" fill={colors.accent} />
+              <polygon points={`53,${viewBoxHeight - 20 - buildingHeight - 40} 53,${viewBoxHeight - 20 - buildingHeight - 34} 63,${viewBoxHeight - 20 - buildingHeight - 37}`} fill="#ef4444" />
             </>
           ) : type === 'bank' ? (
             <>
-              <rect x="10" y="28" width="80" height="10" fill={colors.roof} />
-              <rect x="22" y="38" width="8" height="32" fill={colors.accent} />
-              <rect x="70" y="38" width="8" height="32" fill={colors.accent} />
+              <rect x="10" y={viewBoxHeight - 20 - buildingHeight - 7} width="80" height="10" fill={colors.roof} />
+              <rect x="22" y={viewBoxHeight - 20 - buildingHeight + 3} width="8" height="32" fill={colors.accent} />
+              <rect x="70" y={viewBoxHeight - 20 - buildingHeight + 3} width="8" height="32" fill={colors.accent} />
+              {/* Dollar sign for bank */}
+              <circle cx="50" cy={viewBoxHeight - 20 - buildingHeight - 15} r="10" fill={colors.accent} />
+              <text x="50" y={viewBoxHeight - 20 - buildingHeight - 10} textAnchor="middle" fill="#fef08a" fontSize="12" fontWeight="bold">$</text>
             </>
           ) : type === 'shop' ? (
             <>
-              <rect x="5" y="28" width="90" height="14" fill={colors.roof} />
-              <rect x="5" y="28" width="22" height="14" fill={colors.accent} />
-              <rect x="39" y="28" width="22" height="14" fill={colors.accent} />
-              <rect x="73" y="28" width="22" height="14" fill={colors.accent} />
+              <rect x="5" y={viewBoxHeight - 20 - buildingHeight - 7} width="90" height="14" fill={colors.roof} />
+              <rect x="5" y={viewBoxHeight - 20 - buildingHeight - 7} width="22" height="14" fill={colors.accent} />
+              <rect x="39" y={viewBoxHeight - 20 - buildingHeight - 7} width="22" height="14" fill={colors.accent} />
+              <rect x="73" y={viewBoxHeight - 20 - buildingHeight - 7} width="22" height="14" fill={colors.accent} />
             </>
           ) : (
             <>
-              <ellipse cx="50" cy="32" rx="35" ry="15" fill={colors.roof} />
-              <circle cx="50" cy="18" r="12" fill={colors.accent} />
-              <text x="50" y="24" textAnchor="middle" fill="#fef08a" fontSize="16" fontWeight="bold">$</text>
+              <ellipse cx="50" cy={viewBoxHeight - 20 - buildingHeight - 3} rx="35" ry="15" fill={colors.roof} />
+              <circle cx="50" cy={viewBoxHeight - 20 - buildingHeight - 17} r="12" fill={colors.accent} />
+              <text x="50" y={viewBoxHeight - 20 - buildingHeight - 11} textAnchor="middle" fill="#fef08a" fontSize="16" fontWeight="bold">$</text>
             </>
           )}
 
-          {/* Windows */}
-          <rect x="25" y="45" width="14" height="14" fill={colors.window} rx="2" />
-          <rect x="61" y="45" width="14" height="14" fill={colors.window} rx="2" />
-
-          {/* Window glow animation */}
-          <motion.rect
-            x="25" y="45" width="14" height="14" fill="#FCD34D" rx="2"
-            animate={{ opacity: [0.3, 0.8, 0.3] }}
-            transition={{ duration: 2, repeat: Infinity, delay: randomFloat }}
-          />
-          <motion.rect
-            x="61" y="45" width="14" height="14" fill="#FCD34D" rx="2"
-            animate={{ opacity: [0.3, 0.8, 0.3] }}
-            transition={{ duration: 2, repeat: Infinity, delay: randomFloat + 0.5 }}
-          />
+          {/* Windows for each floor */}
+          {Array.from({ length: floors }).map((_, floorIndex) => (
+            <g key={floorIndex}>
+              <rect 
+                x="25" 
+                y={viewBoxHeight - 35 - (floorIndex * 25)} 
+                width="14" 
+                height="14" 
+                fill={colors.window} 
+                rx="2" 
+              />
+              <rect 
+                x="61" 
+                y={viewBoxHeight - 35 - (floorIndex * 25)} 
+                width="14" 
+                height="14" 
+                fill={colors.window} 
+                rx="2" 
+              />
+              {/* Window glow animation */}
+              <motion.rect
+                x="25" 
+                y={viewBoxHeight - 35 - (floorIndex * 25)} 
+                width="14" 
+                height="14" 
+                fill="#FCD34D" 
+                rx="2"
+                animate={{ opacity: [0.3, 0.8, 0.3] }}
+                transition={{ duration: 2, repeat: Infinity, delay: randomFloat + floorIndex * 0.3 }}
+              />
+              <motion.rect
+                x="61" 
+                y={viewBoxHeight - 35 - (floorIndex * 25)} 
+                width="14" 
+                height="14" 
+                fill="#FCD34D" 
+                rx="2"
+                animate={{ opacity: [0.3, 0.8, 0.3] }}
+                transition={{ duration: 2, repeat: Infinity, delay: randomFloat + 0.5 + floorIndex * 0.3 }}
+              />
+            </g>
+          ))}
 
           {/* Door */}
-          <rect x="40" y="62" width="20" height="18" fill={colors.accent} rx="3" />
-          <rect x="44" y="66" width="12" height="14" fill={colors.window} rx="2" />
+          <rect x="40" y={viewBoxHeight - 38} width="20" height="18" fill={colors.accent} rx="3" />
+          <rect x="44" y={viewBoxHeight - 34} width="12" height="14" fill={colors.window} rx="2" />
+
+          {/* Level indicator */}
+          {level > 1 && (
+            <g>
+              <circle cx="85" cy={viewBoxHeight - 20 - buildingHeight + 15} r="10" fill="#1e293b" stroke={colors.accent} strokeWidth="2" />
+              <text 
+                x="85" 
+                y={viewBoxHeight - 20 - buildingHeight + 19} 
+                textAnchor="middle" 
+                fill={colors.roof} 
+                fontSize="10" 
+                fontWeight="bold"
+                style={{ fontFamily: '"Press Start 2P", monospace' }}
+              >
+                {level}
+              </text>
+            </g>
+          )}
         </svg>
 
         {/* Glow effect on hover */}
@@ -153,7 +244,7 @@ export function IsometricBuilding({
             background: `radial-gradient(circle, ${colors.roof}40 0%, transparent 70%)`
           }}
         />
-      </motion.div>
+      </div>
 
       {/* Shadow pulse */}
       <motion.div

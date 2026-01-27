@@ -11,6 +11,7 @@ interface AavePanelProps {
   hasSmartWallet: boolean
   userAddress?: string
   onSuccess?: () => void
+  selectedCoords?: { x: number; y: number } | null
 }
 
 // Initial empty position
@@ -47,7 +48,13 @@ function calculateHealthFactor(
   return totalCollateralETH / totalBorrowETH
 }
 
-export function AavePanel({ smartWallet, hasSmartWallet, userAddress, onSuccess }: AavePanelProps) {
+export function AavePanel({ 
+  smartWallet, 
+  hasSmartWallet, 
+  userAddress, 
+  onSuccess,
+  selectedCoords 
+}: AavePanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('supply')
   const [selectedAsset, setSelectedAsset] = useState<string>('USDC')
   const [amount, setAmount] = useState('')
@@ -167,8 +174,16 @@ export function AavePanel({ smartWallet, hasSmartWallet, userAddress, onSuccess 
     const parsedAmount = parseFloat(amount)
 
     if (activeTab === 'supply') {
-      // Call supply with userAddress and smartWallet from props
-      const result = await realSupply(userAddress, smartWallet, selectedAsset, parsedAmount)
+      // Call supply with userAddress, smartWallet, and coordinates
+      const result = await realSupply(
+        userAddress, 
+        smartWallet, 
+        selectedAsset, 
+        parsedAmount,
+        selectedCoords?.x,
+        selectedCoords?.y
+      )
+      
       if (result.success) {
         setSuccess(true)
         setAmount('')
@@ -186,6 +201,8 @@ export function AavePanel({ smartWallet, hasSmartWallet, userAddress, onSuccess 
         // Update local position optimistically (keep this for immediate feedback)
         const assetInfo = AAVE_MARKET_DATA.assets[selectedAsset]
         const amountUSD = parsedAmount * ASSET_PRICES[selectedAsset]
+        const buildX = selectedCoords?.x || 1
+        const buildY = selectedCoords?.y || 1
         
         setPosition((prev: any) => {
           const existingIndex = prev.supplies.findIndex((s: any) => s.asset === selectedAsset)
