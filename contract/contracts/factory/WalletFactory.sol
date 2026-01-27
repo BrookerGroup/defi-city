@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "../wallet/SmartWallet.sol";
 import "../interfaces/IEntryPoint.sol";
 import "../core/DefiCityCore.sol";
@@ -10,8 +11,17 @@ import "../core/DefiCityCore.sol";
  * @notice Factory for deterministic SmartWallet deployment using CREATE2
  * @dev Deploys wallets with deterministic addresses and maintains registry.
  *      Supports counterfactual addresses and prevents duplicate deployments.
+ *      Uses AccessControl for granular permissions.
  */
-contract WalletFactory {
+contract WalletFactory is AccessControl {
+
+    // ============ Access Control Roles ============
+
+    /// @notice Role for deploying wallets (typically the DefiCityCore contract)
+    bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
+
+    /// @notice Role for administrative operations
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     // ============ State Variables ============
 
     /// @notice The ERC-4337 EntryPoint contract
@@ -57,6 +67,13 @@ contract WalletFactory {
         if (address(_core) == address(0)) revert InvalidOwner();  // Reuse error for invalid core
         entryPoint = _entryPoint;
         core = _core;
+
+        // Grant roles to deployer
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(ADMIN_ROLE, msg.sender);
+
+        // Grant deployer role to the core contract so it can create wallets
+        _grantRole(DEPLOYER_ROLE, address(_core));
     }
 
     // ============ Factory Functions ============
@@ -69,7 +86,7 @@ contract WalletFactory {
      * @param salt Salt for CREATE2 (use 0 for default wallet)
      * @return wallet Address of the deployed wallet
      */
-    function createWallet(address owner, uint256 salt) external virtual returns (SmartWallet wallet) {
+    function createWallet(address owner, uint256 salt) external virtual onlyRole(DEPLOYER_ROLE) returns (SmartWallet wallet) {
         if (owner == address(0)) revert InvalidOwner();
 
         // 1. Compute deterministic address
@@ -158,7 +175,7 @@ contract WalletFactory {
      * @dev This is the recommended function for frontend integration.
      *      It will deploy if needed, or return existing wallet.
      */
-    function createOrGetWallet(address owner) external returns (SmartWallet wallet) {
+    function createOrGetWallet(address owner) external onlyRole(DEPLOYER_ROLE) returns (SmartWallet wallet) {
         address existing = walletsByOwner[owner];
 
         if (existing != address(0)) {
@@ -209,7 +226,7 @@ contract WalletFactory {
     function createWalletsBatch(
         address[] calldata owners,
         uint256[] calldata salts
-    ) external returns (SmartWallet[] memory wallets) {
+    ) external onlyRole(DEPLOYER_ROLE) returns (SmartWallet[] memory wallets) {
         require(owners.length == salts.length, "Length mismatch");
 
         wallets = new SmartWallet[](owners.length);

@@ -1,8 +1,13 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
-const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
+import { expect  } from "chai";
+// Note: ethers will be obtained from network.connect()
+import hre from "hardhat";
 
 describe("BankAdapter E2E with SmartWallet and MockAave", function () {
+  let ethers;
+
+  before(async function () {
+    ({ ethers } = await hre.network.connect());
+  });
 
   // Fixture to deploy complete ecosystem
   async function deployBankEcosystemFixture() {
@@ -108,7 +113,7 @@ describe("BankAdapter E2E with SmartWallet and MockAave", function () {
 
   describe("Supply Mode E2E Flow", function () {
     it("Should complete full supply flow: User -> SmartWallet -> BankAdapter -> MockAave", async function () {
-      const { core, usdc, mockAave, bankAdapter, user1 } = await loadFixture(deployBankEcosystemFixture);
+      const { core, usdc, mockAave, bankAdapter, user1 } = await deployBankEcosystemFixture();
 
       // Step 1: User creates Town Hall (gets SmartWallet)
       const tx = await core.connect(user1).createTownHall(5, 5);
@@ -190,7 +195,7 @@ describe("BankAdapter E2E with SmartWallet and MockAave", function () {
 
   describe("Borrow Mode E2E Flow", function () {
     it("Should complete full borrow flow with health factor check", async function () {
-      const { core, usdc, weth, mockAave, bankAdapter, user1 } = await loadFixture(deployBankEcosystemFixture);
+      const { core, usdc, weth, mockAave, bankAdapter, user1 } = await deployBankEcosystemFixture();
 
       // Setup: Create Town Hall and get SmartWallet
       await core.connect(user1).createTownHall(5, 5);
@@ -254,7 +259,7 @@ describe("BankAdapter E2E with SmartWallet and MockAave", function () {
 
   describe("Harvest E2E Flow", function () {
     it("Should harvest interest from supply position", async function () {
-      const { core, usdc, mockAave, bankAdapter, user1 } = await loadFixture(deployBankEcosystemFixture);
+      const { core, usdc, mockAave, bankAdapter, user1 } = await deployBankEcosystemFixture();
 
       // Setup: Create Town Hall and SmartWallet
       await core.connect(user1).createTownHall(5, 5);
@@ -329,7 +334,7 @@ describe("BankAdapter E2E with SmartWallet and MockAave", function () {
 
   describe("Demolish E2E Flow", function () {
     it("Should demolish bank and withdraw all funds", async function () {
-      const { core, usdc, mockAave, bankAdapter, user1 } = await loadFixture(deployBankEcosystemFixture);
+      const { core, usdc, mockAave, bankAdapter, user1 } = await deployBankEcosystemFixture();
 
       // Setup: Create Town Hall and SmartWallet
       await core.connect(user1).createTownHall(5, 5);
@@ -398,7 +403,7 @@ describe("BankAdapter E2E with SmartWallet and MockAave", function () {
 
   describe("Multiple Users Concurrent Operations", function () {
     it("Should handle multiple users supplying to banks simultaneously", async function () {
-      const { core, usdc, mockAave, bankAdapter, user1, user2 } = await loadFixture(deployBankEcosystemFixture);
+      const { core, usdc, mockAave, bankAdapter, user1, user2 } = await deployBankEcosystemFixture();
 
       // Setup both users
       await core.connect(user1).createTownHall(5, 5);

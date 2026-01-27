@@ -1,25 +1,39 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
-const {
+import { expect  } from "chai";
+// Note: ethers will be obtained from network.connect()
+import hre from "hardhat";
+import {
   verifyNetwork,
   checkBalance,
   checkTokenBalance,
   waitForTx
-} = require("./helpers/networkHelpers");
-const {
+
+} from "./helpers/networkHelpers.js";
+import {
   getAllAddresses,
   attachContracts,
   verifyAllDeployed,
   getDeploymentInfo
-} = require("./helpers/deploymentLoader");
+
+} from "./helpers/deploymentLoader.js";
 
 describe("ShopAdapter Integration Tests - Base Sepolia", function() {
+  let ethers;
+  let TEST_USDC_AMOUNT;
+  let TEST_WETH_AMOUNT;
+  let MIN_ETH;
+
   // Configuration
   const NETWORK_TIMEOUT = 60000;
   const CONFIRMATION_BLOCKS = 1;
-  const TEST_USDC_AMOUNT = ethers.parseUnits("100", 6); // 100 USDC
-  const TEST_WETH_AMOUNT = ethers.parseUnits("0.05", 18); // 0.05 WETH
-  const MIN_ETH = ethers.parseEther("0.01");
+
+  before(async function () {
+    ({ ethers } = await hre.network.connect());
+
+    // Initialize constants that need ethers
+    TEST_USDC_AMOUNT = ethers.parseUnits("100", 6); // 100 USDC
+    TEST_WETH_AMOUNT = ethers.parseUnits("0.05", 18); // 0.05 WETH
+    MIN_ETH = ethers.parseEther("0.01");
+  });
 
   let deployer;
   let addresses;
@@ -38,9 +52,9 @@ describe("ShopAdapter Integration Tests - Base Sepolia", function() {
     console.log(`Test account: ${deployer.address}`);
 
     try {
-      await verifyNetwork();
+      await verifyNetwork(ethers);
 
-      const hasBalance = await checkBalance(deployer.address, MIN_ETH);
+      const hasBalance = await checkBalance(ethers, deployer.address, MIN_ETH);
       if (!hasBalance) {
         console.log("\n⚠️  Skipping tests - insufficient ETH balance");
         this.skip();
@@ -50,23 +64,23 @@ describe("ShopAdapter Integration Tests - Base Sepolia", function() {
       const deploymentInfo = getDeploymentInfo();
       console.log(`Integration deployed: ${deploymentInfo.integrationDeployedAt}`);
 
-      const allDeployed = await verifyAllDeployed(addresses);
+      const allDeployed = await verifyAllDeployed(ethers, addresses);
       if (!allDeployed) {
         console.log("\n⚠️  Skipping tests - contracts not deployed");
         this.skip();
       }
 
-      contracts = await attachContracts(addresses);
+      contracts = await attachContracts(ethers, addresses);
 
       // Check both USDC and WETH balances
-      const hasUSDC = await checkTokenBalance(
+      const hasUSDC = await checkTokenBalance(ethers, 
         contracts.usdc,
         deployer.address,
         TEST_USDC_AMOUNT,
         "USDC"
       );
 
-      const hasWETH = await checkTokenBalance(
+      const hasWETH = await checkTokenBalance(ethers, 
         contracts.weth,
         deployer.address,
         TEST_WETH_AMOUNT,
