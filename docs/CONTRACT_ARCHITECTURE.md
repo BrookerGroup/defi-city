@@ -1,8 +1,8 @@
-# DefiCity Architecture v2.0: Self-Custodial Design
+# DefiCity Contract Architecture v2.0: Self-Custodial Design
 
-**Document Version:** 2.0
-**Last Updated:** 2026-01-15
-**Status:** Design Phase
+**Document Version:** 2.1
+**Last Updated:** 2026-01-28
+**Status:** Implemented (Base Sepolia Testnet)
 
 ---
 
@@ -10,42 +10,29 @@
 
 1. [Executive Summary](#executive-summary)
 2. [Core Principles](#core-principles)
-3. [Architecture Comparison](#architecture-comparison)
-4. [Component Overview](#component-overview)
+3. [Architecture Overview](#architecture-overview)
+4. [Contract Overview](#contract-overview)
 5. [Asset Flow](#asset-flow)
 6. [Session Key Mechanism](#session-key-mechanism)
-7. [Smart Contract Redesign](#smart-contract-redesign)
+7. [Adapter Pattern](#adapter-pattern)
 8. [Security & Trust Model](#security--trust-model)
 9. [User Experience Flow](#user-experience-flow)
-10. [Implementation Roadmap](#implementation-roadmap)
+10. [Deployed Addresses](#deployed-addresses)
+11. [Supported Assets](#supported-assets)
 
 ---
 
 ## Executive Summary
 
-DefiCity v2.0 adopts a **self-custodial architecture** where users maintain full control and ownership of their assets at all times. This represents a fundamental shift from the previous custodial model.
+DefiCity v2.0 uses a **self-custodial architecture** where users maintain full control and ownership of their assets at all times. Users own an ERC-4337 SmartWallet that holds all tokens and interacts directly with DeFi protocols (Aave, Aerodrome, Megapot). The game contracts only track state (bookkeeping).
 
-### Key Changes
+### Key Design Decisions
 
-**OLD (v1.0) - Custodial:**
-- DefiCityCore holds user tokens
-- Users deposit tokens TO game contracts
-- Game contracts execute DeFi interactions
-- Users must trust game contracts with funds
-
-**NEW (v2.0) - Self-Custodial:**
-- User's SmartWallet holds all tokens
-- DefiCityCore only tracks game state (bookkeeping)
-- SmartWallet executes DeFi interactions via session keys
-- Users retain full custody and control
-
-### Benefits
-
-1. **True Asset Ownership** - Users own their SmartWallet and all assets within
-2. **Reduced Trust Requirements** - Game cannot access funds without explicit authorization
-3. **Direct Access** - Users can interact with SmartWallet directly, bypassing game UI
-4. **Transparent Security** - Clear separation between accounting and custody
-5. **Account Abstraction** - Leverages ERC-4337 for gasless, streamlined UX
+- **SmartWallet holds all tokens** - Game contracts never custody user funds
+- **BuildingRegistry + Adapter pattern** - Modular, hot-swappable building type implementations
+- **Direct DeFi interaction** - SmartWallet calls protocols directly (no intermediary strategies)
+- **Session keys** - Allow gasless gameplay with time and spending limits
+- **On-chain grid** - Building positions tracked on-chain in a 13x13 grid
 
 ---
 
@@ -53,315 +40,378 @@ DefiCity v2.0 adopts a **self-custodial architecture** where users maintain full
 
 ### 1. Separation of Custody and Accounting
 
-**Custody Layer (SmartWallet):**
-- Holds all user tokens (idle + invested)
-- Executes DeFi protocol interactions
-- Owned and controlled by user
-- Can be accessed independently of game
-
-**Accounting Layer (DefiCityCore):**
-- Tracks game state and buildings
-- Records user actions for UI/analytics
-- Maintains leaderboards and statistics
-- NEVER holds tokens
+```
+Custody Layer (SmartWallet)        Accounting Layer (DefiCityCore)
+├── Holds all user tokens          ├── Tracks buildings and game state
+├── Executes DeFi interactions     ├── Records user actions
+├── Owned and controlled by user   ├── Maintains leaderboard stats
+├── Can be accessed independently  ├── NEVER holds tokens
+└── Emergency withdrawal anytime   └── Emits events for indexing
+```
 
 ### 2. User Authorization Model
 
 ```
-User → SmartWallet → Session Key → Game Actions → DeFi Protocols
-         (owns)      (authorizes)    (executes)
+User EOA → SmartWallet → execute/executeBatch → DeFi Protocols
+  (owns)     (holds $)    (approved actions)     (Aave, etc.)
 ```
 
 - User owns SmartWallet via EOA
-- User creates session key with limited scope
-- Session key allows game to execute approved actions
-- Session key cannot withdraw to external addresses
-- Session key has time and value limits
+- Owner can execute any transaction through SmartWallet
+- Session keys allow limited automated execution
+- Emergency withdrawal always available
 
 ### 3. Trustless Operation
 
-Users should be able to:
+Users can:
 - View SmartWallet balance on-chain without game UI
-- Withdraw from SmartWallet directly (emergency)
+- Withdraw from SmartWallet directly via block explorer
 - Revoke session keys at any time
-- Verify all transactions on block explorer
+- Verify all transactions on BaseScan
 
 ---
 
-## Architecture 
-
-###  (Self-Custodial) Architecture
+## Architecture Overview
 
 ```
 ┌─────────────┐
-│   User EOA  │
+│   User EOA  │ (MetaMask)
 └──────┬──────┘
        │ owns
        ↓
 ┌─────────────────┐
-│  SmartWallet    │ ← HOLDS ALL TOKENS
-│  (ERC-4337 AA)  │
+│  SmartWallet    │ ← HOLDS ALL TOKENS (ERC20 + ETH)
+│  (ERC-4337 AA)  │ ← Receives aTokens from Aave
+│  per user       │
 └────┬────────┬───┘
      │        │
-     │        │ executeFromGame() via session key
+     │        │ executeBatch() via owner or session key
+     │        ↓
+     │  ┌─────────────────────────────────────┐
+     │  │         BuildingRegistry             │ ← Routes to correct adapter
+     │  │  ┌───────────┬───────────┬────────┐  │
+     │  │  │BankAdapter│ShopAdapter│Lottery │  │
+     │  │  │  (Aave)   │(Aerodrome)│(Megapot)│  │
+     │  │  └───────────┴───────────┴────────┘  │
+     │  └─────────────────────────────────────┘
+     │        │
+     │        │ preparePlace() → returns calldata
      │        ↓
      │  ┌─────────────────┐
      │  │  DefiCityCore   │ ← BOOKKEEPING ONLY
-     │  │  (Game State)   │
+     │  │  Game State     │    Buildings, Grid, Stats
      │  └─────────────────┘
      │
-     │ direct interaction
+     │ direct interaction via executeBatch
      ↓
 ┌─────────────────┐
 │  DeFi Protocols │
-│  (Aave/Aero)    │
+│  ├── Aave V3    │ (supply, withdraw, borrow, repay)
+│  ├── Aerodrome  │ (LP provision, fee claiming)
+│  └── Megapot    │ (lottery tickets, prize claims)
 └─────────────────┘
 ```
 
-**Benefit:** Users own SmartWallet, game only tracks state
-
 ---
 
-## Component Overview
+## Contract Overview
 
-### 1. User's SmartWallet (DefiCitySmartWallet)
+### 1. DefiCityCore (`contracts/core/DefiCityCore.sol`)
 
-**Type:** ERC-4337 Account Abstraction Smart Contract Wallet
+**Type:** Central bookkeeping contract
+**Inheritance:** `ReentrancyGuard`, `Pausable`, `Ownable`
 
 **Responsibilities:**
-- Hold all user tokens (ERC20, native ETH)
-- Execute DeFi protocol interactions (supply, withdraw, LP, etc.)
-- Manage session key permissions
-- Process UserOperations via Paymaster for gasless transactions
+- Track buildings and game state on a 13x13 grid
+- Record user actions for analytics
+- Maintain user statistics and leaderboards
+- Manage wallet registration via WalletFactory
+- **NEVER holds user tokens**
 
-**Key Functions:**
+**Key State:**
+
 ```solidity
-// Execute game action via session key
-function executeFromGame(
-    address target,      // DeFi protocol (Aave, Aerodrome, etc.)
-    bytes calldata data  // Encoded function call
-) external onlySessionKey returns (bytes memory)
-
-// User-only functions
-function createSessionKey(address key, uint256 validUntil, uint256 dailyLimit) external onlyOwner
-function revokeSessionKey(address key) external onlyOwner
-function emergencyWithdraw(address token, address to, uint256 amount) external onlyOwner
-
-// View functions
-function getBalance(address token) external view returns (uint256)
-function getSessionKeyInfo(address key) external view returns (SessionKeyInfo)
+mapping(address => address) public userSmartWallets;    // EOA → SmartWallet
+mapping(address => address) public walletToOwner;       // SmartWallet → EOA
+mapping(uint256 => Building) public buildings;           // Building data by ID
+mapping(address => uint256[]) public userBuildings;      // User's building IDs
+mapping(address => mapping(uint256 => mapping(uint256 => uint256))) public userGridBuildings;
+                                                         // user → x → y → buildingId
+mapping(address => UserStats) public userStats;          // User statistics
+mapping(address => bool) public supportedAssets;         // Whitelisted assets
+uint256 public buildingIdCounter;                        // Auto-increment ID
 ```
 
-**Ownership:**
-- Owner: User's EOA (MetaMask wallet)
-- Session Key: Temporary authorized address (managed by game)
-- No one else has access
+**Building Struct:**
 
----
-
-### 2. DefiCityCore (Accounting Layer)
-
-**Type:** Core Game Contract
-
-**NEW Responsibilities:**
-- Track user buildings and game state
-- Validate game rules (building placement, demolition)
-- Record transactions for analytics
-- Emit events for subgraph indexing
-- Maintain leaderboards
-
-**REMOVED Responsibilities:**
-- ❌ Hold user tokens
-- ❌ Execute token transfers
-- ❌ Manage token balances
-
-**Key Functions:**
 ```solidity
-// Register user's SmartWallet
-function registerWallet(address smartWallet) external
-
-// Bookkeeping functions (no tokens involved)
-function recordBuildingPlacement(
-    uint256 buildingType,
-    address asset,
-    uint256 amount,
-    uint256 coordinateX,
-    uint256 coordinateY
-) external onlyUserWallet
-
-function recordHarvest(
-    uint256 buildingId,
-    uint256 yieldAmount
-) external onlyUserWallet
-
-function recordDemolition(uint256 buildingId) external onlyUserWallet
-
-// View functions
-function getUserBuildings(address user) external view returns (Building[] memory)
-function getBuildingInfo(uint256 buildingId) external view returns (Building memory)
-```
-
-**Important:** All `record*` functions are called BY the user's SmartWallet, not by the user directly. This ensures consistency.
-
----
-
-### 3. BuildingManager (Game Logic)
-
-**Type:** Module Contract
-
-**Responsibilities:**
-- Validate building placement rules
-- Calculate fees
-- Prepare UserOperation for SmartWallet execution
-- Coordinate between SmartWallet and DeFi protocols
-
-**Example Flow:**
-```solidity
-// User clicks "Place Bank Building"
-// Frontend calls BuildingManager
-
-function prepareAaveBuildingPlacement(
-    address userSmartWallet,
-    address asset,
-    uint256 amount
-) external view returns (
-    address target,     // Aave Pool address
-    bytes memory data   // Encoded supply() call
-) {
-    // Validate placement
-    require(amount >= MIN_BUILDING_AMOUNT, "Below minimum");
-
-    // Prepare Aave supply call
-    target = AAVE_POOL;
-    data = abi.encodeWithSelector(
-        IPool.supply.selector,
-        asset,
-        amount,
-        userSmartWallet,  // onBehalfOf = user's SmartWallet
-        0                 // referralCode
-    );
-
-    return (target, data);
+struct Building {
+    uint256 id;
+    address owner;          // User's EOA
+    address smartWallet;    // User's SmartWallet
+    string buildingType;    // "bank", "shop", "lottery", "townhall"
+    address asset;          // Token address (USDC, WETH, etc.)
+    uint256 amount;         // Initial amount invested
+    uint256 placedAt;       // Timestamp of placement
+    uint256 coordinateX;    // Grid position X (1-13)
+    uint256 coordinateY;    // Grid position Y (1-13)
+    bool active;            // Is building active
+    bytes metadata;         // Extra data (e.g., borrow mode, LP pair)
 }
 ```
 
-**SmartWallet then executes:**
+**UserStats Struct:**
+
 ```solidity
-smartWallet.executeFromGame(target, data);
+struct UserStats {
+    uint256 totalDeposited;
+    uint256 totalWithdrawn;
+    uint256 totalHarvested;
+    uint256 buildingCount;
+    uint256 cityCreatedAt;
+}
+```
+
+**Key Functions:**
+
+| Function | Access | Purpose |
+|----------|--------|---------|
+| `createTownHall(uint256 x, uint256 y)` | External | Entry point: deploy SmartWallet + create Town Hall |
+| `registerWallet(address user, address smartWallet)` | WalletFactory | Register SmartWallet mapping |
+| `recordBuildingPlacement(...)` | onlyModules | Record building after DeFi action |
+| `recordDemolition(address user, uint256 buildingId, uint256 returnedAmount)` | onlyModules | Record building demolition |
+| `recordHarvest(address user, uint256 buildingId, uint256 yieldAmount)` | onlyModules | Record reward harvest |
+| `recordDeposit(address user, address asset, uint256 amount)` | onlyModules | Record deposit for analytics |
+| `recordWithdrawal(address user, address asset, uint256 amount)` | onlyModules | Record withdrawal |
+| `moveBuilding(uint256 buildingId, uint256 newX, uint256 newY)` | onlyUserWallet | Move building on grid |
+| `getUserBuildings(address user)` | View | Get all user's buildings |
+| `getBuildingAt(address user, uint256 x, uint256 y)` | View | Get building at grid position |
+| `getUserStats(address user)` | View | Get user statistics |
+| `addSupportedAsset(address asset)` | Owner | Whitelist asset |
+| `setModules(address buildingManager, address feeManager, address emergencyManager)` | Owner | Set module addresses |
+
+**Events:**
+
+```solidity
+event WalletRegistered(address indexed user, address indexed smartWallet);
+event BuildingPlaced(uint256 indexed buildingId, address indexed user, address indexed smartWallet,
+                     string buildingType, address asset, uint256 amount, uint256 x, uint256 y);
+event BuildingDemolished(uint256 indexed buildingId, address indexed user, uint256 returnedAmount);
+event Harvested(uint256 indexed buildingId, address indexed user, uint256 yieldAmount);
+event DepositRecorded(address indexed user, address indexed asset, uint256 amount);
+event WithdrawalRecorded(address indexed user, address indexed asset, uint256 amount);
 ```
 
 ---
 
-### 4. Strategy Contracts (DEPRECATED in v2.0)
+### 2. SmartWallet (`contracts/wallet/SmartWallet.sol`)
 
-In v2.0, strategy contracts are **no longer needed** because:
-- SmartWallet interacts DIRECTLY with DeFi protocols
-- No intermediary strategy layer
-- Simpler architecture, fewer contracts
+**Type:** ERC-4337 Account Abstraction Wallet
+**Inheritance:** `IAccount`, `IAccountExecute`, `ReentrancyGuard`, `IERC721Receiver`, `IERC1155Receiver`
 
-**OLD (v1.0):**
-```
-Core → AaveStrategy → Aave Protocol
+**Responsibilities:**
+- Hold all user tokens (ERC20, native ETH, ERC721, ERC1155)
+- Execute DeFi protocol interactions
+- Manage session key permissions
+- ERC-4337 UserOperation validation
+- Emergency withdrawal capability
+
+**Key State:**
+
+```solidity
+IEntryPoint public immutable entryPoint;
+address public owner;                                    // User's EOA
+DefiCityCore public immutable core;                     // Game contract
+bool public paused;                                      // Emergency pause
+mapping(address => SessionKeyInfo) public sessionKeys;   // Session key data
+mapping(address => bool) public whitelistedTargets;      // Allowed targets for session keys
 ```
 
-**NEW (v2.0):**
+**SessionKeyInfo Struct:**
+
+```solidity
+struct SessionKeyInfo {
+    bool active;
+    uint256 validUntil;       // Expiry timestamp
+    uint256 dailyLimit;       // Max spending per 24h window (USD, 6 decimals)
+    uint256 windowStart;      // Current window start
+    uint256 spentInWindow;    // Amount spent in current window
+}
 ```
-SmartWallet → Aave Protocol (direct)
-Core (just tracks state)
+
+**Key Functions:**
+
+| Function | Access | Purpose |
+|----------|--------|---------|
+| `validateUserOp(UserOperation, bytes32, uint256)` | EntryPoint | ERC-4337 validation |
+| `execute(address dest, uint256 value, bytes func)` | Owner/EntryPoint | Execute single transaction |
+| `executeBatch(address[] dest, uint256[] value, bytes[] func)` | Owner/EntryPoint | Execute batch transactions |
+| `executeFromGame(address[] targets, uint256[] values, bytes[] datas)` | SessionKey | Execute via session key |
+| `createSessionKey(address key, uint256 validUntil, uint256 dailyLimit)` | Owner | Create session key |
+| `revokeSessionKey(address key)` | Owner | Revoke session key |
+| `updateWhitelistedTarget(address target, bool whitelisted)` | Owner | Manage target whitelist |
+| `emergencyWithdraw(address token, address to, uint256 amount)` | Owner | Recover tokens |
+| `transferOwnership(address newOwner)` | Owner | Start 2-step ownership transfer |
+| `acceptOwnership()` | PendingOwner | Accept ownership transfer |
+| `pause()` / `unpause()` | Owner | Emergency pause |
+
+**Token Reception:**
+- Supports receiving ETH, ERC-721, ERC-1155 tokens
+- Implements `onERC721Received()`, `onERC1155Received()`
+
+---
+
+### 3. WalletFactory (`contracts/factory/WalletFactory.sol`)
+
+**Type:** Deterministic wallet deployer using CREATE2
+
+**Key State:**
+
+```solidity
+IEntryPoint public immutable entryPoint;
+DefiCityCore public immutable core;
+mapping(address => address) public walletsByOwner;   // Owner → Wallet (salt=0)
+mapping(address => bool) public isWallet;            // Wallet registry
+uint256 public totalWallets;
 ```
+
+**Key Functions:**
+
+| Function | Access | Purpose |
+|----------|--------|---------|
+| `createWallet(address owner, uint256 salt)` | External | Deploy wallet via CREATE2 |
+| `createOrGetWallet(address owner)` | External | Create if needed or return existing |
+| `getAddress(address owner, uint256 salt)` | View | Compute counterfactual address |
+| `isWalletDeployed(address owner, uint256 salt)` | View | Check if wallet exists |
+| `getWalletByOwner(address owner)` | View | Get default wallet |
+| `createWalletsBatch(address[] owners, uint256[] salts)` | External | Batch deployment |
+
+**Events:**
+
+```solidity
+event WalletCreated(address indexed wallet, address indexed owner, uint256 salt, uint256 walletNumber);
+```
+
+---
+
+### 4. BuildingRegistry (`contracts/core/BuildingRegistry.sol`)
+
+**Type:** Adapter routing and management
+**Inheritance:** `Ownable`, `ReentrancyGuard`
+
+**Purpose:** Central registry that routes building operations to the correct adapter. Enables hot-swappable adapter implementations without changing core contracts.
+
+**Key State:**
+
+```solidity
+mapping(string => address) public adapters;      // buildingType → adapter address
+string[] public buildingTypes;                    // Registered types list
+mapping(string => bool) public isRegistered;      // Registration status
+```
+
+**Key Functions:**
+
+| Function | Access | Purpose |
+|----------|--------|---------|
+| `preparePlace(string type, address user, address wallet, bytes params)` | View | Route to adapter's preparePlace |
+| `prepareHarvest(string type, address user, address wallet, uint256 id, bytes params)` | View | Route to adapter's prepareHarvest |
+| `prepareDemolish(string type, address user, address wallet, uint256 id, bytes params)` | View | Route to adapter's prepareDemolish |
+| `registerAdapter(string type, address adapter)` | Owner | Register new adapter |
+| `upgradeAdapter(string type, address newAdapter)` | Owner | Hot-swap adapter |
+| `removeAdapter(string type)` | Owner | Remove adapter |
+| `validatePlacement(string type, bytes params)` | View | Validate placement params |
+| `getPlacementFee(string type)` | View | Get fee in basis points |
+| `calculateFee(string type, uint256 amount)` | View | Calculate fee amount |
 
 ---
 
 ## Asset Flow
 
-### Deposit Flow
+### Flow 1: Deposit (EOA → SmartWallet)
 
 ```
 1. User has USDC in MetaMask (EOA)
 2. User clicks "Deposit 100 USDC"
-3. Frontend prompts: "Transfer 100 USDC to your SmartWallet"
-4. User approves USDC.transfer(smartWallet, 100 USDC)
-5. Transaction executed (user pays gas)
-6. USDC now in user's SmartWallet
-7. DefiCityCore.recordDeposit() called for bookkeeping
-8. UI updates to show balance
+3. Frontend: USDC.transfer(smartWallet, 100 USDC)  ← user signs in MetaMask
+4. USDC now in user's SmartWallet
+5. UI refetches balances
 ```
 
-**Key Point:** Tokens go TO user's SmartWallet, NOT to game contracts
+**For ETH:** Direct ETH transfer from EOA to SmartWallet (no approve needed)
+**For ERC20:** `Token.transfer(smartWallet, amount)` (no approve needed, direct transfer)
 
 ---
 
-### Place Building Flow (Bank - Aave Supply)
+### Flow 2: Place Bank Building (Supply to Aave)
 
 ```
 1. User has 100 USDC in SmartWallet
-2. User clicks "Place Bank" → Supply 100 USDC to Aave
-3. Frontend calls BuildingManager.prepareAaveBuildingPlacement()
-   → Returns (target: AAVE_POOL, data: supply() calldata)
-4. Frontend creates UserOperation with session key
-5. Paymaster sponsors gas
-6. SmartWallet executes:
-   - USDC.approve(AAVE_POOL, 100 USDC)
-   - AAVE_POOL.supply(USDC, 100 USDC, smartWallet, 0)
-7. SmartWallet receives aUSDC (interest-bearing token)
-8. SmartWallet calls DefiCityCore.recordBuildingPlacement()
-9. Building appears on map
+2. User clicks tile on map → selects USDC → enters amount
+3. Frontend calls BankAdapter.preparePlace(user, smartWallet, params)
+   → Returns batch calldata: [approve, supply, recordBuilding]
+4. For ETH: prepend WETH.deposit() to batch (wrap native ETH)
+5. Frontend calls SmartWallet.executeBatch(targets, values, datas)
+6. SmartWallet executes batch:
+   a. [ETH only] WETH.deposit{value: amount}()         ← wrap to WETH
+   b. Token.approve(AAVE_POOL, amount)                  ← approve pool
+   c. AAVE_POOL.supply(token, amount, smartWallet, 0)   ← supply to Aave
+   d. DefiCityCore.recordBuildingPlacement(...)          ← record on grid
+7. SmartWallet receives aTokens (interest-bearing)
+8. Building appears on map
 ```
 
-**Key Point:** SmartWallet executes, receives aTokens, and records action
+**Upgrade (existing building):** Same flow but skip step (d) - no new building record
 
 ---
 
-### Harvest Flow
+### Flow 3: Withdraw from Aave
 
 ```
-1. User has Bank building with accrued interest
-2. User clicks "Harvest"
-3. Frontend prepares harvest UserOperation
-4. SmartWallet executes:
-   - Calculate earned interest: aUSDC balance - principal
-   - AAVE_POOL.withdraw(USDC, interestAmount, smartWallet)
-   - DefiCityCore.recordHarvest(buildingId, interestAmount)
-5. Harvested USDC remains in SmartWallet
-6. Building remains active
-7. UI updates balance
+1. User clicks building → "WITHDRAW" button
+2. Frontend calls BankAdapter.prepareDemolish(user, smartWallet, buildingId, params)
+   → Returns batch calldata: [withdraw, recordDemolition]
+3. SmartWallet.executeBatch():
+   a. AAVE_POOL.withdraw(token, amount, smartWallet)    ← withdraw from Aave
+   b. [ETH only] WETH.withdraw(amount)                  ← unwrap to ETH
+   c. DefiCityCore.recordDemolition(...)                 ← demolish building
+4. Tokens return to SmartWallet
+5. Building removed from map (if full withdrawal)
 ```
-
-**Key Point:** Harvested rewards stay in SmartWallet, not transferred elsewhere
 
 ---
 
-### Withdraw Flow
+### Flow 4: Withdraw from Vault (SmartWallet → EOA)
 
 ```
-1. User has 50 USDC idle in SmartWallet
-2. User clicks "Withdraw 50 USDC to MetaMask"
-3. Frontend prepares withdraw transaction (NOT gasless)
-4. User approves in MetaMask
-5. SmartWallet executes:
-   - USDC.transfer(userEOA, 50 USDC)
-   - DefiCityCore.recordWithdrawal(USDC, 50 USDC)
-6. USDC now in user's EOA (MetaMask)
-7. User pays gas
+1. User clicks "Withdraw to Wallet"
+2. Frontend: SmartWallet.execute(token, 0, transfer_calldata)
+   - For ETH: SmartWallet.execute(userEOA, amount, "0x")
+   - For ERC20: SmartWallet.execute(token, 0, encode(transfer(userEOA, amount)))
+3. Tokens transferred to user's EOA
 ```
 
-**Key Point:** User can withdraw anytime, pays gas for withdrawal
+---
+
+### Flow 5: Move Building on Grid
+
+```
+1. User drags building to new tile
+2. Frontend: SmartWallet.execute(core, 0, encode(moveBuilding(id, newX, newY)))
+3. DefiCityCore updates grid position on-chain
+4. UI refreshes building positions
+```
 
 ---
 
 ### Emergency Direct Withdrawal
 
 ```
-1. User wants to bypass game entirely
-2. User opens Etherscan/BaseScan
-3. User calls SmartWallet.emergencyWithdraw() directly:
-   - smartWallet.emergencyWithdraw(USDC, userEOA, amount)
-4. Only owner (user's EOA) can call this
-5. Tokens transferred to EOA
-6. Game state becomes inconsistent, but user has funds
+1. User opens BaseScan
+2. Calls SmartWallet.emergencyWithdraw(token, userEOA, amount) directly
+3. Only owner (user's EOA) can call this
+4. Tokens transferred to EOA immediately
+5. Game state becomes inconsistent, but user has funds
 ```
-
-**Key Point:** Users ALWAYS have escape hatch, not dependent on game
 
 ---
 
@@ -369,435 +419,332 @@ Core (just tracks state)
 
 ### Purpose
 
-Session keys allow users to authorize the game to execute actions on their SmartWallet without requiring approval for every single transaction. This enables gasless gameplay while maintaining security.
+Session keys allow automated game actions (e.g., backend-triggered harvests) without requiring user signature for every transaction.
 
-### How It Works
+### SessionKeyInfo
 
 ```solidity
 struct SessionKeyInfo {
-    address key;              // Session key address
-    uint256 validUntil;       // Expiry timestamp
-    uint256 dailyLimit;       // Max value per day (in USD)
-    uint256 spentToday;       // Amount spent today
-    uint256 lastResetTime;    // Last daily reset
-    bool revoked;             // Can be revoked by user
+    bool active;
+    uint256 validUntil;       // Max: 30 days from creation
+    uint256 dailyLimit;       // Rolling 24-hour spending cap (USD, 6 decimals)
+    uint256 windowStart;      // Current 24h window start
+    uint256 spentInWindow;    // Amount spent in current window
 }
 ```
 
-### Session Key Lifecycle
+### Lifecycle
 
-**1. Creation:**
+**1. Creation (user signs once):**
 ```solidity
-// User clicks "Enable Gasless Gameplay"
 smartWallet.createSessionKey(
-    sessionKeyAddress,  // Generated by frontend
-    block.timestamp + 24 hours,
-    1000 * 1e18  // 1000 USDC daily limit
-)
+    sessionKeyAddress,
+    block.timestamp + 24 hours,  // Min: 1 hour, Max: 30 days
+    1000 * 1e6                    // $1000 daily limit
+);
 ```
 
-**2. Usage:**
+**2. Usage (no user signature needed):**
 ```solidity
-// Frontend prepares UserOperation
-UserOperation memory userOp = UserOperation({
-    sender: smartWallet,
-    callData: abi.encodeWithSelector(
-        SmartWallet.executeFromGame.selector,
-        aavePool,
-        supplyCalldata
-    ),
-    signature: signedBySessionKey  // Session key signs
-});
-
-// Paymaster sponsors gas
-paymaster.sponsorUserOperation(userOp);
-
-// Bundler submits to EntryPoint
-entryPoint.handleOps([userOp], beneficiary);
+// Backend calls with session key signature
+smartWallet.executeFromGame(
+    [aavePool, core],                          // targets
+    [0, 0],                                     // values
+    [supplyCalldata, recordBuildingCalldata]    // datas
+);
 ```
 
-**3. Validation:**
-```solidity
-function _validateSessionKey() internal view {
-    require(!sessionKeys[msg.sender].revoked, "Revoked");
-    require(block.timestamp < sessionKeys[msg.sender].validUntil, "Expired");
-    require(sessionKeys[msg.sender].spentToday < sessionKeys[msg.sender].dailyLimit, "Limit exceeded");
-}
-```
+**3. Validation (automatic):**
+- Session key must be active and not expired
+- Rolling 24-hour spending window enforced
+- All targets must be whitelisted
+- ETH value estimated at $2000/ETH for limit tracking
 
-**4. Revocation:**
+**4. Revocation (user can revoke anytime):**
 ```solidity
-// User can revoke anytime
 smartWallet.revokeSessionKey(sessionKeyAddress);
 ```
 
 ### Security Constraints
 
-1. **Time Limit:** 24 hours max validity
-2. **Value Limit:** 1000 USDC equivalent per day
-3. **Target Whitelist:** Can only call approved contracts (Aave, Aerodrome, Megapot, DefiCityCore)
-4. **No Withdrawals:** Cannot transfer tokens to external addresses
-5. **User Revocable:** Owner can revoke immediately
+| Constraint | Limit |
+|-----------|-------|
+| Min validity | 1 hour |
+| Max validity | 30 days |
+| Daily spending cap | Configurable per key |
+| Target whitelist | Only approved contracts |
+| Withdrawal restriction | Cannot transfer to external addresses |
+| Revocation | Owner can revoke immediately |
 
 ---
 
-## Smart Contract Redesign
+## Adapter Pattern
 
-### Contracts That Need Changes
+### IBuildingAdapter Interface
 
-#### 1. DefiCityCore.sol
+All building types implement this interface:
 
-**REMOVE:**
 ```solidity
-// OLD - Custodial
-mapping(address => mapping(address => uint256)) public userBalances;
+interface IBuildingAdapter {
+    // Core operations - return batch calldata for SmartWallet
+    function preparePlace(address user, address userSmartWallet, bytes calldata params)
+        external view returns (address[] memory targets, uint256[] memory values, bytes[] memory datas);
 
-function deposit(address asset, uint256 amount) external {
-    IERC20(asset).transferFrom(msg.sender, address(this), amount);
-    userBalances[msg.sender][asset] += amount;
+    function prepareHarvest(address user, address userSmartWallet, uint256 buildingId, bytes calldata params)
+        external view returns (address[] memory targets, uint256[] memory values, bytes[] memory datas);
+
+    function prepareDemolish(address user, address userSmartWallet, uint256 buildingId, bytes calldata params)
+        external view returns (address[] memory targets, uint256[] memory values, bytes[] memory datas);
+
+    // Metadata
+    function getBuildingType() external view returns (string memory);
+    function getRequiredProtocols() external view returns (address[] memory);
+    function validatePlacement(bytes calldata params) external view returns (bool, string memory);
+    function estimateYield(uint256 buildingId) external view returns (uint256, address);
+
+    // Fee management
+    function getPlacementFee() external view returns (uint256 feeBps);
+    function calculateFee(uint256 amount) external view returns (uint256 feeAmount, uint256 netAmount);
+    function getTreasury() external view returns (address);
 }
 ```
 
-**ADD:**
+### Implemented Adapters
+
+#### BankAdapter (Aave V3)
+
+**Building Type:** `"bank"`
+**Protocol:** Aave V3 Pool
+**Fee:** 0.05% (5 basis points)
+
+**PlaceParams:**
 ```solidity
-// NEW - Self-Custodial
-mapping(address => address) public userSmartWallets;  // EOA → SmartWallet
-
-function registerWallet(address smartWallet) external {
-    require(userSmartWallets[msg.sender] == address(0), "Already registered");
-    require(ISmartWallet(smartWallet).owner() == msg.sender, "Not owner");
-    userSmartWallets[msg.sender] = smartWallet;
-}
-
-// All record* functions now called BY SmartWallet
-modifier onlyUserWallet() {
-    require(userSmartWallets[ISmartWallet(msg.sender).owner()] == msg.sender, "Not user wallet");
-    _;
-}
-
-function recordBuildingPlacement(...) external onlyUserWallet {
-    // Just update game state, no token transfers
+struct PlaceParams {
+    address asset;          // Token to supply
+    uint256 amount;         // Amount to supply
+    uint256 x;              // Grid position
+    uint256 y;
+    bool isBorrowMode;      // Supply-only vs supply+borrow
+    address borrowAsset;    // Asset to borrow (if borrow mode)
+    uint256 borrowAmount;   // Amount to borrow
 }
 ```
 
----
+**Supply mode batch:** `[approve, supply, recordBuilding]`
+**Borrow mode batch:** `[approve, supply, borrow, recordBuilding]` (with health factor check >= 1.5)
 
-#### 2. BuildingManager.sol
+#### ShopAdapter (Aerodrome DEX)
 
-**REMOVE:**
+**Building Type:** `"shop"`
+**Protocol:** Aerodrome Router
+**Fee:** 0.05% (5 basis points)
+
+**PlaceParams:**
 ```solidity
-// OLD - Direct execution
-function placeBuilding(...) external {
-    core.transferFrom(user, strategy, amount);  // ❌ Core holds tokens
-    strategy.deposit(user, amount);
+struct PlaceParams {
+    address tokenA;
+    address tokenB;
+    uint256 amountA;
+    uint256 amountB;
+    bool stable;            // Stable vs Volatile pool
+    uint256 x;
+    uint256 y;
 }
 ```
 
-**ADD:**
-```solidity
-// NEW - Prepare UserOperation for SmartWallet
-function prepareBuildingPlacement(
-    address userSmartWallet,
-    uint256 buildingType,
-    address asset,
-    uint256 amount,
-    uint256 x,
-    uint256 y
-) external view returns (
-    address[] memory targets,
-    bytes[] memory datas
-) {
-    // Validate rules
-    _validatePlacement(buildingType, x, y);
+**Place batch:** `[approve A, approve B, addLiquidity, recordBuilding]`
+**Harvest batch:** `[claimFees]` or `[gauge.getReward]`
+**Demolish batch:** `[removeLiquidity, recordDemolition]`
 
-    // Return execution plan for SmartWallet
-    if (buildingType == BANK) {
-        return _prepareAaveSupply(userSmartWallet, asset, amount);
-    } else if (buildingType == SHOP) {
-        return _prepareAerodromeLP(userSmartWallet, asset, amount);
-    }
-    // ... etc
+#### LotteryAdapter (Megapot)
+
+**Building Type:** `"lottery"`
+**Protocol:** Megapot
+**Fee:** 0.05% (5 basis points)
+
+**PlaceParams:**
+```solidity
+struct PlaceParams {
+    uint256 amount;         // USDC amount for tickets
+    uint256 x;
+    uint256 y;
 }
 ```
 
----
-
-#### 3. DefiCitySmartWallet.sol (NEW/ENHANCED)
-
-**ADD:**
-```solidity
-contract DefiCitySmartWallet is BaseAccount {
-    address public owner;
-    mapping(address => SessionKeyInfo) public sessionKeys;
-
-    // ERC-4337 integration
-    IEntryPoint public immutable entryPoint;
-
-    constructor(IEntryPoint _entryPoint, address _owner) {
-        entryPoint = _entryPoint;
-        owner = _owner;
-    }
-
-    // Execute game action via session key
-    function executeFromGame(
-        address target,
-        bytes calldata data
-    ) external returns (bytes memory) {
-        require(_isValidSessionKey(msg.sender), "Invalid session key");
-        require(_isWhitelistedTarget(target), "Target not allowed");
-
-        // Execute on DeFi protocol
-        (bool success, bytes memory result) = target.call(data);
-        require(success, "Execution failed");
-
-        // Update session key usage
-        _trackSessionKeyUsage(msg.sender, _estimateValue(target, data));
-
-        // Record in Core for bookkeeping
-        _recordInCore();
-
-        return result;
-    }
-
-    // Batch execution for complex actions
-    function executeFromGameBatch(
-        address[] calldata targets,
-        bytes[] calldata datas
-    ) external returns (bytes[] memory) {
-        require(_isValidSessionKey(msg.sender), "Invalid session key");
-        bytes[] memory results = new bytes[](targets.length);
-
-        for (uint256 i = 0; i < targets.length; i++) {
-            results[i] = _execute(targets[i], datas[i]);
-        }
-
-        return results;
-    }
-
-    // Emergency functions (owner only)
-    function emergencyWithdraw(
-        address token,
-        address to,
-        uint256 amount
-    ) external onlyOwner {
-        IERC20(token).transfer(to, amount);
-    }
-
-    // Session key management
-    function createSessionKey(
-        address key,
-        uint256 validUntil,
-        uint256 dailyLimit
-    ) external onlyOwner {
-        sessionKeys[key] = SessionKeyInfo({
-            key: key,
-            validUntil: validUntil,
-            dailyLimit: dailyLimit,
-            spentToday: 0,
-            lastResetTime: block.timestamp,
-            revoked: false
-        });
-    }
-
-    function revokeSessionKey(address key) external onlyOwner {
-        sessionKeys[key].revoked = true;
-    }
-
-    // View functions
-    function getBalance(address token) external view returns (uint256) {
-        return IERC20(token).balanceOf(address(this));
-    }
-}
-```
-
----
-
-#### 4. Strategy Contracts (DEPRECATED)
-
-**Remove entirely:**
-- AaveStrategy.sol
-- AerodromeStrategy.sol
-- MegapotStrategy.sol
-- TownHallStrategy.sol
-
-**Reason:** SmartWallet interacts directly with protocols, no intermediary needed
+**Place batch:** `[approve USDC, buyTickets, recordBuilding]`
+**Harvest batch:** `[claimPrizes(ticketIds)]`
 
 ---
 
 ## Security & Trust Model
 
-### v1.0 Trust Requirements (Custodial)
+### Trust Requirements (Self-Custodial)
 
 Users must trust:
-1. ✅ DefiCityCore contract security
-2. ✅ Strategy contract security
-3. ✅ Owner won't upgrade contracts maliciously
-4. ✅ Emergency pause mechanisms work correctly
-5. ✅ No bugs in token transfer logic
+1. Their own SmartWallet contract (they own it)
+2. Session key is properly scoped (they created it)
 
-**Total Trust Surface:** HIGH
+Users DON'T need to trust:
+- Game contracts holding funds correctly (they don't hold any)
+- Admin won't drain funds (can't access SmartWallet)
+- Emergency pause won't lock funds (funds in SmartWallet, not Core)
 
----
+### Security Features
 
-### v2.0 Trust Requirements (Self-Custodial)
-
-Users must trust:
-1. ✅ Their own SmartWallet contract (they own it)
-2. ✅ Session key is properly scoped
-3. ⚠️ DefiCityCore bookkeeping is accurate (but doesn't affect funds)
-
-**Total Trust Surface:** LOW
-
-**Users DON'T need to trust:**
-- ❌ Game won't steal funds (can't access SmartWallet without session key)
-- ❌ Core contract holds funds correctly (doesn't hold any)
-- ❌ Emergency pause won't lock funds (funds in SmartWallet, not Core)
-
----
+| Feature | Implementation |
+|---------|---------------|
+| Reentrancy Protection | `ReentrancyGuard` on all critical functions |
+| Pausable | Emergency pause on Core and SmartWallet |
+| Access Control | `onlyOwner`, `onlyModules`, `onlyUserWallet` modifiers |
+| Session Key Limits | Rolling 24h window with USD spending cap |
+| Health Factor | BankAdapter checks HF >= 1.5 before borrowing |
+| Grid Occupancy | Prevents duplicate buildings at same coordinates |
+| 2-Step Ownership | `transferOwnership()` + `acceptOwnership()` pattern |
+| Target Whitelist | Session keys can only call whitelisted contracts |
+| CREATE2 | Deterministic wallet addresses via factory |
 
 ### Attack Vector Analysis
 
-**v1.0 Attack Vectors:**
-1. ⚠️ Malicious Core upgrade drains all user funds
-2. ⚠️ Bug in strategy allows unauthorized withdrawals
-3. ⚠️ Reentrancy in Core contract
-4. ⚠️ Admin key compromise = total loss
-
-**v2.0 Attack Vectors:**
-1. ✅ Session key compromise = limited loss (daily limit, time limit)
-2. ✅ Bookkeeping bug = UI issues, funds safe
-3. ✅ Core contract bug = can't affect SmartWallet funds
-4. ✅ User retains emergency withdrawal capability
-
-**Result:** Significantly reduced risk profile
+| Attack | Mitigation |
+|--------|-----------|
+| Session key compromise | Limited: daily cap, time limit, target whitelist |
+| Core contract bug | Funds safe: Core is bookkeeping-only |
+| Bookkeeping inconsistency | UI issues only, funds unaffected |
+| Admin key compromise | Cannot access user SmartWallets |
+| Grid manipulation | `onlyUserWallet` modifier, occupancy checks |
 
 ---
 
 ## User Experience Flow
 
-### First-Time User Onboarding (NEW: Wallet Created on Town Hall Placement)
+### First-Time Onboarding
 
 ```
-1. User visits DefiCity
-2. Click "Sign Up with Email"
-3. Enter email, verify with code
-4. User lands on empty city map
-5. Tutorial: "Place your Town Hall to create your wallet"
-6. User clicks empty tile → "Place Town Hall"
-7. Modal explains:
-   - "Town Hall = Your SmartWallet"
-   - "You own this wallet forever"
-   - "All assets stored here (self-custodial)"
-8. User clicks "Create My Wallet" (gasless via Paymaster)
-9. SmartWallet deployed via Factory
-10. User shown: "Your SmartWallet: 0xABC...DEF"
-11. Town Hall appears on map
-12. Tutorial continues: "Now deposit funds to start building"
+1. User visits DefiCity → connects wallet (MetaMask)
+2. No SmartWallet found → mandatory "Create Town Hall" modal
+3. User clicks "CREATE TOWN HALL"
+4. DefiCityCore.createTownHall(7, 7):
+   a. WalletFactory.createWallet(user, 0) → deploy SmartWallet via CREATE2
+   b. Register wallet mapping (EOA ↔ SmartWallet)
+   c. Create Town Hall building at center of 13x13 grid
+5. User pays gas (one-time)
+6. Dashboard loads with Town Hall on map
 ```
 
-**Key Benefit:** Users only create wallet when they're ready to engage (lazy initialization)
+### Building a Bank (After Town Hall)
 
-**Difference from v1.0:**
-- Wallet creation deferred to first building placement
-- Town Hall has real meaning (it IS the wallet)
-- Users can explore without wallet commitment
+```
+1. User deposits tokens to SmartWallet (Vault):
+   - ETH: direct transfer
+   - ERC20: Token.transfer(smartWallet, amount)
+
+2. User clicks empty tile on City Map
+3. Build Modal opens → AavePanel shown
+4. User selects asset (USDC, USDT, ETH, WBTC, LINK)
+5. AavePanel shows: vault balance, reserve data (APY, cap, oracle price, LTV)
+6. User enters amount → clicks "SUPPLY & BUILD"
+
+7. SmartWallet.executeBatch():
+   [WETH.deposit (ETH only)] → [approve] → [supply to Aave] → [recordBuilding]
+
+8. Building appears on map with level based on USD value
+9. Interest accrues automatically via Aave aTokens
+```
 
 ---
 
-### Placing First DeFi Building (After Town Hall)
+## Deployed Addresses
+
+### Base Sepolia Testnet (Chain ID: 84532)
+
+**Core Contracts:**
+
+| Contract | Address |
+|----------|---------|
+| DefiCityCore | `0x641adC5d1e2AB02f772E86Dc3694d3e763fC549B` |
+| WalletFactory | `0x764f2D0F274d23B4cf51e5ae0c27e4020eD8ee2A` |
+| EntryPoint | `0x5864A489a25e8cE84b22903dc8f3038F6b0484f3` |
+| BuildingRegistry | `0x4c85d20BEF9D52ae6f4dAA05DE758932A3042486` |
+| BankAdapter | `0x16306E942AE4140ff4114C4548Bcb89500DaE5af` |
+
+**Aave V3 Protocol:**
+
+| Contract | Address |
+|----------|---------|
+| Aave Pool | `0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27` |
+| Aave Data Provider | `0xBc9f5b7E248451CdD7cA54e717a2BFe1F32b566b` |
+| Aave Pool Addresses Provider | `0xE4C23309117Aa30342BFaae6c95c6478e0A4Ad00` |
+
+**Token Addresses:**
+
+| Token | Address | Decimals |
+|-------|---------|----------|
+| USDC | `0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f` | 6 |
+| USDT | `0x0a215D8ba66387DCA84B284D18c3B4ec3de6E54a` | 6 |
+| ETH (WETH) | `0x4200000000000000000000000000000000000006` | 18 |
+| WBTC | `0x54114591963CF60EF3aA63bEfD6eC263D98145a4` | 8 |
+| LINK | `0x810D46F9a9027E28F9B01F75E2bdde839dA61115` | 18 |
+
+---
+
+## Supported Assets
+
+| Asset | Decimals | Building Type | DeFi Protocol | Status |
+|-------|----------|---------------|---------------|--------|
+| USDC | 6 | Bank | Aave V3 Supply | Active |
+| USDT | 6 | Bank | Aave V3 Supply | Active |
+| ETH (WETH) | 18 | Bank | Aave V3 Supply | Active |
+| WBTC | 8 | Bank | Aave V3 Supply | Active |
+| LINK | 18 | Bank | Aave V3 Supply | Active |
+
+Assets are whitelisted via `DefiCityCore.addSupportedAsset()` by contract owner.
+
+---
+
+## Development Setup
+
+### Compiler
+
+- Solidity: `0.8.20`
+- viaIR: enabled
+- Optimizer: 200 runs
+
+### Project Structure
 
 ```
-1. User has Town Hall (SmartWallet created)
-2. UI shows: "Deposit to your SmartWallet to place buildings"
-3. User clicks "Deposit"
-4. MetaMask prompts: USDC.transfer(smartWallet, 100 USDC)
-5. User approves (pays gas)
-6. USDC now in user's SmartWallet
-7. UI updates balance
-8. User clicks empty tile → "Place Bank"
-9. Select USDC, enter 100 USDC
-10. UI shows: "Your SmartWallet will supply to Aave"
-11. Click "Confirm" (gasless via session key)
-12. SmartWallet supplies to Aave
-13. Building appears on map
-14. aUSDC in SmartWallet, accruing interest
+contract/
+├── contracts/
+│   ├── core/
+│   │   ├── DefiCityCore.sol         # Central bookkeeping
+│   │   └── BuildingRegistry.sol     # Adapter routing
+│   ├── wallet/
+│   │   └── SmartWallet.sol          # ERC-4337 AA wallet
+│   ├── factory/
+│   │   └── WalletFactory.sol        # CREATE2 wallet deployer
+│   ├── adapters/
+│   │   ├── BankAdapter.sol          # Aave V3 adapter
+│   │   ├── ShopAdapter.sol          # Aerodrome DEX adapter
+│   │   └── LotteryAdapter.sol       # Megapot adapter
+│   ├── interfaces/
+│   │   ├── IBuildingAdapter.sol     # Adapter interface
+│   │   ├── IAccount.sol             # ERC-4337 interfaces
+│   │   ├── IEntryPoint.sol          # ERC-4337 EntryPoint
+│   │   ├── UserOperation.sol        # ERC-4337 UserOp struct
+│   │   ├── IAavePool.sol            # Aave V3 Pool
+│   │   ├── IAerodromeRouter.sol     # Aerodrome Router
+│   │   ├── IAerodromePair.sol       # Aerodrome Pair
+│   │   ├── IAerodromeGauge.sol      # Aerodrome Gauge
+│   │   ├── IMegapot.sol             # Megapot Lottery
+│   │   └── IAToken.sol              # Aave aToken
+│   ├── mocks/
+│   │   └── MockEntryPoint.sol       # Test mock
+│   └── MockERC20.sol               # Test token
+├── deployments/
+│   └── baseSepolia.json            # Deployed addresses
+├── scripts/
+│   ├── deploy-base-sepolia.js      # Main deployment
+│   ├── deploy.js                   # Generic deployment
+│   └── test-deployed.js            # Verify deployment
+└── test/
+    └── DefiCityCore.test.js        # Core tests
 ```
-
-**Key UX Messages:**
-- "Town Hall = Your SmartWallet"
-- "Your SmartWallet is supplying to Aave"
-- "You own the aUSDC in your SmartWallet"
-- "DefiCity just tracks your buildings"
-
-**Order of Operations:**
-1. **Town Hall (Free)** - Creates SmartWallet
-2. **Deposit** - Transfer funds to SmartWallet
-3. **Other Buildings** - Use funds from SmartWallet
-
----
-
-## Implementation Roadmap
-
-### Phase 1: Core Contract Redesign (Week 1-2)
-
-- [ ] Remove token custody from DefiCityCore
-- [ ] Implement bookkeeping-only functions
-- [ ] Add userSmartWallets mapping
-- [ ] Create onlyUserWallet modifier
-- [ ] Update all events for bookkeeping
-
-### Phase 2: SmartWallet Development (Week 2-3)
-
-- [ ] Implement executeFromGame() function
-- [ ] Add session key management
-- [ ] Implement target whitelist
-- [ ] Add daily spending limits
-- [ ] Create emergencyWithdraw() function
-- [ ] Integrate ERC-4337 EntryPoint
-
-### Phase 3: BuildingManager Refactor (Week 3-4)
-
-- [ ] Convert placeBuilding() to prepareBuildingPlacement()
-- [ ] Remove strategy contract calls
-- [ ] Generate UserOperation calldata
-- [ ] Add target preparation helpers
-- [ ] Update validation logic
-
-### Phase 4: Remove Strategy Contracts (Week 4)
-
-- [ ] Verify SmartWallet can call Aave directly
-- [ ] Verify SmartWallet can call Aerodrome directly
-- [ ] Remove AaveStrategy.sol
-- [ ] Remove AerodromeStrategy.sol
-- [ ] Update all imports
-
-### Phase 5: Frontend Integration (Week 5-6)
-
-- [ ] Update deposit flow to SmartWallet
-- [ ] Implement UserOperation builder
-- [ ] Add session key UI
-- [ ] Update balance displays (read from SmartWallet)
-- [ ] Add SmartWallet link to BaseScan
-- [ ] Implement emergency withdrawal UI
-
-### Phase 6: Testing & Audit (Week 7-8)
-
-- [ ] Unit tests for SmartWallet
-- [ ] Integration tests for full flows
-- [ ] Session key attack vector testing
-- [ ] Emergency withdrawal testing
-- [ ] Testnet deployment
-- [ ] Security audit
-
----
-
-## Conclusion
-
-The v2.0 self-custodial architecture represents a significant improvement in security, trust minimization, and user control. By leveraging ERC-4337 Account Abstraction and session keys, we maintain the seamless gasless UX while giving users true ownership of their assets.
-
-**Key Takeaway:** Users own their SmartWallet. DefiCity just helps them use it for DeFi strategies in a gamified way.
-
----
-
-**Document Status:** Ready for Review
-**Next Steps:** Begin Phase 1 implementation after approval
