@@ -7,6 +7,7 @@ export * from './useAavePosition'
 export * from './useCityBuildings'
 export * from './useAaveMarketData'
 export * from './useAaveWithdraw'
+export * from './useAaveBorrow'
 export * from './useMoveBuilding'
 export * from './useAaveReserveData'
 

@@ -9,17 +9,21 @@ import { useWallets } from '@privy-io/react-auth'
 import { CONTRACTS, ABIS } from '@/config/contracts'
 import { ASSET_PRICES } from '@/config/aave'
 
-// Asset addresses mapping
+// Asset addresses mapping (Aave-supported on Base Sepolia)
 const ASSET_ADDRESSES: Record<string, string> = {
   USDC: CONTRACTS.baseSepolia.USDC,
   USDT: CONTRACTS.baseSepolia.USDT,
   ETH: CONTRACTS.baseSepolia.ETH,
+  WBTC: CONTRACTS.baseSepolia.WBTC,
+  LINK: CONTRACTS.baseSepolia.LINK,
 }
 
 const ASSET_DECIMALS: Record<string, number> = {
   USDC: 6,
   USDT: 6,
   ETH: 18,
+  WBTC: 8,
+  LINK: 18,
 }
 
 export function useAavePosition(smartWalletAddress: string | null) {
@@ -49,6 +53,7 @@ export function useAavePosition(smartWalletAddress: string | null) {
       // Aave V3 Base currency is typically USD with 8 decimals
       const totalSuppliedUSD = Number(ethers.formatUnits(accountData.totalCollateralBase, 8))
       const totalBorrowedUSD = Number(ethers.formatUnits(accountData.totalDebtBase, 8))
+      const availableBorrowsUSD = Number(ethers.formatUnits(accountData.availableBorrowsBase, 8))
       const healthFactor = accountData.healthFactor === ethers.MaxUint256 
         ? Infinity 
         : Number(ethers.formatUnits(accountData.healthFactor, 18))
@@ -57,7 +62,7 @@ export function useAavePosition(smartWalletAddress: string | null) {
       const supplies: any[] = []
       const borrows: any[] = []
       
-      const assets: string[] = ['USDC', 'USDT', 'ETH']
+      const assets: string[] = ['USDC', 'USDT', 'ETH', 'WBTC', 'LINK']
       
       for (const asset of assets) {
         const assetAddress = ASSET_ADDRESSES[asset]
@@ -107,9 +112,10 @@ export function useAavePosition(smartWalletAddress: string | null) {
         borrows,
         totalSuppliedUSD,
         totalBorrowedUSD,
+        availableBorrowsUSD,
         netWorthUSD: totalSuppliedUSD - totalBorrowedUSD,
         healthFactor,
-        netAPY: 0, 
+        netAPY: 0,
       })
       
       setError(null)

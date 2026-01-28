@@ -10,11 +10,13 @@ import { CONTRACTS, ABIS } from '@/config/contracts'
 import { GRID_SIZE } from '@/lib/constants'
 // import { AaveAsset } from '@/types/aave'
 
-// Asset addresses mapping
+// Asset addresses mapping (Aave-supported assets on Base Sepolia)
 const ASSET_ADDRESSES: Record<string, string> = {
   USDC: CONTRACTS.baseSepolia.USDC,
   USDT: CONTRACTS.baseSepolia.USDT,
   ETH: CONTRACTS.baseSepolia.ETH,
+  WBTC: CONTRACTS.baseSepolia.WBTC,
+  LINK: CONTRACTS.baseSepolia.LINK,
 }
 
 // Asset decimals mapping
@@ -22,6 +24,8 @@ const ASSET_DECIMALS: Record<string, number> = {
   USDC: 6,
   USDT: 6,
   ETH: 18,
+  WBTC: 8,
+  LINK: 18,
 }
 
 export function useAaveSupply() {

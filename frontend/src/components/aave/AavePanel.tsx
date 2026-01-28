@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { useAaveSupply, useAavePosition, useAaveMarketData, useAaveWithdraw, useAaveReserveData } from '@/hooks'
+import { useAaveSupply, useAavePosition, useAaveMarketData, useAaveWithdraw, useAaveBorrow, useAaveReserveData } from '@/hooks'
 import { ASSET_PRICES, AAVE_MARKET_DATA } from '@/config/aave'
 import { ErrorPopup } from '@/components/ui/ErrorPopup'
 
@@ -26,15 +26,17 @@ const EMPTY_POSITION: any = {
   borrows: [],
   totalSuppliedUSD: 0,
   totalBorrowedUSD: 0,
+  availableBorrowsUSD: 0,
   netWorthUSD: 0,
   healthFactor: Infinity,
   netAPY: 0,
 }
 
-// Calculate health factor
+// Calculate health factor (uses Aave LTV/liquidation; reserveData for WBTC/LINK)
 function calculateHealthFactor(
   supplies: any[],
-  borrows: any[]
+  borrows: any[],
+  reserveData?: Record<string, { liquidationThreshold: number }>
 ): number {
   if (borrows.length === 0) return Infinity
 
@@ -43,7 +45,8 @@ function calculateHealthFactor(
 
   for (const supply of supplies) {
     const assetInfo = AAVE_MARKET_DATA.assets[supply.asset]
-    totalCollateralETH += supply.amountUSD * assetInfo.liquidationThreshold
+    const th = assetInfo?.liquidationThreshold ?? (reserveData?.[supply.asset]?.liquidationThreshold ?? 80) / 100
+    totalCollateralETH += supply.amountUSD * th
   }
 
   for (const borrow of borrows) {
@@ -76,18 +79,24 @@ export function AavePanel({
   // Use the hooks
   const { supply: realSupply, loading: loadingSupply } = useAaveSupply()
   const { withdraw: realWithdraw, loading: loadingWithdraw } = useAaveWithdraw()
+  const { borrow: realBorrow, loading: loadingBorrow } = useAaveBorrow()
   const { position: realPosition, refresh: refreshPosition } = useAavePosition(smartWallet)
   const { marketData: aaveMarketData } = useAaveMarketData()
   const { reserveData, loading: loadingReserveData, isPoolFull } = useAaveReserveData()
 
   const hasInsufficientBalance = useMemo(() => {
-    if (activeTab !== 'supply' || !amount || parseFloat(amount) <= 0) return false;
-    const balance = parseFloat(vaultBalances[selectedAsset] || '0');
-    return parseFloat(amount) > balance;
-  }, [selectedAsset, amount, vaultBalances, activeTab]);
+    // Only enforce vault-balance check if we actually track a non-empty vaultBalances map.
+    // On game flows where supply uses Smart Wallet balances directly (no separate vault),
+    // we let the underlying hook (useAaveSupply) validate balances and show errors.
+    if (activeTab !== 'supply' || !amount || parseFloat(amount) <= 0) return false
+    if (!vaultBalances || Object.keys(vaultBalances).length === 0) return false
+
+    const balance = parseFloat(vaultBalances[selectedAsset] ?? '0')
+    return parseFloat(amount) > balance
+  }, [selectedAsset, amount, vaultBalances, activeTab])
 
   // Combined loading state
-  const loading = loadingSupply || loadingWithdraw
+  const loading = loadingSupply || loadingWithdraw || loadingBorrow
 
   // Sync real position to local state
   useEffect(() => {
@@ -112,19 +121,20 @@ export function AavePanel({
   const marketData = AAVE_MARKET_DATA
   const currentAssetInfo = marketData.assets[selectedAsset]
 
-  // Get max borrowable amount
+  // Max borrowable USD (from Aave getUserAccountData.availableBorrowsBase)
+  const availableBorrowsUSD = position?.availableBorrowsUSD ?? 0
+
+  // Get max borrowable amount per asset (from Aave + reserve liquidity)
   const getMaxBorrow = useCallback((asset: string): number => {
-    let maxBorrowUSD = 0
-    for (const supply of position.supplies) {
-      const assetInfo = AAVE_MARKET_DATA.assets[supply.asset]
-      maxBorrowUSD += supply.amountUSD * assetInfo.ltv
-    }
-
-    const currentBorrowUSD = position.borrows.reduce((sum: any, b: any) => sum + b.amountUSD, 0)
-    const availableBorrowUSD = maxBorrowUSD - currentBorrowUSD
-
-    return availableBorrowUSD / ASSET_PRICES[asset]
-  }, [position])
+    if (availableBorrowsUSD <= 0) return 0
+    const rd = reserveData[asset]
+    if (rd?.borrowingEnabled === false) return 0
+    const price = rd?.oraclePrice ?? ASSET_PRICES[asset] ?? 1
+    if (price <= 0) return 0
+    const maxByUSD = availableBorrowsUSD / price
+    const maxByLiquidity = rd?.availableLiquidity ?? Infinity
+    return Math.max(0, Math.min(maxByUSD, maxByLiquidity))
+  }, [availableBorrowsUSD, reserveData])
 
   // Preview health factor
   const previewHealthFactor = useCallback(
@@ -177,9 +187,9 @@ export function AavePanel({
         }
       }
 
-      return calculateHealthFactor(newSupplies, newBorrows)
+      return calculateHealthFactor(newSupplies, newBorrows, reserveData)
     },
-    [position]
+    [position, reserveData]
   )
 
   // Calculate preview health factor
@@ -312,7 +322,7 @@ export function AavePanel({
 
           const totalSuppliedUSD = newSupplies.reduce((sum: any, s: any) => sum + s.amountUSD, 0)
           const totalBorrowedUSD = prev.borrows.reduce((sum: any, b: any) => sum + b.amountUSD, 0)
-          const healthFactor = calculateHealthFactor(newSupplies, prev.borrows)
+          const healthFactor = calculateHealthFactor(newSupplies, prev.borrows, reserveData)
 
           return {
             ...prev,
@@ -328,7 +338,7 @@ export function AavePanel({
         setError(result.error || 'Supply failed')
       }
     } else {
-      // Borrow - currently simulated
+      // Borrow (Aave Pool.borrow via Smart Wallet)
       if (previewHF < 1) {
         setError('This would cause liquidation (Health Factor < 1)')
         return
@@ -336,12 +346,26 @@ export function AavePanel({
 
       const maxBorrow = getMaxBorrow(selectedAsset)
       if (parsedAmount > maxBorrow) {
-        setError(`Max borrow: ${maxBorrow.toFixed(4)} ${selectedAsset}`)
+        setError(`Max borrow: ${maxBorrow.toFixed(6)} ${selectedAsset}`)
         return
       }
 
-      // Simulate borrow (not yet implemented with real contract)
-      setError('Borrow feature coming soon!')
+      if (!smartWallet) {
+        setError('Smart Wallet not found')
+        return
+      }
+
+      const result = await realBorrow(smartWallet, selectedAsset, parsedAmount)
+
+      if (result.success) {
+        setSuccess(true)
+        setAmount('')
+        if (onSuccess) onSuccess()
+        setTimeout(() => refreshPosition(), 2000)
+        setTimeout(() => setSuccess(false), 5000)
+      } else {
+        setError(result.error || 'Borrow failed')
+      }
     }
   }
 
@@ -427,15 +451,17 @@ export function AavePanel({
             >
               SUPPLY
             </button>
-            {!existingAsset && (
-              <button
-                disabled
-                className="px-3 py-1 text-[8px] border-2 bg-slate-700 border-slate-600 text-slate-600 cursor-not-allowed opacity-50"
-                style={{ fontFamily: '"Press Start 2P", monospace' }}
-              >
-                BORROW
-              </button>
-            )}
+            <button
+              onClick={() => setActiveTab('borrow')}
+              className={`px-3 py-1 text-[8px] border-2 transition-colors ${
+                activeTab === 'borrow'
+                  ? 'bg-purple-600 border-purple-400 text-white'
+                  : 'bg-slate-700 border-slate-600 text-slate-400 hover:border-slate-500'
+              }`}
+              style={{ fontFamily: '"Press Start 2P", monospace' }}
+            >
+              BORROW
+            </button>
           </div>
         </div>
 
@@ -498,21 +524,26 @@ export function AavePanel({
             className="text-slate-500 text-[8px] mb-2"
             style={{ fontFamily: '"Press Start 2P", monospace' }}
           >
-            {existingAsset ? `ASSET: ${existingAsset}` : 'SELECT ASSET'}
+            {activeTab === 'borrow'
+              ? 'SELECT ASSET'
+              : existingAsset
+                ? `ASSET: ${existingAsset}`
+                : 'SELECT ASSET'}
           </p>
           <div className="grid grid-cols-4 gap-2">
             {assets.map((asset) => {
-              const isUsed = !existingAsset && usedAssets.includes(asset)
-              const isLocked = !!existingAsset && asset !== existingAsset
-              const isDisabled = isUsed || isLocked
+              const lockOnSupply = activeTab === 'supply' && !!existingAsset && asset !== existingAsset
+              const borrowDisabled = activeTab === 'borrow' && (reserveData[asset]?.borrowingEnabled === false)
+              const isLocked = lockOnSupply || borrowDisabled
+              const hasExistingBuilding = activeTab === 'supply' && usedAssets.includes(asset) && !existingAsset
 
               return (
                 <button
                   key={asset}
-                  onClick={() => !isDisabled && setSelectedAsset(asset)}
-                  disabled={isDisabled}
+                  onClick={() => !isLocked && setSelectedAsset(asset)}
+                  disabled={isLocked}
                   className={`px-2 py-2 border-2 text-[8px] transition-colors ${
-                    isDisabled
+                    isLocked
                       ? 'bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed opacity-40'
                       : selectedAsset === asset
                         ? 'bg-purple-600 border-purple-400 text-white'
@@ -521,15 +552,39 @@ export function AavePanel({
                   style={{ fontFamily: '"Press Start 2P", monospace' }}
                 >
                   {asset}
-                  {isUsed && <span className="block text-[5px] text-red-400 mt-0.5">BUILT</span>}
+                  {hasExistingBuilding && (
+                    <span className="block text-[5px] text-cyan-400 mt-0.5">+MORE</span>
+                  )}
                 </button>
               )
             })}
           </div>
         </div>
 
-        {/* Vault Balance Display */}
-        {activeTab === 'supply' && vaultBalances[selectedAsset] && (
+        {/* Borrow: "You can borrow up to" + Max per asset (from Aave) */}
+        {activeTab === 'borrow' && (
+          <div className="mb-4 space-y-2">
+            <div className="bg-slate-900/50 border border-slate-700 p-2">
+              <p className="text-slate-500 text-[6px] mb-1" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                YOU CAN BORROW UP TO (Aave)
+              </p>
+              <p className="text-cyan-400 text-[10px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                ${availableBorrowsUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="bg-slate-900/50 border border-slate-700 p-2 flex justify-between items-center">
+              <span className="text-slate-500 text-[6px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                MAX {selectedAsset}
+              </span>
+              <span className="text-white text-[10px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                {getMaxBorrow(selectedAsset).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 })} {selectedAsset}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Vault Balance Display (only if vault balances are actually provided) */}
+        {activeTab === 'supply' && vaultBalances && Object.keys(vaultBalances).length > 0 && vaultBalances[selectedAsset] && (
           <div className="bg-slate-900/50 border border-slate-700 p-3 mb-4">
             <div className="flex justify-between items-center">
               <p className="text-slate-500 text-[7px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
@@ -737,55 +792,50 @@ export function AavePanel({
         )}
 
         {/* Submit Button */}
-        <button
-          onClick={handleSubmit}
-          disabled={loading || !amount || parseFloat(amount) <= 0 || (activeTab === 'supply' && isPoolFull(selectedAsset)) || hasInsufficientBalance}
-          className="relative group w-full disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {/* Button Shadow */}
-          <div className={`${hasInsufficientBalance ? 'bg-red-900' : 'bg-purple-900'} absolute inset-0 translate-x-2 translate-y-2`} />
-
-          {/* Button */}
-          <div
-            className={`relative px-6 py-4 border-4 text-white flex items-center justify-center gap-3 transition-transform ${
-              hasInsufficientBalance ? 'bg-slate-700 border-slate-600' : 'bg-purple-600 border-purple-400'
-            } ${
-              !loading && !hasInsufficientBalance ? 'group-hover:-translate-y-1 group-active:translate-y-0' : ''
-            }`}
-          >
-            {loading ? (
-              <>
-                <div className="flex gap-1">
-                  {[0, 1, 2].map((i) => (
-                    <div
-                      key={i}
-                      className="w-2 h-2 bg-white"
-                      style={{
-                        animation: `pixelBounce 0.6s ease-in-out infinite`,
-                        animationDelay: `${i * 0.15}s`,
-                      }}
-                    />
-                  ))}
-                </div>
-                <span
-                  className="text-xs"
-                  style={{ fontFamily: '"Press Start 2P", monospace' }}
-                >
-                  PROCESSING...
-                </span>
-              </>
-            ) : (
-              <span
-                className="text-xs"
-                style={{ fontFamily: '"Press Start 2P", monospace' }}
+        {(() => {
+          const borrowNoCollateral = activeTab === 'borrow' && availableBorrowsUSD <= 0
+          const supplyDisabled = activeTab === 'supply' && (isPoolFull(selectedAsset) || hasInsufficientBalance)
+          const borrowDisabled = activeTab === 'borrow' && (availableBorrowsUSD <= 0 || (amount && parseFloat(amount) > 0 && previewHF < 1))
+          const isDisabled = loading || !amount || parseFloat(amount) <= 0 || supplyDisabled || borrowDisabled || borrowNoCollateral
+          const isRed = hasInsufficientBalance || borrowNoCollateral
+          return (
+            <button
+              onClick={handleSubmit}
+              disabled={isDisabled}
+              className="relative group w-full disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className={`${isRed ? 'bg-red-900' : 'bg-purple-900'} absolute inset-0 translate-x-2 translate-y-2`} />
+              <div
+                className={`relative px-6 py-4 border-4 text-white flex items-center justify-center gap-3 transition-transform ${
+                  isRed ? 'bg-slate-700 border-slate-600' : 'bg-purple-600 border-purple-400'
+                } ${!loading && !isRed ? 'group-hover:-translate-y-1 group-active:translate-y-0' : ''}`}
               >
-                {activeTab === 'supply'
-                  ? (hasInsufficientBalance ? `NOT ENOUGH ${selectedAsset}` : (isPoolFull(selectedAsset) ? '⛔ POOL FULL' : (existingAsset ? 'SUPPLY MORE' : 'SUPPLY & BUILD')))
-                  : 'BORROW'}
-              </span>
-            )}
-          </div>
-        </button>
+                {loading ? (
+                  <>
+                    <div className="flex gap-1">
+                      {[0, 1, 2].map((i) => (
+                        <div
+                          key={i}
+                          className="w-2 h-2 bg-white"
+                          style={{ animation: `pixelBounce 0.6s ease-in-out infinite`, animationDelay: `${i * 0.15}s` }}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-xs" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                      PROCESSING...
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-xs" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                    {activeTab === 'supply'
+                      ? (hasInsufficientBalance ? `NOT ENOUGH ${selectedAsset}` : (isPoolFull(selectedAsset) ? '⛔ POOL FULL' : (existingAsset ? 'SUPPLY MORE' : 'SUPPLY & BUILD')))
+                      : (borrowNoCollateral ? 'NO COLLATERAL TO BORROW' : 'BORROW')}
+                  </span>
+                )}
+              </div>
+            </button>
+          )
+        })()}
 
         {/* Current Positions */}
         {(position.supplies.filter((s: any) => s.amount > 0.0001).length > 0 || 
