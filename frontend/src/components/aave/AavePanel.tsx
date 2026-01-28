@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useAaveSupply, useAavePosition, useAaveMarketData, useAaveWithdraw } from '@/hooks'
 import { ASSET_PRICES, AAVE_MARKET_DATA } from '@/config/aave'
+import { ErrorPopup } from '@/components/ui/ErrorPopup'
 
 type TabType = 'supply' | 'borrow'
 
@@ -626,17 +627,8 @@ export function AavePanel({
           </div>
         )}
 
-        {/* Error / Success Messages */}
-        {error && (
-          <div className="bg-red-900/30 border-2 border-red-600 p-3 mb-4">
-            <p
-              className="text-red-400 text-[8px] text-center"
-              style={{ fontFamily: '"Press Start 2P", monospace' }}
-            >
-              {error}
-            </p>
-          </div>
-        )}
+        {/* Error Popup */}
+        <ErrorPopup error={error} onClose={() => setError(null)} />
 
         {success && (
           <div className="bg-green-900/30 border-2 border-green-600 p-3 mb-4">
