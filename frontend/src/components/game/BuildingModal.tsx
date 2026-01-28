@@ -14,6 +14,8 @@ interface BuildingModalProps {
   onClose: () => void
   buildingType: BuildingType | null
   onConfirm: (amount?: string) => void
+  // Grid position where the player clicked (for on-chain placements like Bank, Town Hall, etc.)
+  position?: { x: number; y: number } | null
 }
 
 // Pixel Art Building Preview
@@ -76,6 +78,7 @@ export function BuildingModal({
   onClose,
   buildingType,
   onConfirm,
+  position,
 }: BuildingModalProps) {
   const [amount, setAmount] = useState('')
   const { user } = usePrivy()
@@ -89,6 +92,8 @@ export function BuildingModal({
     return (
       <BankModal
         onClose={onClose}
+        // Pass the selected grid position down so Bank can place on the exact tile
+        gridPosition={position ?? undefined}
         onConfirm={() => {
           onConfirm()
           onClose()

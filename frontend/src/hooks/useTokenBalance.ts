@@ -1,6 +1,7 @@
 /**
  * useTokenBalance Hook
- * Get token balance for user
+ * Get token balance for Smart Wallet (not EOA)
+ * Tokens are stored in Smart Wallet, not in the user's EOA address
  */
 
 import { useState, useEffect } from 'react'
@@ -14,7 +15,7 @@ const ASSET_ADDRESSES: Record<AaveAsset, string> = {
   USDC: CONTRACTS.baseSepolia.USDC,
   USDT: CONTRACTS.baseSepolia.USDT,
   ETH: CONTRACTS.baseSepolia.WETH,
-  WBTC: '0x0000000000000000000000000000000000000000',
+  WBTC: CONTRACTS.baseSepolia.WBTC,
 }
 
 // Asset decimals mapping
@@ -25,7 +26,7 @@ const ASSET_DECIMALS: Record<AaveAsset, number> = {
   WBTC: 8,
 }
 
-export function useTokenBalance(userAddress: string | undefined, asset: AaveAsset) {
+export function useTokenBalance(smartWalletAddress: string | null | undefined, asset: AaveAsset) {
   const { wallets } = useWallets()
   const [balance, setBalance] = useState<string>('0')
   const [loading, setLoading] = useState(true)
@@ -33,7 +34,8 @@ export function useTokenBalance(userAddress: string | undefined, asset: AaveAsse
 
   useEffect(() => {
     async function fetchBalance() {
-      if (!userAddress || !wallets || wallets.length === 0) {
+      if (!smartWalletAddress || !wallets || wallets.length === 0) {
+        setBalance('0')
         setLoading(false)
         return
       }
@@ -52,8 +54,30 @@ export function useTokenBalance(userAddress: string | undefined, asset: AaveAsse
           return
         }
 
+        // Verify contract has code before calling
+        const code = await provider.getCode(assetAddress)
+        if (code === '0x') {
+          console.warn(`Token contract not found at ${assetAddress} for ${asset}`)
+          setBalance('0')
+          setError(`Token contract not found for ${asset}`)
+          setLoading(false)
+          return
+        }
+
         const token = new ethers.Contract(assetAddress, ABIS.ERC20, provider)
-        const balanceWei = await token.balanceOf(userAddress)
+        
+        // Check balance at Smart Wallet (not EOA)
+        let balanceWei
+        try {
+          balanceWei = await token.balanceOf(smartWalletAddress)
+        } catch (balanceError: any) {
+          console.error(`Error calling balanceOf for ${asset} at ${assetAddress}:`, balanceError)
+          setBalance('0')
+          setError(`Failed to fetch ${asset} balance from Smart Wallet: ${balanceError.message || 'Unknown error'}`)
+          setLoading(false)
+          return
+        }
+        
         const balanceFormatted = ethers.formatUnits(balanceWei, decimals)
         
         setBalance(balanceFormatted)
@@ -72,7 +96,7 @@ export function useTokenBalance(userAddress: string | undefined, asset: AaveAsse
     // Refresh every 10 seconds
     const interval = setInterval(fetchBalance, 10000)
     return () => clearInterval(interval)
-  }, [userAddress, asset, wallets])
+  }, [smartWalletAddress, asset, wallets])
 
   return { balance, loading, error }
 }

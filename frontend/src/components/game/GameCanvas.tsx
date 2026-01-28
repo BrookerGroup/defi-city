@@ -334,6 +334,8 @@ export function GameCanvas() {
         onClose={handleCloseBuildModal}
         buildingType={selectedBuildingType}
         onConfirm={handleConfirmBuild}
+        // Pass the pending grid position to BuildingModal (and Bank/Town Hall)
+        position={pendingPosition}
       />
 
       <BuildingInfo

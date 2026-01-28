@@ -489,6 +489,8 @@ export function IsometricGameCanvas() {
         }}
         buildingType={selectedBuildingType}
         onConfirm={handleConfirmBuild}
+        // Pass pending grid position so Bank/Town Hall are placed on the chosen tile
+        position={pendingPosition}
       />
 
       <BuildingInfo

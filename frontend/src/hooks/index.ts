@@ -3,6 +3,7 @@ export { useDeposit } from './useDeposit'
 export { useWithdraw } from './useWithdraw'
 export { useWalletBalance } from './useWalletBalance'
 export { useAavePosition } from './useAavePosition'
+export { useAaveSupplyAndBorrow } from './useAaveSupplyAndBorrow'
 export { useTokenBalance } from './useTokenBalance'
 export {
   useContractInstances,

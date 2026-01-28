@@ -10,6 +10,13 @@ export interface Building {
   position: { x: number; y: number }
   deposited?: string
   createdAt: number
+  // On-chain data (optional, fetched from contract)
+  buildingId?: number
+  asset?: string
+  amount?: string
+  txHash?: string // Transaction hash when building was placed
+  smartWallet?: string
+  owner?: string
 }
 
 export interface BuildingInfo {

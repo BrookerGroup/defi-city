@@ -442,6 +442,8 @@ export function PixelGameCanvas() {
         }}
         buildingType={selectedBuildingType}
         onConfirm={handleConfirmBuild}
+        // Pass selected grid position so Bank/Town Hall know where to build
+        position={pendingPosition}
       />
 
       <BuildingInfo

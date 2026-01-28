@@ -630,6 +630,8 @@ export function PixiGameCanvas() {
         }}
         buildingType={selectedBuildingType}
         onConfirm={handleConfirmBuild}
+        // Pass pending grid position so Bank/Town Hall use the exact clicked tile
+        position={pendingPosition}
       />
 
       <BuildingInfo

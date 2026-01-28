@@ -5,9 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { usePrivy } from '@privy-io/react-auth'
 import { AaveAsset, AAVE_MARKET_DATA, ASSET_PRICES } from '@/types/aave'
+import { Building } from '@/types/building'
 import { useAavePosition } from '@/hooks/useAavePosition'
+import { useAaveSupplyAndBorrow } from '@/hooks/useAaveSupplyAndBorrow'
 import { useSmartWallet, useUserBuildings } from '@/hooks/useContracts'
 import { useTokenBalance } from '@/hooks'
+import { useGameStore } from '@/store/gameStore'
 import { AssetSelector, AssetDropdown } from './AssetSelector'
 import { HealthFactorBar, RiskIndicator } from './HealthFactorBar'
 import { AavePositionPanel, BorrowingCapacity } from './AavePositionPanel'
@@ -17,14 +20,17 @@ type TabType = 'supply' | 'supply-borrow' | 'position'
 interface BankModalProps {
   onClose: () => void
   onConfirm?: () => void
+  // Grid position where the player chose to place the Bank
+  gridPosition?: { x: number; y: number }
 }
 
-export function BankModal({ onClose, onConfirm }: BankModalProps) {
+export function BankModal({ onClose, onConfirm, gridPosition }: BankModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('supply')
   const { user } = usePrivy()
   const userAddress = user?.wallet?.address
   const { smartWallet } = useSmartWallet(userAddress)
   const { buildings } = useUserBuildings(userAddress)
+  const { addBuilding } = useGameStore()
   
   const {
     position,
@@ -35,13 +41,16 @@ export function BankModal({ onClose, onConfirm }: BankModalProps) {
     getMaxBorrow,
     marketData,
   } = useAavePosition()
+  
+  // Real supply + borrow hook
+  const { supplyAndBorrow: realSupplyAndBorrow, loading: supplyBorrowLoading } = useAaveSupplyAndBorrow()
 
   // Supply tab state
   const [supplyAsset, setSupplyAsset] = useState<AaveAsset>('USDC')
   const [supplyAmount, setSupplyAmount] = useState('')
   
-  // Get token balance for selected asset
-  const { balance: tokenBalance, loading: balanceLoading } = useTokenBalance(userAddress, supplyAsset)
+  // Get token balance for selected asset (from Smart Wallet, not EOA)
+  const { balance: tokenBalance, loading: balanceLoading } = useTokenBalance(smartWallet, supplyAsset)
   
   // Debug: Log smart wallet address (only once, not on every render)
   useEffect(() => {
@@ -69,12 +78,17 @@ export function BankModal({ onClose, onConfirm }: BankModalProps) {
     )
   }, [collateralAsset, collateralAmount, borrowAsset, borrowAmount, previewHealthFactor])
 
-  // Calculate max borrow based on collateral
+  // Calculate max borrow based on collateral (using liquidation threshold for safety)
   const maxBorrow = useMemo(() => {
     const collateralNum = parseFloat(collateralAmount) || 0
+    if (collateralNum <= 0) return 0
+    
     const collateralUSD = collateralNum * ASSET_PRICES[collateralAsset]
-    const ltv = AAVE_MARKET_DATA.assets[collateralAsset].ltv
-    const maxBorrowUSD = collateralUSD * ltv
+    // Use liquidation threshold (not LTV) to ensure health factor > 1.0
+    const liquidationThreshold = AAVE_MARKET_DATA.assets[collateralAsset].liquidationThreshold
+    // Calculate max borrow to keep health factor at 1.1 (10% safety margin)
+    const safetyMargin = 1.1
+    const maxBorrowUSD = (collateralUSD * liquidationThreshold) / safetyMargin
     return maxBorrowUSD / ASSET_PRICES[borrowAsset]
   }, [collateralAsset, collateralAmount, borrowAsset])
 
@@ -96,14 +110,45 @@ export function BankModal({ onClose, onConfirm }: BankModalProps) {
       return
     }
 
+    // Ensure we have a chosen grid position – Bank must be built where the player clicked
+    if (!gridPosition) {
+      toast.error('Please choose a tile on the map to place your Bank.')
+      return
+    }
+
     toast.loading('Supplying to Aave...', { id: 'supply' })
     
     try {
-      const result = await supply(supplyAsset, amount)
+      // Use the exact grid position the player selected
+      const result = await supply(supplyAsset, amount, gridPosition.x, gridPosition.y)
       if (result.success) {
+        // Use the chosen position; fall back to on-chain/event position only if missing
+        const finalPosition = gridPosition || result.position || { x: 0, y: 0 }
+        
+        // Add building to game store with transaction details
+        if (result.txHash && result.buildingId !== undefined) {
+          const newBuilding: Building = {
+            id: `bank-${result.buildingId || Date.now()}`,
+            type: 'bank',
+            position: finalPosition,
+            deposited: amount.toString(),
+            createdAt: Date.now(),
+            buildingId: result.buildingId,
+            asset: result.asset,
+            amount: result.amount,
+            txHash: result.txHash,
+            smartWallet: smartWallet || undefined,
+            owner: userAddress || undefined,
+          }
+          
+          addBuilding(newBuilding)
+        }
+        
         toast.success('Supply successful!', { 
           id: 'supply',
-          description: 'Your tokens have been supplied to Aave Pool'
+          description: result.txHash 
+            ? `Transaction: ${result.txHash.slice(0, 6)}...${result.txHash.slice(-4)}`
+            : 'Your tokens have been supplied to Aave Pool'
         })
         setSupplyAmount('')
         // Switch to position tab to show result
@@ -136,21 +181,80 @@ export function BankModal({ onClose, onConfirm }: BankModalProps) {
     const collateralNum = parseFloat(collateralAmount)
     const borrowNum = parseFloat(borrowAmount)
 
-    if (isNaN(collateralNum) || collateralNum <= 0) return
-
-    // First supply collateral
-    const supplyResult = await supply(collateralAsset, collateralNum)
-    if (!supplyResult.success) return
-
-    // Then borrow if amount specified
-    if (!isNaN(borrowNum) && borrowNum > 0) {
-      const borrowResult = await borrow(borrowAsset, borrowNum)
-      if (!borrowResult.success) return
+    if (isNaN(collateralNum) || collateralNum <= 0) {
+      toast.error('Please enter a valid collateral amount')
+      return
     }
 
-    setCollateralAmount('')
-    setBorrowAmount('')
-    setActiveTab('position')
+    if (isNaN(borrowNum) || borrowNum <= 0) {
+      toast.error('Please enter a valid borrow amount')
+      return
+    }
+
+    // Validate health factor before submitting
+    if (previewHF < 1.0) {
+      toast.error(`This position would be immediately liquidatable! Health factor: ${previewHF.toFixed(2)}. Please reduce borrow amount.`)
+      return
+    }
+
+    if (previewHF < 1.5) {
+      const confirmed = window.confirm(
+        `Warning: Health factor will be ${previewHF.toFixed(2)} (below 1.5). This is risky. Continue?`
+      )
+      if (!confirmed) return
+    }
+
+    // Validate borrow amount doesn't exceed max
+    if (borrowNum > maxBorrow) {
+      toast.error(`Borrow amount exceeds maximum. Max: ${maxBorrow.toFixed(2)} ${borrowAsset}`)
+      return
+    }
+
+    if (!userAddress) {
+      toast.error('Please connect your wallet first')
+      return
+    }
+
+    if (!smartWallet) {
+      toast.error('Please create a Smart Wallet first (create Town Hall)')
+      return
+    }
+
+    // Ensure we have a chosen grid position for the Bank building
+    if (!gridPosition) {
+      toast.error('Please choose a tile on the map to place your Bank.')
+      return
+    }
+
+    toast.loading('Supplying collateral and borrowing...', { id: 'supply-borrow' })
+    
+    try {
+      // Call real supply + borrow function (batch transaction)
+      const result = await realSupplyAndBorrow(
+        userAddress,
+        smartWallet,
+        collateralAsset,
+        collateralNum,
+        borrowAsset,
+        borrowNum,
+        gridPosition.x,
+        gridPosition.y
+      )
+      
+      if (result.success) {
+        toast.success(`Successfully supplied ${collateralNum} ${collateralAsset} and borrowed ${borrowNum} ${borrowAsset}!`, { 
+          id: 'supply-borrow',
+        })
+        setCollateralAmount('')
+        setBorrowAmount('')
+        setActiveTab('position')
+      } else {
+        toast.error(result.error || 'Supply + Borrow failed', { id: 'supply-borrow' })
+      }
+    } catch (error: any) {
+      console.error('Error in supply + borrow:', error)
+      toast.error(error.message || 'Supply + Borrow failed', { id: 'supply-borrow' })
+    }
   }
 
   const tabs = [
@@ -265,7 +369,7 @@ export function BankModal({ onClose, onConfirm }: BankModalProps) {
                       <span className="text-blue-400 font-mono">{smartWallet.slice(0, 6)}...{smartWallet.slice(-4)}</span>
                     </div>
                     <div className="mt-1 text-xs text-slate-500">
-                      💡 Tokens ไม่ต้องถูก transfer ไป Smart Wallet - supply จะใช้ tokens จาก EOA wallet ของคุณโดยตรง
+                      💡 Tokens ต้องอยู่ใน Smart Wallet - supply จะใช้ tokens จาก Smart Wallet โดยตรง (EOA ทำหน้าที่ sign transaction เท่านั้น)
                     </div>
                   </div>
                 )}

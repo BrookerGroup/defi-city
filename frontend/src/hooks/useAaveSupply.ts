@@ -14,7 +14,7 @@ const ASSET_ADDRESSES: Record<AaveAsset, string> = {
   USDC: CONTRACTS.baseSepolia.USDC,
   USDT: CONTRACTS.baseSepolia.USDT,
   ETH: CONTRACTS.baseSepolia.WETH,
-  WBTC: '0x0000000000000000000000000000000000000000', // Add when available
+  WBTC: CONTRACTS.baseSepolia.WBTC,
 }
 
 // Asset decimals mapping
@@ -78,15 +78,47 @@ export function useAaveSupply() {
     return [10, 10]
   }, [])
 
-  const getContracts = async () => {
+  const getContracts = async (expectedUserAddress?: string) => {
     if (!wallets || wallets.length === 0) {
       throw new Error('Wallet not connected')
     }
 
-    const wallet = wallets.find((w) => w.walletClientType === 'privy') || wallets[0]
+    // Log all available wallets for debugging
+    console.log('🔍 Available wallets:', wallets.map(w => ({
+      address: w.address,
+      type: w.walletClientType,
+      matches: expectedUserAddress ? w.address.toLowerCase() === expectedUserAddress.toLowerCase() : false
+    })))
+    console.log('🔍 Expected user address:', expectedUserAddress)
+
+    // Must use the wallet that OWNS the Smart Wallet we're calling (onlyEntryPointOrOwner).
+    // Do NOT fallback to another wallet — that causes OnlyEntryPointOrOwner revert.
+    let wallet = expectedUserAddress
+      ? wallets.find((w) => w.address.toLowerCase() === expectedUserAddress.toLowerCase())
+      : null
+
+    if (expectedUserAddress && !wallet) {
+      const short = `${expectedUserAddress.slice(0, 6)}...${expectedUserAddress.slice(-4)}`
+      throw new Error(
+        `The wallet that owns your Smart Wallet (${short}) is not connected. ` +
+        `Please connect that wallet to sign Supply transactions. ` +
+        `Currently connected: ${wallets.map((w) => w.address).join(', ')}`
+      )
+    }
+
+    if (!wallet) {
+      wallet = wallets.find((w) => w.walletClientType === 'privy') || wallets[0]
+      console.log('📌 Using wallet (no userAddress):', wallet?.address, wallet?.walletClientType)
+    } else {
+      console.log('✅ Using wallet matching userAddress:', wallet.address, wallet.walletClientType)
+    }
+
     const ethereumProvider = await wallet.getEthereumProvider()
     const provider = new ethers.BrowserProvider(ethereumProvider)
     const signer = await provider.getSigner()
+    
+    const signerAddress = await signer.getAddress()
+    console.log('📝 Signer address:', signerAddress)
 
     const network = 'baseSepolia'
     const addresses = CONTRACTS[network]
@@ -160,40 +192,88 @@ export function useAaveSupply() {
           smartWalletAbi,
           erc20Abi,
           addresses,
-        } = await getContracts()
+          provider,
+        } = await getContracts(userAddress) // Pass userAddress to find matching wallet
 
         const assetAddress = ASSET_ADDRESSES[asset]
         const decimals = ASSET_DECIMALS[asset]
         const amountWei = ethers.parseUnits(amount.toString(), decimals)
 
-        // 1. Get token contract
-        const token = new ethers.Contract(assetAddress, erc20Abi, signer)
+        // 1. Get token contract (using provider for read-only calls)
+        const token = new ethers.Contract(assetAddress, erc20Abi, provider)
 
-        // 2. Check user balance
-        const userBalance = await token.balanceOf(userAddress)
-        const balanceFormatted = ethers.formatUnits(userBalance, decimals)
-        const amountFormatted = amount.toString()
-        
-        if (userBalance < amountWei) {
-          const errorMsg = `Insufficient ${asset} balance. You have ${balanceFormatted} ${asset}, but need ${amountFormatted} ${asset}.\n\n` +
-            `To get test tokens on Base Sepolia:\n` +
-            `1. Visit Base Sepolia faucet: https://www.coinbase.com/faucets/base-ethereum-goerli-faucet\n` +
-            `2. Or use Aave app to supply there first: https://app.aave.com/\n` +
-            `3. Or swap ETH for USDC on a DEX\n\n` +
-            `Your balance: ${balanceFormatted} ${asset}\n` +
-            `Required: ${amountFormatted} ${asset}`
-          throw new Error(errorMsg)
+        // 2. Get signer address (EOA - for signing transactions)
+        const signerAddress = await signer.getAddress()
+        console.log(`Signer address (EOA): ${signerAddress}`)
+        console.log(`User address (EOA): ${userAddress}`)
+        console.log(`Smart Wallet address: ${smartWalletAddress}`)
+
+        // 3. Check balance at Smart Wallet (tokens should be in Smart Wallet, not EOA)
+        let smartWalletBalance
+        if (asset === 'ETH') {
+          // For ETH, check WETH balance at Smart Wallet
+          try {
+            smartWalletBalance = await token.balanceOf(smartWalletAddress)
+          } catch (balanceError: any) {
+            console.error('Error calling balanceOf for WETH:', balanceError)
+            throw new Error(
+              `Failed to check WETH balance at Smart Wallet. ` +
+              `Contract: ${assetAddress}. ` +
+              `Smart Wallet: ${smartWalletAddress}. ` +
+              `Error: ${balanceError.message || 'Unknown error'}`
+            )
+          }
+          
+          const wethBalanceFormatted = ethers.formatUnits(smartWalletBalance, decimals)
+          const requiredFormatted = ethers.formatUnits(amountWei, decimals)
+          
+          console.log(`Smart Wallet WETH balance: ${wethBalanceFormatted} WETH`)
+          console.log(`Required: ${requiredFormatted} WETH`)
+          
+          if (smartWalletBalance < amountWei) {
+            throw new Error(
+              `Insufficient WETH balance in Smart Wallet. ` +
+              `Required: ${requiredFormatted} WETH, ` +
+              `Available: ${wethBalanceFormatted} WETH. ` +
+              `Please transfer WETH to your Smart Wallet (${smartWalletAddress}) first.`
+            )
+          }
+          
+          console.log(`✅ Smart Wallet has sufficient WETH balance: ${wethBalanceFormatted} WETH`)
+        } else {
+          // For other assets (USDC, USDT, etc.), check token balance at Smart Wallet
+          try {
+            smartWalletBalance = await token.balanceOf(smartWalletAddress)
+          } catch (balanceError: any) {
+            console.error('Error calling balanceOf:', balanceError)
+            throw new Error(
+              `Failed to check ${asset} balance at Smart Wallet. ` +
+              `Contract: ${assetAddress}. ` +
+              `Smart Wallet: ${smartWalletAddress}. ` +
+              `Error: ${balanceError.message || 'Unknown error'}`
+            )
+          }
+          
+          const balanceFormatted = ethers.formatUnits(smartWalletBalance, decimals)
+          const amountFormatted = amount.toString()
+          
+          console.log(`Balance check at Smart Wallet:`)
+          console.log(`  Required: ${amountFormatted} ${asset} (${amountWei.toString()} wei)`)
+          console.log(`  Smart Wallet has: ${balanceFormatted} ${asset} (${smartWalletBalance.toString()} wei)`)
+          
+          if (smartWalletBalance < amountWei) {
+            const errorMsg = `Insufficient ${asset} balance in Smart Wallet. ` +
+              `Required: ${amountFormatted} ${asset}, ` +
+              `Available: ${balanceFormatted} ${asset}. ` +
+              `Please transfer ${asset} to your Smart Wallet (${smartWalletAddress}) first.`
+            throw new Error(errorMsg)
+          }
+          
+          console.log(`✅ Smart Wallet has sufficient balance: ${balanceFormatted} ${asset}`)
         }
 
-        // 3. Check allowance
-        const currentAllowance = await token.allowance(userAddress, smartWalletAddress)
-        if (currentAllowance < amountWei) {
-          // Need to approve
-          console.log('Approving token...')
-          const approveTx = await token.approve(smartWalletAddress, amountWei)
-          await approveTx.wait()
-          console.log('Token approved')
-        }
+        // Note: No need to check/approve from EOA → Smart Wallet
+        // Smart Wallet will approve Aave Pool directly in the batch transaction
 
         // 4. Prepare PlaceParams
         const placeParams = {
@@ -224,22 +304,9 @@ export function useAaveSupply() {
           ]
         )
 
-        // 6. Transfer tokens from EOA to Smart Wallet first (since Smart Wallet needs to own tokens)
-        // Use transfer() since the signer (EOA) is transferring its own tokens
-        console.log('Transferring tokens from EOA to Smart Wallet...')
-        const transferTx = await token.transfer(smartWalletAddress, amountWei)
-        const transferReceipt = await transferTx.wait()
-        console.log('Tokens transferred to Smart Wallet:', transferReceipt.hash)
-        
-        // Verify transfer was successful
-        const smartWalletBalance = await token.balanceOf(smartWalletAddress)
-        console.log('Smart Wallet USDC balance:', ethers.formatUnits(smartWalletBalance, decimals))
-        
-        if (smartWalletBalance < amountWei) {
-          throw new Error(`Transfer failed: Smart Wallet has ${ethers.formatUnits(smartWalletBalance, decimals)} ${asset} but needs ${amount.toString()}`)
-        }
-
-        // 7. Get calldata from BankAdapter
+        // 4. Get calldata from BankAdapter
+        // Note: Tokens are already in Smart Wallet, no transfer needed
+        // Smart Wallet will approve Aave Pool and supply in the batch transaction
         console.log('Calling BankAdapter.preparePlace...')
         const [targets, values, datas] = await bankAdapter.preparePlace(
           userAddress,
@@ -270,12 +337,15 @@ export function useAaveSupply() {
         console.log('Values:', valuesArray.map((v: bigint) => v.toString()))
         console.log('Data lengths:', datasArray.map((d: string) => d.length))
         
-        // Verify Smart Wallet has balance before executing batch
+        // Verify Smart Wallet still has balance before executing batch (double-check)
         const finalBalance = await token.balanceOf(smartWalletAddress)
-        console.log('Final Smart Wallet balance:', ethers.formatUnits(finalBalance, decimals), asset)
+        console.log('Final Smart Wallet balance check:', ethers.formatUnits(finalBalance, decimals), asset)
         
         if (finalBalance < amountWei) {
-          throw new Error(`Smart Wallet balance insufficient: ${ethers.formatUnits(finalBalance, decimals)} ${asset} < ${amount.toString()} ${asset}`)
+          throw new Error(
+            `Smart Wallet balance insufficient: ${ethers.formatUnits(finalBalance, decimals)} ${asset} < ${amount.toString()} ${asset}. ` +
+            `Please ensure tokens are in Smart Wallet (${smartWalletAddress}) before executing.`
+          )
         }
         
         // Decode calls for debugging
@@ -319,13 +389,16 @@ export function useAaveSupply() {
           console.log('Gas estimate:', gasEstimate.toString())
         } catch (estimateError: any) {
           console.error('Gas estimation failed:', estimateError)
-          
-          // Try to get more details about which call failed
-          if (estimateError.data) {
-            console.error('Error data:', estimateError.data)
+          const data = estimateError?.data ?? estimateError?.info?.error?.data
+          if (data) console.error('Error data:', data)
+          const msg = estimateError?.reason ?? estimateError?.message ?? ''
+          if (typeof data === 'string' && data.toLowerCase().startsWith('0x1753fe1a')) {
+            throw new Error(
+              'The connected wallet is not the owner of this Smart Wallet. ' +
+              'Please connect the wallet that owns your Smart Wallet (the one you used to create your Town Hall) to sign Supply transactions.'
+            )
           }
-          
-          throw new Error(`Transaction will fail: ${estimateError.reason || estimateError.message}`)
+          throw new Error(`Transaction will fail: ${msg}`)
         }
 
         const executeTx = await smartWallet.executeBatch(
@@ -341,23 +414,61 @@ export function useAaveSupply() {
         const receipt = await executeTx.wait()
         console.log('Transaction confirmed:', receipt.hash)
         
-        // Log events
+        // Parse events to get buildingId and other details
+        let buildingId: number | undefined
+        let parsedAssetAddress: string | undefined
+        let parsedAmount: bigint | undefined
+        let parsedX: number | undefined
+        let parsedY: number | undefined
+        
+        // Look for BuildingPlaced event in logs
         if (receipt.logs) {
           console.log('Transaction logs:', receipt.logs.length)
+          
+          for (const log of receipt.logs) {
+            try {
+              // Try to parse as DefiCityCore BuildingPlaced event
+              const coreInterface = core.interface
+              const parsed = coreInterface.parseLog(log)
+              
+              if (parsed?.name === 'BuildingPlaced') {
+                buildingId = Number(parsed.args.buildingId)
+                parsedAssetAddress = parsed.args.asset
+                parsedAmount = parsed.args.amount
+                parsedX = Number(parsed.args.x)
+                parsedY = Number(parsed.args.y)
+                console.log('BuildingPlaced event found:', {
+                  buildingId,
+                  asset: parsedAssetAddress,
+                  amount: parsed.args.amount.toString(),
+                  position: { x: parsedX, y: parsedY }
+                })
+                break
+              }
+            } catch (e) {
+              // Not our event, skip
+            }
+          }
         }
 
         setLoading(false)
         return {
           success: true,
           txHash: receipt.hash,
+          buildingId,
+          asset: parsedAssetAddress,
+          amount: parsedAmount ? parsedAmount.toString() : undefined,
+          position: parsedX !== undefined && parsedY !== undefined ? { x: parsedX, y: parsedY } : undefined,
         }
       } catch (err: any) {
         console.error('Error in supply:', err)
         let errorMessage = err.reason || err.message || 'Failed to supply to Aave'
-        
-        // Format error message better
-        if (errorMessage.includes('Insufficient')) {
-          // Error already has helpful message
+        const data = err?.data ?? err?.info?.error?.data
+
+        if (typeof data === 'string' && data.toLowerCase().startsWith('0x1753fe1a')) {
+          errorMessage =
+            'The connected wallet is not the owner of this Smart Wallet. ' +
+            'Please connect the wallet that owns your Smart Wallet (the one you used to create your Town Hall) to sign Supply transactions.'
         } else if (errorMessage.includes('user rejected')) {
           errorMessage = 'Transaction was rejected. Please try again.'
         } else if (errorMessage.includes('insufficient funds')) {
@@ -365,7 +476,7 @@ export function useAaveSupply() {
         } else if (errorMessage.includes('Transaction will fail')) {
           errorMessage = errorMessage.replace('Transaction will fail: ', '')
         }
-        
+
         setError(errorMessage)
         setLoading(false)
         return {
