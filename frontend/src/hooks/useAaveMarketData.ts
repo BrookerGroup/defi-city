@@ -14,7 +14,6 @@ export interface AssetMarketData {
   borrowAPY: number
 }
 
-const RAY = 10n ** 27n
 const SECONDS_PER_YEAR = 31536000n
 
 export function useAaveMarketData() {

@@ -6,7 +6,7 @@
 import { useState, useCallback } from 'react'
 import { ethers } from 'ethers'
 import { useWallets } from '@privy-io/react-auth'
-import { CONTRACTS, ABIS, SUPPORTED_CHAINS } from '@/config/contracts'
+import { CONTRACTS, ABIS } from '@/config/contracts'
 import { GRID_SIZE } from '@/lib/constants'
 // import { AaveAsset } from '@/types/aave'
 
@@ -158,7 +158,6 @@ export function useAaveSupply() {
           provider,
           smartWalletAbi,
           erc20Abi,
-          addresses,
         } = await getContracts()
 
         // Auto-find empty position if not provided

@@ -7,7 +7,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { ethers } from 'ethers'
 import { useWallets } from '@privy-io/react-auth'
 import { CONTRACTS, ABIS } from '@/config/contracts'
-import { ASSET_PRICES, AAVE_MARKET_DATA } from '@/config/aave'
+import { ASSET_PRICES } from '@/config/aave'
 
 // Asset addresses mapping
 const ASSET_ADDRESSES: Record<string, string> = {
@@ -21,8 +21,6 @@ const ASSET_DECIMALS: Record<string, number> = {
   USDT: 6,
   ETH: 18,
 }
-
-const RAY = 10n ** 27n
 
 export function useAavePosition(smartWalletAddress: string | null) {
   const { wallets } = useWallets()

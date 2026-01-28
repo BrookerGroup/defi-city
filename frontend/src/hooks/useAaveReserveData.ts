@@ -50,7 +50,6 @@ export interface ReserveData {
   borrowingEnabled: boolean
 }
 
-const RAY = 10n ** 27n
 const RAY_NUMBER = 1e27
 const SECONDS_PER_YEAR = 31536000
 const PERCENT_FACTOR = 10000 // Aave uses basis points (100% = 10000)

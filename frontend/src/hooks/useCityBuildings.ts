@@ -3,7 +3,7 @@
  * Generates buildings based on Aave Supply positions
  */
 
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { ethers } from 'ethers'
 import { useWallets } from '@privy-io/react-auth'
 import { CONTRACTS, ABIS } from '@/config/contracts'
@@ -50,27 +50,6 @@ function calculateLevel(amountUSD: number): number {
   if (amountUSD >= 500) return 3
   if (amountUSD >= 100) return 2
   return 1
-}
-
-// Assign building positions in a pattern
-function assignPosition(index: number): { x: number; y: number } {
-  const center = Math.ceil(GRID_SIZE / 2)
-  // Positions around center
-  const positions = [
-    { x: center - 1, y: center },     // Left
-    { x: center + 1, y: center },     // Right
-    { x: center, y: center - 1 },     // Top
-    { x: center, y: center + 1 },     // Bottom
-    { x: center - 1, y: center - 1 }, // Top-left
-    { x: center + 1, y: center + 1 }, // Bottom-right
-    { x: center - 1, y: center + 1 }, // Bottom-left
-    { x: center + 1, y: center - 1 }, // Top-right
-    { x: center - 2, y: center },     // Far left
-    { x: center + 2, y: center },     // Far right
-    { x: center, y: center - 2 },     // Far top
-    { x: center, y: center + 2 },     // Far bottom
-  ]
-  return positions[index % positions.length]
 }
 
 export function useCityBuildings(userAddress?: string, smartWalletAddress?: string | null) {

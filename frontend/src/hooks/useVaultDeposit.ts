@@ -6,7 +6,6 @@ import { USDC_ADDRESS, ERC20ABI } from '@/lib/contracts'
 import { CONTRACTS } from '@/config/contracts'
 
 const USDT_ADDRESS = CONTRACTS.baseSepolia.USDT as `0x${string}`
-const ETH_ADDRESS = CONTRACTS.baseSepolia.ETH as `0x${string}`
 const WBTC_ADDRESS = CONTRACTS.baseSepolia.WBTC as `0x${string}`
 const LINK_ADDRESS = CONTRACTS.baseSepolia.LINK as `0x${string}`
 
@@ -32,7 +31,7 @@ export function useVaultDeposit(
   const [isConfirming, setIsConfirming] = useState(false)
   const { writeContractAsync } = useWriteContract()
   const { sendTransactionAsync } = useSendTransaction()
-  const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
+  const [txHash] = useState<`0x${string}` | undefined>()
 
   // Balance states
   const [ethBalance, setEthBalance] = useState('0')

@@ -53,8 +53,6 @@ export default function AppPage() {
     smartWallet,
     loading: smartWalletLoading,
     hasSmartWallet,
-    isError,
-    error,
     refetch,
   } = useSmartWallet(address);
   const { createSmartAccount, isPending: isCreating } = useCreateSmartAccount();
@@ -135,26 +133,39 @@ export default function AppPage() {
   // Deposit form state
   const [selectedToken, setSelectedToken] = useState<TokenType>("ETH");
   const [depositAmount, setDepositAmount] = useState("");
-  const [depositError, setDepositError] = useState<string | null>(null);
-  const [depositSuccess, setDepositSuccess] = useState(false);
+  const [, setDepositError] = useState<string | null>(null);
+  const [, setDepositSuccess] = useState(false);
 
   // Withdraw form state
   const [withdrawToken, setWithdrawToken] = useState<TokenType>("ETH");
   const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [withdrawError, setWithdrawError] = useState<string | null>(null);
-  const [withdrawSuccess, setWithdrawSuccess] = useState(false);
+  const [, setWithdrawError] = useState<string | null>(null);
+  const [, setWithdrawSuccess] = useState(false);
 
   // Check for insufficient balance for deposit
   const currentTokenBalance = useMemo(() => {
     switch (selectedToken) {
-      case 'ETH': return parseFloat(ethBalance);
-      case 'USDC': return parseFloat(usdcBalance);
-      case 'USDT': return parseFloat(usdtBalance);
-      case 'WBTC': return parseFloat(wbtcBalance);
-      case 'LINK': return parseFloat(linkBalance);
-      default: return 0;
+      case "ETH":
+        return parseFloat(ethBalance);
+      case "USDC":
+        return parseFloat(usdcBalance);
+      case "USDT":
+        return parseFloat(usdtBalance);
+      case "WBTC":
+        return parseFloat(wbtcBalance);
+      case "LINK":
+        return parseFloat(linkBalance);
+      default:
+        return 0;
     }
-  }, [selectedToken, ethBalance, usdcBalance, usdtBalance, wbtcBalance, linkBalance]);
+  }, [
+    selectedToken,
+    ethBalance,
+    usdcBalance,
+    usdtBalance,
+    wbtcBalance,
+    linkBalance,
+  ]);
 
   const hasInsufficientDepositBalance = useMemo(() => {
     const amount = parseFloat(depositAmount);
@@ -164,14 +175,27 @@ export default function AppPage() {
   // Check for insufficient balance for withdraw
   const currentVaultBalance = useMemo(() => {
     switch (withdrawToken) {
-      case 'ETH': return parseFloat(smartWalletEthBalance);
-      case 'USDC': return parseFloat(smartWalletUsdcBalance);
-      case 'USDT': return parseFloat(smartWalletUsdtBalance);
-      case 'WBTC': return parseFloat(smartWalletWbtcBalance);
-      case 'LINK': return parseFloat(smartWalletLinkBalance);
-      default: return 0;
+      case "ETH":
+        return parseFloat(smartWalletEthBalance);
+      case "USDC":
+        return parseFloat(smartWalletUsdcBalance);
+      case "USDT":
+        return parseFloat(smartWalletUsdtBalance);
+      case "WBTC":
+        return parseFloat(smartWalletWbtcBalance);
+      case "LINK":
+        return parseFloat(smartWalletLinkBalance);
+      default:
+        return 0;
     }
-  }, [withdrawToken, smartWalletEthBalance, smartWalletUsdcBalance, smartWalletUsdtBalance, smartWalletWbtcBalance, smartWalletLinkBalance]);
+  }, [
+    withdrawToken,
+    smartWalletEthBalance,
+    smartWalletUsdcBalance,
+    smartWalletUsdtBalance,
+    smartWalletWbtcBalance,
+    smartWalletLinkBalance,
+  ]);
 
   const hasInsufficientWithdrawBalance = useMemo(() => {
     const amount = parseFloat(withdrawAmount);
@@ -789,23 +813,32 @@ export default function AppPage() {
                       value={depositAmount}
                       onChange={(e) => setDepositAmount(e.target.value)}
                       placeholder="0.00"
-                      className={`w-full bg-slate-900 border-2 p-3 text-white text-xs ${hasInsufficientDepositBalance ? 'border-red-500' : 'border-slate-700'}`}
+                      className={`w-full bg-slate-900 border-2 p-3 text-white text-xs ${hasInsufficientDepositBalance ? "border-red-500" : "border-slate-700"}`}
                       style={{ fontFamily: '"Press Start 2P", monospace' }}
                     />
-                    
+
                     {hasInsufficientDepositBalance && (
-                      <p className="text-red-500 text-[8px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                      <p
+                        className="text-red-500 text-[8px]"
+                        style={{ fontFamily: '"Press Start 2P", monospace' }}
+                      >
                         ⚠️ INSUFFICIENT {selectedToken} BALANCE
                       </p>
                     )}
 
                     <button
                       onClick={handleDeposit}
-                      disabled={isDepositing || isConfirmingDeposit || hasInsufficientDepositBalance}
-                      className={`w-full py-4 border-4 text-white text-xs ${hasInsufficientDepositBalance ? 'bg-slate-700 border-slate-600' : 'bg-blue-600 border-blue-400'}`}
+                      disabled={
+                        isDepositing ||
+                        isConfirmingDeposit ||
+                        hasInsufficientDepositBalance
+                      }
+                      className={`w-full py-4 border-4 text-white text-xs ${hasInsufficientDepositBalance ? "bg-slate-700 border-slate-600" : "bg-blue-600 border-blue-400"}`}
                       style={{ fontFamily: '"Press Start 2P", monospace' }}
                     >
-                      {hasInsufficientDepositBalance ? `INSUFFICIENT ${selectedToken}` : 'DEPOSIT TO VAULT'}
+                      {hasInsufficientDepositBalance
+                        ? `INSUFFICIENT ${selectedToken}`
+                        : "DEPOSIT TO VAULT"}
                     </button>
                   </div>
                 ) : (
@@ -862,23 +895,32 @@ export default function AppPage() {
                       value={withdrawAmount}
                       onChange={(e) => setWithdrawAmount(e.target.value)}
                       placeholder="0.00"
-                      className={`w-full bg-slate-900 border-2 p-3 text-white text-xs ${hasInsufficientWithdrawBalance ? 'border-red-500' : 'border-slate-700'}`}
+                      className={`w-full bg-slate-900 border-2 p-3 text-white text-xs ${hasInsufficientWithdrawBalance ? "border-red-500" : "border-slate-700"}`}
                       style={{ fontFamily: '"Press Start 2P", monospace' }}
                     />
 
                     {hasInsufficientWithdrawBalance && (
-                      <p className="text-red-500 text-[8px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                      <p
+                        className="text-red-500 text-[8px]"
+                        style={{ fontFamily: '"Press Start 2P", monospace' }}
+                      >
                         ⚠️ INSUFFICIENT {withdrawToken} IN VAULT
                       </p>
                     )}
 
                     <button
                       onClick={handleWithdrawFromVault}
-                      disabled={isWithdrawingFromVault || isConfirmingWithdraw || hasInsufficientWithdrawBalance}
-                      className={`w-full py-4 border-4 text-white text-xs ${hasInsufficientWithdrawBalance ? 'bg-slate-700 border-slate-600' : 'bg-purple-600 border-purple-400'}`}
+                      disabled={
+                        isWithdrawingFromVault ||
+                        isConfirmingWithdraw ||
+                        hasInsufficientWithdrawBalance
+                      }
+                      className={`w-full py-4 border-4 text-white text-xs ${hasInsufficientWithdrawBalance ? "bg-slate-700 border-slate-600" : "bg-purple-600 border-purple-400"}`}
                       style={{ fontFamily: '"Press Start 2P", monospace' }}
                     >
-                      {hasInsufficientWithdrawBalance ? `NOT ENOUGH ${withdrawToken}` : 'WITHDRAW TO WALLET'}
+                      {hasInsufficientWithdrawBalance
+                        ? `NOT ENOUGH ${withdrawToken}`
+                        : "WITHDRAW TO WALLET"}
                     </button>
                   </div>
                 )}

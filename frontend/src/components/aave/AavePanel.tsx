@@ -76,9 +76,9 @@ export function AavePanel({
   // Use the hooks
   const { supply: realSupply, loading: loadingSupply } = useAaveSupply()
   const { withdraw: realWithdraw, loading: loadingWithdraw } = useAaveWithdraw()
-  const { position: realPosition, loading: loadingPosition, refresh: refreshPosition } = useAavePosition(smartWallet)
-  const { marketData: aaveMarketData, loading: loadingMarketData } = useAaveMarketData()
-  const { reserveData, loading: loadingReserveData, getOraclePrice, isPoolFull } = useAaveReserveData()
+  const { position: realPosition, refresh: refreshPosition } = useAavePosition(smartWallet)
+  const { marketData: aaveMarketData } = useAaveMarketData()
+  const { reserveData, loading: loadingReserveData, isPoolFull } = useAaveReserveData()
 
   const hasInsufficientBalance = useMemo(() => {
     if (activeTab !== 'supply' || !amount || parseFloat(amount) <= 0) return false;
@@ -287,9 +287,6 @@ export function AavePanel({
         // Update local position optimistically (keep this for immediate feedback)
         const assetInfo = AAVE_MARKET_DATA.assets[selectedAsset]
         const amountUSD = parsedAmount * ASSET_PRICES[selectedAsset]
-        const buildX = selectedCoords?.x || 1
-        const buildY = selectedCoords?.y || 1
-        
         setPosition((prev: any) => {
           const existingIndex = prev.supplies.findIndex((s: any) => s.asset === selectedAsset)
           let newSupplies: any[]
