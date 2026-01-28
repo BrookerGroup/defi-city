@@ -7,6 +7,8 @@ import { CONTRACTS } from '@/config/contracts'
 import { TokenType } from './useVaultDeposit'
 
 const USDT_ADDRESS = CONTRACTS.baseSepolia.USDT as `0x${string}`
+const WBTC_ADDRESS = CONTRACTS.baseSepolia.WBTC as `0x${string}`
+const LINK_ADDRESS = CONTRACTS.baseSepolia.LINK as `0x${string}`
 
 interface WithdrawResult {
   success: boolean
@@ -238,9 +240,71 @@ export function useVaultWithdraw(
     async (token: TokenType, amount: string): Promise<WithdrawResult> => {
       if (token === 'ETH') return withdrawETH(amount)
       if (token === 'USDT') return withdrawUSDT(amount)
+      if (token === 'WBTC') {
+        // WBTC withdraw (8 decimals)
+        if (!ownerAddress || !smartWalletAddress) {
+          return { success: false, error: 'Wallet not connected' }
+        }
+        setIsWithdrawing(true)
+        setIsConfirming(true)
+        try {
+          const amountInUnits = parseUnits(amount, 8)
+          const transferCalldata = encodeFunctionData({
+            abi: ERC20ABI,
+            functionName: 'transfer',
+            args: [ownerAddress, amountInUnits],
+          })
+          const hash = await writeContractAsync({
+            address: smartWalletAddress,
+            abi: SmartWalletABI,
+            functionName: 'execute',
+            args: [WBTC_ADDRESS, BigInt(0), transferCalldata],
+          })
+          await publicClient.waitForTransactionReceipt({ hash })
+          setIsConfirming(false)
+          setIsWithdrawing(false)
+          if (refetchBalances) setTimeout(refetchBalances, 2000)
+          return { success: true, hash }
+        } catch (error) {
+          setIsConfirming(false)
+          setIsWithdrawing(false)
+          return { success: false, error: error instanceof Error ? error.message : 'Failed to withdraw WBTC' }
+        }
+      }
+      if (token === 'LINK') {
+        // LINK withdraw (18 decimals)
+        if (!ownerAddress || !smartWalletAddress) {
+          return { success: false, error: 'Wallet not connected' }
+        }
+        setIsWithdrawing(true)
+        setIsConfirming(true)
+        try {
+          const amountInUnits = parseUnits(amount, 18)
+          const transferCalldata = encodeFunctionData({
+            abi: ERC20ABI,
+            functionName: 'transfer',
+            args: [ownerAddress, amountInUnits],
+          })
+          const hash = await writeContractAsync({
+            address: smartWalletAddress,
+            abi: SmartWalletABI,
+            functionName: 'execute',
+            args: [LINK_ADDRESS, BigInt(0), transferCalldata],
+          })
+          await publicClient.waitForTransactionReceipt({ hash })
+          setIsConfirming(false)
+          setIsWithdrawing(false)
+          if (refetchBalances) setTimeout(refetchBalances, 2000)
+          return { success: true, hash }
+        } catch (error) {
+          setIsConfirming(false)
+          setIsWithdrawing(false)
+          return { success: false, error: error instanceof Error ? error.message : 'Failed to withdraw LINK' }
+        }
+      }
       return withdrawUSDC(amount)
     },
-    [withdrawETH, withdrawUSDC, withdrawUSDT]
+    [withdrawETH, withdrawUSDC, withdrawUSDT, ownerAddress, smartWalletAddress, writeContractAsync, refetchBalances]
   )
 
   return {

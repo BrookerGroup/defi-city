@@ -67,9 +67,13 @@ export default function AppPage() {
     ethBalance,
     usdcBalance,
     usdtBalance,
+    wbtcBalance,
+    linkBalance,
     smartWalletEthBalance,
     smartWalletUsdcBalance,
     smartWalletUsdtBalance,
+    smartWalletWbtcBalance,
+    smartWalletLinkBalance,
     refetchBalances,
   } = useVaultDeposit(address, smartWallet);
 
@@ -139,6 +143,40 @@ export default function AppPage() {
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const [withdrawSuccess, setWithdrawSuccess] = useState(false);
+
+  // Check for insufficient balance for deposit
+  const currentTokenBalance = useMemo(() => {
+    switch (selectedToken) {
+      case 'ETH': return parseFloat(ethBalance);
+      case 'USDC': return parseFloat(usdcBalance);
+      case 'USDT': return parseFloat(usdtBalance);
+      case 'WBTC': return parseFloat(wbtcBalance);
+      case 'LINK': return parseFloat(linkBalance);
+      default: return 0;
+    }
+  }, [selectedToken, ethBalance, usdcBalance, usdtBalance, wbtcBalance, linkBalance]);
+
+  const hasInsufficientDepositBalance = useMemo(() => {
+    const amount = parseFloat(depositAmount);
+    return !isNaN(amount) && amount > 0 && amount > currentTokenBalance;
+  }, [depositAmount, currentTokenBalance]);
+
+  // Check for insufficient balance for withdraw
+  const currentVaultBalance = useMemo(() => {
+    switch (withdrawToken) {
+      case 'ETH': return parseFloat(smartWalletEthBalance);
+      case 'USDC': return parseFloat(smartWalletUsdcBalance);
+      case 'USDT': return parseFloat(smartWalletUsdtBalance);
+      case 'WBTC': return parseFloat(smartWalletWbtcBalance);
+      case 'LINK': return parseFloat(smartWalletLinkBalance);
+      default: return 0;
+    }
+  }, [withdrawToken, smartWalletEthBalance, smartWalletUsdcBalance, smartWalletUsdtBalance, smartWalletWbtcBalance, smartWalletLinkBalance]);
+
+  const hasInsufficientWithdrawBalance = useMemo(() => {
+    const amount = parseFloat(withdrawAmount);
+    return !isNaN(amount) && amount > 0 && amount > currentVaultBalance;
+  }, [withdrawAmount, currentVaultBalance]);
 
   const handleCreateTownHall = async () => {
     if (!address) return;
@@ -471,6 +509,8 @@ export default function AppPage() {
                   USDC: smartWalletUsdcBalance,
                   USDT: smartWalletUsdtBalance,
                   ETH: smartWalletEthBalance,
+                  WBTC: smartWalletWbtcBalance,
+                  LINK: smartWalletLinkBalance,
                 }}
               />
             </div>
@@ -525,7 +565,7 @@ export default function AppPage() {
                 WALLET BAL
               </p>
               <div
-                className="flex gap-4 text-[8px]"
+                className="flex flex-wrap gap-2 text-[8px]"
                 style={{ fontFamily: '"Press Start 2P", monospace' }}
               >
                 <span className="text-green-400">
@@ -536,6 +576,12 @@ export default function AppPage() {
                 </span>
                 <span className="text-green-400">
                   USDT: {parseFloat(usdtBalance).toFixed(2)}
+                </span>
+                <span className="text-green-400">
+                  WBTC: {parseFloat(wbtcBalance).toFixed(6)}
+                </span>
+                <span className="text-green-400">
+                  LINK: {parseFloat(linkBalance).toFixed(2)}
                 </span>
               </div>
             </div>
@@ -573,7 +619,7 @@ export default function AppPage() {
                 VAULT BAL
               </p>
               <div
-                className="flex gap-4 text-[8px]"
+                className="flex flex-wrap gap-2 text-[8px]"
                 style={{ fontFamily: '"Press Start 2P", monospace' }}
               >
                 <span className="text-amber-400">
@@ -584,6 +630,12 @@ export default function AppPage() {
                 </span>
                 <span className="text-amber-400">
                   USDT: {parseFloat(smartWalletUsdtBalance).toFixed(2)}
+                </span>
+                <span className="text-amber-400">
+                  WBTC: {parseFloat(smartWalletWbtcBalance).toFixed(6)}
+                </span>
+                <span className="text-amber-400">
+                  LINK: {parseFloat(smartWalletLinkBalance).toFixed(2)}
                 </span>
               </div>
             </div>
@@ -700,7 +752,7 @@ export default function AppPage() {
                         {address}
                       </p>
                       <div
-                        className="flex justify-between text-xs"
+                        className="flex flex-wrap gap-1 text-[7px]"
                         style={{ fontFamily: '"Press Start 2P", monospace' }}
                       >
                         <span className="text-green-400">
@@ -712,14 +764,20 @@ export default function AppPage() {
                         <span className="text-green-400">
                           USDT: {parseFloat(usdtBalance).toFixed(2)}
                         </span>
+                        <span className="text-green-400">
+                          WBTC: {parseFloat(wbtcBalance).toFixed(6)}
+                        </span>
+                        <span className="text-green-400">
+                          LINK: {parseFloat(linkBalance).toFixed(2)}
+                        </span>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      {["ETH", "USDC", "USDT"].map((t) => (
+                    <div className="flex flex-wrap gap-1">
+                      {["ETH", "USDC", "USDT", "WBTC", "LINK"].map((t) => (
                         <button
                           key={t}
                           onClick={() => setSelectedToken(t as any)}
-                          className={`flex-1 py-3 border-2 text-[8px] ${selectedToken === t ? "bg-blue-600 text-white border-blue-400" : "bg-slate-900 text-slate-400 border-slate-700"}`}
+                          className={`flex-1 min-w-[50px] py-2 border-2 text-[7px] ${selectedToken === t ? "bg-blue-600 text-white border-blue-400" : "bg-slate-900 text-slate-400 border-slate-700"}`}
                           style={{ fontFamily: '"Press Start 2P", monospace' }}
                         >
                           {t}
@@ -731,16 +789,23 @@ export default function AppPage() {
                       value={depositAmount}
                       onChange={(e) => setDepositAmount(e.target.value)}
                       placeholder="0.00"
-                      className="w-full bg-slate-900 border-2 border-slate-700 p-3 text-white text-xs"
+                      className={`w-full bg-slate-900 border-2 p-3 text-white text-xs ${hasInsufficientDepositBalance ? 'border-red-500' : 'border-slate-700'}`}
                       style={{ fontFamily: '"Press Start 2P", monospace' }}
                     />
+                    
+                    {hasInsufficientDepositBalance && (
+                      <p className="text-red-500 text-[8px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                        ⚠️ INSUFFICIENT {selectedToken} BALANCE
+                      </p>
+                    )}
+
                     <button
                       onClick={handleDeposit}
-                      disabled={isDepositing || isConfirmingDeposit}
-                      className="w-full py-4 bg-blue-600 border-4 border-blue-400 text-white text-xs"
+                      disabled={isDepositing || isConfirmingDeposit || hasInsufficientDepositBalance}
+                      className={`w-full py-4 border-4 text-white text-xs ${hasInsufficientDepositBalance ? 'bg-slate-700 border-slate-600' : 'bg-blue-600 border-blue-400'}`}
                       style={{ fontFamily: '"Press Start 2P", monospace' }}
                     >
-                      DEPOSIT TO VAULT
+                      {hasInsufficientDepositBalance ? `INSUFFICIENT ${selectedToken}` : 'DEPOSIT TO VAULT'}
                     </button>
                   </div>
                 ) : (
@@ -760,7 +825,7 @@ export default function AppPage() {
                         {smartWallet}
                       </p>
                       <div
-                        className="flex justify-between text-xs"
+                        className="flex flex-wrap gap-1 text-[7px]"
                         style={{ fontFamily: '"Press Start 2P", monospace' }}
                       >
                         <span className="text-purple-400">
@@ -772,14 +837,20 @@ export default function AppPage() {
                         <span className="text-purple-400">
                           USDT: {parseFloat(smartWalletUsdtBalance).toFixed(2)}
                         </span>
+                        <span className="text-purple-400">
+                          WBTC: {parseFloat(smartWalletWbtcBalance).toFixed(6)}
+                        </span>
+                        <span className="text-purple-400">
+                          LINK: {parseFloat(smartWalletLinkBalance).toFixed(2)}
+                        </span>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      {["ETH", "USDC", "USDT"].map((t) => (
+                    <div className="flex flex-wrap gap-1">
+                      {["ETH", "USDC", "USDT", "WBTC", "LINK"].map((t) => (
                         <button
                           key={t}
                           onClick={() => setWithdrawToken(t as any)}
-                          className={`flex-1 py-3 border-2 text-[8px] ${withdrawToken === t ? "bg-purple-600 text-white border-purple-400" : "bg-slate-900 text-slate-400 border-slate-700"}`}
+                          className={`flex-1 min-w-[50px] py-2 border-2 text-[7px] ${withdrawToken === t ? "bg-purple-600 text-white border-purple-400" : "bg-slate-900 text-slate-400 border-slate-700"}`}
                           style={{ fontFamily: '"Press Start 2P", monospace' }}
                         >
                           {t}
@@ -791,16 +862,23 @@ export default function AppPage() {
                       value={withdrawAmount}
                       onChange={(e) => setWithdrawAmount(e.target.value)}
                       placeholder="0.00"
-                      className="w-full bg-slate-900 border-2 border-slate-700 p-3 text-white text-xs"
+                      className={`w-full bg-slate-900 border-2 p-3 text-white text-xs ${hasInsufficientWithdrawBalance ? 'border-red-500' : 'border-slate-700'}`}
                       style={{ fontFamily: '"Press Start 2P", monospace' }}
                     />
+
+                    {hasInsufficientWithdrawBalance && (
+                      <p className="text-red-500 text-[8px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                        ⚠️ INSUFFICIENT {withdrawToken} IN VAULT
+                      </p>
+                    )}
+
                     <button
                       onClick={handleWithdrawFromVault}
-                      disabled={isWithdrawingFromVault || isConfirmingWithdraw}
-                      className="w-full py-4 bg-purple-600 border-4 border-purple-400 text-white text-xs"
+                      disabled={isWithdrawingFromVault || isConfirmingWithdraw || hasInsufficientWithdrawBalance}
+                      className={`w-full py-4 border-4 text-white text-xs ${hasInsufficientWithdrawBalance ? 'bg-slate-700 border-slate-600' : 'bg-purple-600 border-purple-400'}`}
                       style={{ fontFamily: '"Press Start 2P", monospace' }}
                     >
-                      WITHDRAW TO WALLET
+                      {hasInsufficientWithdrawBalance ? `NOT ENOUGH ${withdrawToken}` : 'WITHDRAW TO WALLET'}
                     </button>
                   </div>
                 )}

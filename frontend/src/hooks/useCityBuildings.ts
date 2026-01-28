@@ -31,12 +31,16 @@ const ASSET_ADDRESSES: Record<string, string> = {
   USDC: CONTRACTS.baseSepolia.USDC,
   USDT: CONTRACTS.baseSepolia.USDT,
   ETH: CONTRACTS.baseSepolia.ETH,
+  WBTC: CONTRACTS.baseSepolia.WBTC,
+  LINK: CONTRACTS.baseSepolia.LINK,
 }
 
 const ASSET_DECIMALS: Record<string, number> = {
   USDC: 6,
   USDT: 6,
   ETH: 18,
+  WBTC: 8,
+  LINK: 18,
 }
 
 // Calculate building level based on USD value

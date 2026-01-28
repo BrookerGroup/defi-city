@@ -57,6 +57,18 @@ const BUILDING_COLORS = {
     accent: '#3730A3',
     window: '#E0E7FF',
   },
+  wbtc: {
+    roof: '#F7931A', // Bitcoin Orange
+    wall: '#FCD34D',
+    accent: '#B45309',
+    window: '#FEF3C7',
+  },
+  link: {
+    roof: '#2A5ADA', // Chainlink Blue
+    wall: '#60A5FA',
+    accent: '#1E40AF',
+    window: '#DBEAFE',
+  },
 }
 
 export function IsometricBuilding({

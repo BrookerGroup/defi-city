@@ -128,6 +128,8 @@ export function useAaveReserveData() {
         { symbol: 'USDC', address: addresses.USDC },
         { symbol: 'USDT', address: addresses.USDT },
         { symbol: 'ETH', address: addresses.ETH },
+        { symbol: 'WBTC', address: addresses.WBTC },
+        { symbol: 'LINK', address: addresses.LINK },
       ].filter((a) => a.address && a.address !== ethers.ZeroAddress)
 
       const newReserveData: Record<string, ReserveData> = {}

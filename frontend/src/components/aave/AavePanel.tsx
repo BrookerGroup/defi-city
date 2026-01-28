@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useAaveSupply, useAavePosition, useAaveMarketData, useAaveWithdraw, useAaveReserveData } from '@/hooks'
 import { ASSET_PRICES, AAVE_MARKET_DATA } from '@/config/aave'
 import { ErrorPopup } from '@/components/ui/ErrorPopup'
@@ -80,6 +80,12 @@ export function AavePanel({
   const { marketData: aaveMarketData, loading: loadingMarketData } = useAaveMarketData()
   const { reserveData, loading: loadingReserveData, getOraclePrice, isPoolFull } = useAaveReserveData()
 
+  const hasInsufficientBalance = useMemo(() => {
+    if (activeTab !== 'supply' || !amount || parseFloat(amount) <= 0) return false;
+    const balance = parseFloat(vaultBalances[selectedAsset] || '0');
+    return parseFloat(amount) > balance;
+  }, [selectedAsset, amount, vaultBalances, activeTab]);
+
   // Combined loading state
   const loading = loadingSupply || loadingWithdraw
 
@@ -102,7 +108,7 @@ export function AavePanel({
     }
   }, [existingAsset, usedAssets])
 
-  const assets: string[] = ['USDC', 'USDT', 'ETH']
+  const assets: string[] = ['USDC', 'USDT', 'ETH', 'WBTC', 'LINK']
   const marketData = AAVE_MARKET_DATA
   const currentAssetInfo = marketData.assets[selectedAsset]
 
@@ -532,10 +538,18 @@ export function AavePanel({
               <p className="text-slate-500 text-[7px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
                 VAULT BALANCE
               </p>
-              <p className="text-cyan-400 text-[9px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
-                {parseFloat(vaultBalances[selectedAsset]).toFixed(selectedAsset === 'ETH' ? 6 : 2)} {selectedAsset}
+              <p className="text-cyan-400 text-[10px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                {parseFloat(vaultBalances[selectedAsset] || '0').toFixed(selectedAsset === 'ETH' ? 4 : 2)} {selectedAsset}
               </p>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'supply' && hasInsufficientBalance && (
+          <div className="mb-2 bg-red-900/30 border border-red-600 p-2 text-center animate-pulse">
+            <p className="text-red-400 text-[6px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+              ⚠️ INSUFFICIENT {selectedAsset} IN VAULT
+            </p>
           </div>
         )}
 
@@ -581,9 +595,12 @@ export function AavePanel({
           <div className="mb-3 space-y-1.5">
             {/* Pool Status Badge */}
             {isPoolFull(selectedAsset) && (
-              <div className="bg-red-900/30 border border-red-600 p-1.5 text-center">
-                <p className="text-red-400 text-[6px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
-                  ⚠️ POOL FULL
+              <div className="bg-red-900/30 border border-red-600 p-2 text-center">
+                <p className="text-red-400 text-[7px] font-bold" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                  ⚠️ SUPPLY CAP REACHED (100%)
+                </p>
+                <p className="text-red-300 text-[5px] mt-1" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                  Further supply unavailable for this asset
                 </p>
               </div>
             )}
@@ -725,16 +742,18 @@ export function AavePanel({
         {/* Submit Button */}
         <button
           onClick={handleSubmit}
-          disabled={loading || !amount || parseFloat(amount) <= 0}
-          className="relative group w-full disabled:opacity-50"
+          disabled={loading || !amount || parseFloat(amount) <= 0 || (activeTab === 'supply' && isPoolFull(selectedAsset)) || hasInsufficientBalance}
+          className="relative group w-full disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {/* Button Shadow */}
-          <div className="absolute inset-0 bg-purple-900 translate-x-2 translate-y-2" />
+          <div className={`${hasInsufficientBalance ? 'bg-red-900' : 'bg-purple-900'} absolute inset-0 translate-x-2 translate-y-2`} />
 
           {/* Button */}
           <div
-            className={`relative px-6 py-4 bg-purple-600 border-4 border-purple-400 text-white flex items-center justify-center gap-3 transition-transform ${
-              !loading ? 'group-hover:-translate-y-1 group-active:translate-y-0' : ''
+            className={`relative px-6 py-4 border-4 text-white flex items-center justify-center gap-3 transition-transform ${
+              hasInsufficientBalance ? 'bg-slate-700 border-slate-600' : 'bg-purple-600 border-purple-400'
+            } ${
+              !loading && !hasInsufficientBalance ? 'group-hover:-translate-y-1 group-active:translate-y-0' : ''
             }`}
           >
             {loading ? (
@@ -764,7 +783,7 @@ export function AavePanel({
                 style={{ fontFamily: '"Press Start 2P", monospace' }}
               >
                 {activeTab === 'supply'
-                  ? (existingAsset ? 'SUPPLY MORE' : 'SUPPLY & BUILD')
+                  ? (hasInsufficientBalance ? `NOT ENOUGH ${selectedAsset}` : (isPoolFull(selectedAsset) ? '⛔ POOL FULL' : (existingAsset ? 'SUPPLY MORE' : 'SUPPLY & BUILD')))
                   : 'BORROW'}
               </span>
             )}
