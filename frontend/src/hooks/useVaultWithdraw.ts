@@ -3,7 +3,10 @@ import { useWriteContract } from 'wagmi'
 import { createPublicClient, http, parseEther, parseUnits, encodeFunctionData } from 'viem'
 import { baseSepolia } from 'viem/chains'
 import { USDC_ADDRESS, ERC20ABI, SmartWalletABI } from '@/lib/contracts'
+import { CONTRACTS } from '@/config/contracts'
 import { TokenType } from './useVaultDeposit'
+
+const USDT_ADDRESS = CONTRACTS.baseSepolia.USDT as `0x${string}`
 
 interface WithdrawResult {
   success: boolean
@@ -162,18 +165,89 @@ export function useVaultWithdraw(
     [ownerAddress, smartWalletAddress, writeContractAsync, refetchBalances]
   )
 
+  // Withdraw USDT from Smart Wallet to EOA (Vault Withdraw)
+  const withdrawUSDT = useCallback(
+    async (amount: string): Promise<WithdrawResult> => {
+      if (!ownerAddress || !smartWalletAddress) {
+        return { success: false, error: 'Wallet not connected or Smart Wallet not found' }
+      }
+
+      setIsWithdrawing(true)
+      try {
+        const amountInUnits = parseUnits(amount, 6)
+
+        const currentBalance = await publicClient.readContract({
+          address: USDT_ADDRESS,
+          abi: ERC20ABI,
+          functionName: 'balanceOf',
+          args: [smartWalletAddress],
+        }) as bigint
+
+        if (amountInUnits > currentBalance) {
+          setIsWithdrawing(false)
+          return { success: false, error: 'Insufficient USDT balance in Smart Wallet' }
+        }
+
+        console.log('[Vault Withdraw USDT] Sending', amount, 'USDT to', ownerAddress)
+
+        setIsConfirming(true)
+
+        const transferCalldata = encodeFunctionData({
+          abi: ERC20ABI,
+          functionName: 'transfer',
+          args: [ownerAddress, amountInUnits],
+        })
+
+        const hash = await writeContractAsync({
+          address: smartWalletAddress,
+          abi: SmartWalletABI,
+          functionName: 'execute',
+          args: [USDT_ADDRESS, BigInt(0), transferCalldata],
+        })
+
+        console.log('[Vault Withdraw USDT] Transaction sent:', hash)
+
+        try {
+          await publicClient.waitForTransactionReceipt({ hash })
+          console.log('[Vault Withdraw USDT] Transaction confirmed!')
+        } catch (e) {
+          console.log('[Vault Withdraw USDT] Wait for receipt error:', e)
+        }
+
+        setIsConfirming(false)
+        setIsWithdrawing(false)
+
+        if (refetchBalances) {
+          setTimeout(refetchBalances, 2000)
+        }
+
+        return { success: true, hash }
+      } catch (error) {
+        console.error('[Vault Withdraw USDT] Error:', error)
+        setIsConfirming(false)
+        setIsWithdrawing(false)
+        const message = error instanceof Error ? error.message : 'Failed to withdraw USDT'
+        return { success: false, error: message }
+      }
+    },
+    [ownerAddress, smartWalletAddress, writeContractAsync, refetchBalances]
+  )
+
   // Generic withdraw function
   const withdraw = useCallback(
     async (token: TokenType, amount: string): Promise<WithdrawResult> => {
-      return token === 'ETH' ? withdrawETH(amount) : withdrawUSDC(amount)
+      if (token === 'ETH') return withdrawETH(amount)
+      if (token === 'USDT') return withdrawUSDT(amount)
+      return withdrawUSDC(amount)
     },
-    [withdrawETH, withdrawUSDC]
+    [withdrawETH, withdrawUSDC, withdrawUSDT]
   )
 
   return {
     withdraw,
     withdrawETH,
     withdrawUSDC,
+    withdrawUSDT,
     isWithdrawing,
     isConfirming,
   }

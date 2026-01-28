@@ -99,7 +99,6 @@ export function useAaveWithdraw() {
         // Do NOT use MaxUint256 — this Aave deployment doesn't handle it properly (causes Panic OVERFLOW(17)).
         // Do NOT convert through float — 18-decimal ETH loses precision in JS Number.
         const withdrawAmount = actualATokenBalance
-        const wethUnwrapAmount = actualATokenBalance
 
         if (availableLiquidity < withdrawAmount) {
           setLoading(false)
@@ -117,23 +116,29 @@ export function useAaveWithdraw() {
         const values: bigint[] = []
         const datas: string[] = []
 
-        // 1. Prepare Aave Pool Withdraw call
-        // For ETH: send WETH to owner's EOA (not SmartWallet) because WETH9.withdraw()
-        // uses .transfer() which only forwards 2300 gas — not enough for contract wallets.
-        // For ERC20: send tokens back to SmartWallet as before.
+        // 1. Aave Pool withdraw → WETH/ERC20 goes to Smart Wallet
         const poolInterface = new ethers.Interface(aavePoolAbi)
-        const withdrawTo = asset === 'ETH' ? ownerAddress : smartWalletAddress
         const withdrawData = poolInterface.encodeFunctionData('withdraw', [
           assetAddress,
           withdrawAmount,
-          withdrawTo
+          smartWalletAddress
         ])
 
         targets.push(addresses.AAVE_POOL)
         values.push(0n)
         datas.push(withdrawData)
 
-        // 2. If buildingIds are provided, record demolition in DefiCityCore
+        // 2. For ETH: unwrap WETH → ETH inside the same batch
+        if (asset === 'ETH') {
+          const wethInterface = new ethers.Interface(['function withdraw(uint256)'])
+          const unwrapData = wethInterface.encodeFunctionData('withdraw', [withdrawAmount])
+
+          targets.push(assetAddress)
+          values.push(0n)
+          datas.push(unwrapData)
+        }
+
+        // 3. If buildingIds are provided, record demolition in DefiCityCore
         if (buildingIds && buildingIds.length > 0) {
           const coreInterface = new ethers.Interface(ABIS.DEFICITY_CORE)
 
@@ -153,7 +158,7 @@ export function useAaveWithdraw() {
           }
         }
 
-        // 3. Execute batch via SmartWallet
+        // 4. Execute batch via SmartWallet
         const smartWallet = new ethers.Contract(
           smartWalletAddress,
           smartWalletAbi,
@@ -199,21 +204,6 @@ export function useAaveWithdraw() {
         console.log('[Withdraw] Batch transaction sent:', executeTx.hash)
         const receipt = await executeTx.wait()
         console.log('[Withdraw] Batch transaction confirmed:', receipt.hash)
-
-        // 4. For ETH: unwrap WETH → ETH from EOA (separate tx)
-        // WETH9 uses .transfer() which only allows 2300 gas — fine for EOA but not for contract wallets.
-        // So we unwrap from the EOA where .transfer() works without gas issues.
-        if (asset === 'ETH') {
-          console.log('[Withdraw] Phase 2: Unwrapping WETH to ETH from EOA...')
-          const wethContract = new ethers.Contract(
-            assetAddress,
-            ['function withdraw(uint256)'],
-            signer
-          )
-          const unwrapTx = await wethContract.withdraw(wethUnwrapAmount)
-          await unwrapTx.wait()
-          console.log('[Withdraw] WETH unwrapped to ETH successfully')
-        }
 
         setLoading(false)
         return {

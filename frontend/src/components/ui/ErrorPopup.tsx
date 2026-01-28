@@ -44,6 +44,14 @@ const ERROR_MAP: { pattern: RegExp; info: ErrorInfo }[] = [
     },
   },
   {
+    pattern: /Insufficient .+ in Smart Vault/i,
+    info: {
+      title: 'LOW VAULT BALANCE',
+      message: 'Not enough funds in your Smart Vault.',
+      suggestion: 'Deposit more to your vault using the "DEPOSIT TO VAULT" section above.',
+    },
+  },
+  {
     pattern: /insufficient funds for gas|insufficient funds/i,
     info: {
       title: 'NOT ENOUGH GAS',

@@ -8,7 +8,7 @@ import { CONTRACTS } from '@/config/contracts'
 const USDT_ADDRESS = CONTRACTS.baseSepolia.USDT as `0x${string}`
 const ETH_ADDRESS = CONTRACTS.baseSepolia.ETH as `0x${string}`
 
-export type TokenType = 'ETH' | 'USDC'
+export type TokenType = 'ETH' | 'USDC' | 'USDT'
 
 interface DepositResult {
   success: boolean
@@ -35,6 +35,7 @@ export function useVaultDeposit(
   // Balance states
   const [ethBalance, setEthBalance] = useState('0')
   const [usdcBalance, setUsdcBalance] = useState('0')
+  const [usdtBalance, setUsdtBalance] = useState('0')
   const [smartWalletEthBalance, setSmartWalletEthBalance] = useState('0')
   const [smartWalletUsdcBalance, setSmartWalletUsdcBalance] = useState('0')
   const [smartWalletUsdtBalance, setSmartWalletUsdtBalance] = useState('0')
@@ -67,6 +68,21 @@ export function useVaultDeposit(
         console.log('[Balances] EOA USDC:', eoaUsdcFormatted)
       } catch {
         setUsdcBalance('0')
+      }
+
+      // Fetch EOA USDT balance
+      try {
+        const eoaUsdt = await publicClient.readContract({
+          address: USDT_ADDRESS,
+          abi: ERC20ABI,
+          functionName: 'balanceOf',
+          args: [ownerAddress],
+        }) as bigint
+        const eoaUsdtFormatted = formatUnits(eoaUsdt, 6)
+        setUsdtBalance(eoaUsdtFormatted)
+        console.log('[Balances] EOA USDT:', eoaUsdtFormatted)
+      } catch {
+        setUsdtBalance('0')
       }
 
       // Fetch Smart Wallet balances
@@ -233,12 +249,72 @@ export function useVaultDeposit(
     [ownerAddress, smartWalletAddress, writeContractAsync, fetchBalances]
   )
 
+  // Deposit USDT from EOA to Smart Wallet (Vault)
+  const depositUSDT = useCallback(
+    async (amount: string): Promise<DepositResult> => {
+      if (!ownerAddress || !smartWalletAddress) {
+        return { success: false, error: 'Wallet not connected or Smart Wallet not found' }
+      }
+
+      setIsDepositing(true)
+      setIsConfirming(true)
+      try {
+        const amountInUnits = parseUnits(amount, 6)
+
+        const currentBalance = await publicClient.readContract({
+          address: USDT_ADDRESS,
+          abi: ERC20ABI,
+          functionName: 'balanceOf',
+          args: [ownerAddress],
+        }) as bigint
+
+        if (amountInUnits > currentBalance) {
+          setIsDepositing(false)
+          setIsConfirming(false)
+          return { success: false, error: 'Insufficient USDT balance' }
+        }
+
+        console.log('[Vault Deposit USDT] Sending', amount, 'USDT to', smartWalletAddress)
+
+        const hash = await writeContractAsync({
+          address: USDT_ADDRESS,
+          abi: ERC20ABI,
+          functionName: 'transfer',
+          args: [smartWalletAddress, amountInUnits],
+        })
+
+        try {
+          await publicClient.waitForTransactionReceipt({ hash })
+          console.log('[Vault Deposit USDT] Transaction confirmed!')
+        } catch (e) {
+          console.log('[Vault Deposit USDT] Wait for receipt error:', e)
+        }
+
+        setIsConfirming(false)
+        setIsDepositing(false)
+
+        setTimeout(fetchBalances, 2000)
+
+        return { success: true, hash }
+      } catch (error) {
+        console.error('[Vault Deposit USDT] Error:', error)
+        setIsDepositing(false)
+        setIsConfirming(false)
+        const message = error instanceof Error ? error.message : 'Failed to deposit USDT'
+        return { success: false, error: message }
+      }
+    },
+    [ownerAddress, smartWalletAddress, writeContractAsync, fetchBalances]
+  )
+
   // Generic deposit function
   const deposit = useCallback(
     async (token: TokenType, amount: string): Promise<DepositResult> => {
-      return token === 'ETH' ? depositETH(amount) : depositUSDC(amount)
+      if (token === 'ETH') return depositETH(amount)
+      if (token === 'USDT') return depositUSDT(amount)
+      return depositUSDC(amount)
     },
-    [depositETH, depositUSDC]
+    [depositETH, depositUSDC, depositUSDT]
   )
 
   return {
@@ -246,6 +322,7 @@ export function useVaultDeposit(
     deposit,
     depositETH,
     depositUSDC,
+    depositUSDT,
     refetchBalances: fetchBalances,
 
     // State
@@ -257,6 +334,7 @@ export function useVaultDeposit(
     // EOA Balances
     ethBalance,
     usdcBalance,
+    usdtBalance,
 
     // Smart Wallet Balances
     smartWalletEthBalance,
