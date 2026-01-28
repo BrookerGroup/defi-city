@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { useAaveSupply, useAavePosition, useAaveMarketData, useAaveWithdraw } from '@/hooks'
+import { useAaveSupply, useAavePosition, useAaveMarketData, useAaveWithdraw, useAaveReserveData } from '@/hooks'
 import { ASSET_PRICES, AAVE_MARKET_DATA } from '@/config/aave'
 import { ErrorPopup } from '@/components/ui/ErrorPopup'
 
@@ -78,6 +78,7 @@ export function AavePanel({
   const { withdraw: realWithdraw, loading: loadingWithdraw } = useAaveWithdraw()
   const { position: realPosition, loading: loadingPosition, refresh: refreshPosition } = useAavePosition(smartWallet)
   const { marketData: aaveMarketData, loading: loadingMarketData } = useAaveMarketData()
+  const { reserveData, loading: loadingReserveData, getOraclePrice, isPoolFull } = useAaveReserveData()
 
   // Combined loading state
   const loading = loadingSupply || loadingWithdraw
@@ -575,39 +576,119 @@ export function AavePanel({
           </div>
         </div>
 
-        {/* APY & LTV Info */}
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <div className="bg-slate-900/50 border border-slate-700 p-2 text-center">
-            <p
-              className="text-slate-500 text-[6px] mb-1"
-              style={{ fontFamily: '"Press Start 2P", monospace' }}
-            >
-              {activeTab === 'supply' ? 'SUPPLY APY' : 'BORROW APY'}
-            </p>
-            <p
-              className={`text-[10px] ${activeTab === 'supply' ? 'text-green-400' : 'text-orange-400'}`}
-              style={{ fontFamily: '"Press Start 2P", monospace' }}
-            >
-              {activeTab === 'supply'
-                ? `${aaveMarketData[selectedAsset]?.supplyAPY || currentAssetInfo.supplyAPY}%`
-                : `${aaveMarketData[selectedAsset]?.borrowAPY || currentAssetInfo.borrowAPY}%`}
-            </p>
+        {/* Reserve Info Section - Compact Design */}
+        {reserveData[selectedAsset] && (
+          <div className="mb-3 space-y-1.5">
+            {/* Pool Status Badge */}
+            {isPoolFull(selectedAsset) && (
+              <div className="bg-red-900/30 border border-red-600 p-1.5 text-center">
+                <p className="text-red-400 text-[6px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                  ⚠️ POOL FULL
+                </p>
+              </div>
+            )}
+
+            {/* Supply Info with Progress Bar - More Compact */}
+            <div className="bg-slate-900/50 border border-slate-700 p-1.5">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 text-[5px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>SUPPLY</span>
+                <span className="text-cyan-400 text-[6px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                  {reserveData[selectedAsset].supplyUsagePercent.toFixed(1)}% ({reserveData[selectedAsset].totalSupplied.toLocaleString(undefined, { maximumFractionDigits: 1 })}/{reserveData[selectedAsset].supplyCap.toLocaleString()})
+                </span>
+              </div>
+              <div className="w-full h-1.5 bg-slate-800 mt-1">
+                <div
+                  className={`h-full transition-all ${reserveData[selectedAsset].supplyUsagePercent >= 95 ? 'bg-red-500' : reserveData[selectedAsset].supplyUsagePercent >= 80 ? 'bg-yellow-500' : 'bg-cyan-500'}`}
+                  style={{ width: `${Math.min(reserveData[selectedAsset].supplyUsagePercent, 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Combined Stats Row: APY, Price, LTV, Threshold, Utilization */}
+            <div className="grid grid-cols-5 gap-1">
+              <div className="bg-slate-900/50 border border-slate-700 p-1 text-center">
+                <p className="text-slate-500 text-[4px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>APY</p>
+                <p className="text-green-400 text-[8px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                  {(() => {
+                    const apy = reserveData[selectedAsset]?.supplyAPY || 0
+                    if (apy === 0) return '0%'
+                    if (apy < 0.01) return '<.01%'
+                    if (apy >= 10) return `${Math.round(apy)}%`
+                    return `${apy.toFixed(2)}%`
+                  })()}
+                </p>
+              </div>
+              <div className="bg-slate-900/50 border border-slate-700 p-1 text-center">
+                <p className="text-slate-500 text-[4px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>PRICE</p>
+                <p className="text-white text-[7px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                  ${reserveData[selectedAsset].oraclePrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </p>
+              </div>
+              <div className="bg-slate-900/50 border border-slate-700 p-1 text-center">
+                <p className="text-slate-500 text-[4px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>LTV</p>
+                <p className="text-white text-[8px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                  {reserveData[selectedAsset].ltv}%
+                </p>
+              </div>
+              <div className="bg-slate-900/50 border border-slate-700 p-1 text-center">
+                <p className="text-slate-500 text-[4px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>LIQ</p>
+                <p className="text-yellow-400 text-[8px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                  {reserveData[selectedAsset].liquidationThreshold}%
+                </p>
+              </div>
+              <div className="bg-slate-900/50 border border-slate-700 p-1 text-center">
+                <p className="text-slate-500 text-[4px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>UTIL</p>
+                <p className="text-purple-400 text-[8px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                  {reserveData[selectedAsset].utilizationRate}%
+                </p>
+              </div>
+            </div>
+
+            {/* Collateral Status - Inline */}
+            {reserveData[selectedAsset].canBeCollateral && (
+              <div className="flex items-center gap-1 text-[5px] text-green-400" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                <span>✓</span>
+                <span>CAN BE COLLATERAL</span>
+              </div>
+            )}
           </div>
-          <div className="bg-slate-900/50 border border-slate-700 p-2 text-center">
-            <p
-              className="text-slate-500 text-[6px] mb-1"
-              style={{ fontFamily: '"Press Start 2P", monospace' }}
-            >
-              LTV
-            </p>
-            <p
-              className="text-white text-[10px]"
-              style={{ fontFamily: '"Press Start 2P", monospace' }}
-            >
-              {(currentAssetInfo.ltv * 100).toFixed(0)}%
-            </p>
+        )}
+
+        {/* Fallback APY & LTV Info (when reserve data not loaded) */}
+        {!reserveData[selectedAsset] && (
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            <div className="bg-slate-900/50 border border-slate-700 p-2 text-center">
+              <p
+                className="text-slate-500 text-[6px] mb-1"
+                style={{ fontFamily: '"Press Start 2P", monospace' }}
+              >
+                {activeTab === 'supply' ? 'SUPPLY APY' : 'BORROW APY'}
+              </p>
+              <p
+                className={`text-[10px] ${activeTab === 'supply' ? 'text-green-400' : 'text-orange-400'}`}
+                style={{ fontFamily: '"Press Start 2P", monospace' }}
+              >
+                {loadingReserveData ? '...' : (activeTab === 'supply'
+                  ? `${aaveMarketData[selectedAsset]?.supplyAPY || currentAssetInfo?.supplyAPY || 0}%`
+                  : `${aaveMarketData[selectedAsset]?.borrowAPY || currentAssetInfo?.borrowAPY || 0}%`)}
+              </p>
+            </div>
+            <div className="bg-slate-900/50 border border-slate-700 p-2 text-center">
+              <p
+                className="text-slate-500 text-[6px] mb-1"
+                style={{ fontFamily: '"Press Start 2P", monospace' }}
+              >
+                LTV
+              </p>
+              <p
+                className="text-white text-[10px]"
+                style={{ fontFamily: '"Press Start 2P", monospace' }}
+              >
+                {loadingReserveData ? '...' : `${((currentAssetInfo?.ltv || 0.8) * 100).toFixed(0)}%`}
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Preview Health Factor (for borrow) */}
         {activeTab === 'borrow' && amount && parseFloat(amount) > 0 && (

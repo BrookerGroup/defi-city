@@ -1,12 +1,17 @@
 /**
  * Aave Market Data Constants
+ * Note: Most data is now fetched on-chain via useAaveReserveData hook
+ * These values are used as fallbacks when RPC calls fail
  */
 
-// Mock asset prices (USD)
+// Fallback asset prices (USD) - used when oracle is unavailable
 export const ASSET_PRICES: Record<string, number> = {
   USDC: 1,
   USDT: 1,
-  ETH: 2000,
+  ETH: 3000,
+  WBTC: 90000,
+  LINK: 15,
+  cbETH: 3100,
 }
 
 interface AssetMarketData {

@@ -19,6 +19,7 @@ export interface Building {
   amount: number
   amountUSD: number
   level: number  // 1-5 based on supply amount
+  apy: number    // Supply APY percentage
   placedAt: number
   x: number
   y: number
@@ -99,14 +100,25 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
       const contractBuildings = await core.getUserBuildings(userAddress)
       console.log(`[City] Found ${contractBuildings.length} buildings in contract`)
 
-      // 2. Fetch Aave positions for amount updates
+      // 2. Fetch Aave positions and APY for amount updates
       const aavePositions: Record<string, bigint> = {}
+      const aaveAPYs: Record<string, number> = {}
+      const RAY_NUMBER = 1e27
+      const SECONDS_PER_YEAR = 31536000
+      
       for (const [symbol, address] of Object.entries(ASSET_ADDRESSES)) {
         try {
           const data = await dataProvider.getUserReserveData(address, smartWalletAddress)
           aavePositions[symbol] = data.currentATokenBalance
+          
+          // Fetch reserve data for APY
+          const reserveData = await dataProvider.getReserveData(address)
+          const ratePerSecond = Number(reserveData.liquidityRate) / RAY_NUMBER / SECONDS_PER_YEAR
+          const apy = (Math.pow(1 + ratePerSecond, SECONDS_PER_YEAR) - 1) * 100
+          aaveAPYs[symbol] = apy
         } catch (e) {
           aavePositions[symbol] = 0n
+          aaveAPYs[symbol] = 0
         }
       }
 
@@ -150,6 +162,7 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
           amount,
           amountUSD,
           level: calculateLevel(amountUSD),
+          apy: aaveAPYs[assetSymbol] || 0,
           placedAt: Number(b.placedAt) * 1000,
           x: displayX,
           y: displayY,

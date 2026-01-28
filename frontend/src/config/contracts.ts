@@ -104,6 +104,22 @@ export const ABIS = {
   AAVE_DATA_PROVIDER: [
     'function getUserReserveData(address asset, address user) external view returns (uint256 currentATokenBalance, uint256 currentStableDebt, uint256 currentVariableDebt, uint256 principalStableDebt, uint256 scaledVariableDebt, uint256 stableBorrowRate, uint256 liquidityIndex, bool usageAsCollateralEnabled, uint256 variableBorrowIndex)',
     'function getReserveData(address asset) external view returns (uint256 unbacked, uint256 accruedToTreasuryScaled, uint256 totalAToken, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 averageStableBorrowRate, uint256 liquidityIndex, uint256 variableBorrowIndex, uint40 lastUpdateTimestamp)',
+    // Reserve configuration (LTV, liquidation threshold, etc.)
+    'function getReserveConfigurationData(address asset) external view returns (uint256 decimals, uint256 ltv, uint256 liquidationThreshold, uint256 liquidationBonus, uint256 reserveFactor, bool usageAsCollateralEnabled, bool borrowingEnabled, bool stableBorrowRateEnabled, bool isActive, bool isFrozen)',
+    // Reserve caps (supply cap, borrow cap)
+    'function getReserveCaps(address asset) external view returns (uint256 borrowCap, uint256 supplyCap)',
+    // Get all reserves list
+    'function getAllReservesTokens() external view returns (tuple(string symbol, address tokenAddress)[])',
+  ],
+  AAVE_ORACLE: [
+    'function getAssetPrice(address asset) external view returns (uint256)',
+    'function BASE_CURRENCY_UNIT() external view returns (uint256)',
+    'function getAssetsPrices(address[] calldata assets) external view returns (uint256[])',
+  ],
+  AAVE_POOL_ADDRESSES_PROVIDER: [
+    'function getPriceOracle() external view returns (address)',
+    'function getPool() external view returns (address)',
+    'function getPoolDataProvider() external view returns (address)',
   ],
 } as const;
 

@@ -582,7 +582,7 @@ export default function AppPage() {
                 <span className="text-amber-400">
                   USDC: {parseFloat(smartWalletUsdcBalance).toFixed(2)}
                 </span>
-                <span className="text-green-400">
+                <span className="text-amber-400">
                   USDT: {parseFloat(smartWalletUsdtBalance).toFixed(2)}
                 </span>
               </div>

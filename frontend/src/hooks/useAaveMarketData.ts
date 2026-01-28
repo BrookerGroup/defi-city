@@ -49,20 +49,14 @@ export function useAaveMarketData() {
         
         const reserveData = await dataProvider.getReserveData(asset.address)
         
-        // liquidityRate is Supply APY in ray
-        // variableBorrowRate is Borrow APY in ray
+        // Calculate APY using compound interest formula (matches Aave UI)
+        // APY = ((1 + rate/RAY/SECONDS_PER_YEAR)^SECONDS_PER_YEAR - 1) * 100
+        const RAY_NUMBER = 1e27
+        const ratePerSecondSupply = Number(reserveData.liquidityRate) / RAY_NUMBER / Number(SECONDS_PER_YEAR)
+        const ratePerSecondBorrow = Number(reserveData.variableBorrowRate) / RAY_NUMBER / Number(SECONDS_PER_YEAR)
         
-        // APY = (1 + (rayRate / SECONDS_PER_YEAR / RAY)) ^ SECONDS_PER_YEAR - 1
-        // For Aave V3, it's often shown as linear rate for simplicity or as APR
-        // But the common way in many UIs is (rate / RAY) * 100 for APR.
-        // Let's calculate actual APY
-        
-        const supplyAPR = Number(reserveData.liquidityRate) / Number(RAY)
-        const borrowAPR = Number(reserveData.variableBorrowRate) / Number(RAY)
-        
-        // Convert to percentage
-        const supplyAPY = supplyAPR * 100
-        const borrowAPY = borrowAPR * 100
+        const supplyAPY = (Math.pow(1 + ratePerSecondSupply, Number(SECONDS_PER_YEAR)) - 1) * 100
+        const borrowAPY = (Math.pow(1 + ratePerSecondBorrow, Number(SECONDS_PER_YEAR)) - 1) * 100
         
         newMarketData[asset.symbol] = {
           symbol: asset.symbol,

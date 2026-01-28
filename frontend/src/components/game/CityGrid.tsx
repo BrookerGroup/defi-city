@@ -303,6 +303,7 @@ export function CityGrid({ buildings, selectedCoords, onSelectTile, isLoading, o
                         type={building.type.toLowerCase() as any}
                         size="sm"
                         level={building.level}
+                        apy={building.apy}
                         floatSpeed={3}
                         asset={building.asset}
                       />
@@ -362,6 +363,7 @@ export function CityGrid({ buildings, selectedCoords, onSelectTile, isLoading, o
             type={dragBuilding.type.toLowerCase() as any}
             size="sm"
             level={dragBuilding.level}
+            apy={dragBuilding.apy}
             floatSpeed={0}
             asset={dragBuilding.asset}
           />

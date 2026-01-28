@@ -7,6 +7,7 @@ interface IsometricBuildingProps {
   type: 'townhall' | 'bank' | 'shop' | 'lottery'
   size?: 'sm' | 'md' | 'lg'
   level?: number  // 1-5, affects building height
+  apy?: number    // Supply APY to display on badge
   delay?: number
   floatSpeed?: number
   asset?: string  // USDC, USDT, ETH, etc.
@@ -62,6 +63,7 @@ export function IsometricBuilding({
   type,
   size = 'md',
   level = 1,
+  apy,
   delay = 0,
   floatSpeed = 3,
   asset
@@ -242,20 +244,20 @@ export function IsometricBuilding({
           <rect x="40" y={viewBoxHeight - 38} width="20" height="18" fill={colors.accent} rx="3" />
           <rect x="44" y={viewBoxHeight - 34} width="12" height="14" fill={colors.window} rx="2" />
 
-          {/* Level indicator */}
-          {level > 1 && (
+          {/* APY indicator (always show for bank buildings, not townhall) */}
+          {apy !== undefined && type !== 'townhall' && (
             <g>
-              <circle cx="85" cy={viewBoxHeight - 20 - buildingHeight + 15} r="10" fill="#1e293b" stroke={colors.accent} strokeWidth="2" />
+              <rect x="60" y={viewBoxHeight - 20 - buildingHeight + 8} width="35" height="14" rx="3" fill="#1e293b" stroke={colors.accent} strokeWidth="2" />
               <text 
-                x="85" 
-                y={viewBoxHeight - 20 - buildingHeight + 19} 
+                x="78" 
+                y={viewBoxHeight - 20 - buildingHeight + 18} 
                 textAnchor="middle" 
-                fill={colors.roof} 
-                fontSize="10" 
+                fill="#4ade80" 
+                fontSize="6" 
                 fontWeight="bold"
                 style={{ fontFamily: '"Press Start 2P", monospace' }}
               >
-                {level}
+                {apy === 0 ? '0%' : apy < 0.01 ? '<.01%' : apy >= 10 ? `${Math.round(apy)}%` : `${apy.toFixed(2)}%`}
               </text>
             </g>
           )}

@@ -71,9 +71,13 @@ export function useAavePosition(smartWalletAddress: string | null) {
         const supplyAmount = userData.currentATokenBalance
         const borrowAmount = userData.currentStableDebt + userData.currentVariableDebt
         
-        // Calculate real APYs
-        const supplyAPY = (Number(reserveData.liquidityRate) / Number(RAY)) * 100
-        const borrowAPY = (Number(reserveData.variableBorrowRate) / Number(RAY)) * 100
+        // Calculate real APYs using compound interest formula (matches Aave UI)
+        const RAY_NUMBER = 1e27
+        const SECONDS_PER_YEAR = 31536000
+        const ratePerSecondSupply = Number(reserveData.liquidityRate) / RAY_NUMBER / SECONDS_PER_YEAR
+        const ratePerSecondBorrow = Number(reserveData.variableBorrowRate) / RAY_NUMBER / SECONDS_PER_YEAR
+        const supplyAPY = (Math.pow(1 + ratePerSecondSupply, SECONDS_PER_YEAR) - 1) * 100
+        const borrowAPY = (Math.pow(1 + ratePerSecondBorrow, SECONDS_PER_YEAR) - 1) * 100
         
         if (supplyAmount > 0n) {
           const amount = Number(ethers.formatUnits(supplyAmount, ASSET_DECIMALS[asset]))
