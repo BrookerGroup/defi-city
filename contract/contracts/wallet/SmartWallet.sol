@@ -78,7 +78,6 @@ contract SmartWallet is
     // ============ Events ============
 
     event WalletInitialized(address indexed owner, address indexed entryPoint);
-    event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event ExecutionSuccess(address indexed target, uint256 value, bytes data);
     event ExecutionFailure(address indexed target, uint256 value, bytes data, string reason);
@@ -345,30 +344,18 @@ contract SmartWallet is
     // ============ Owner Management ============
 
     /**
-     * @notice Start ownership transfer to a new address (step 1 of 2)
+     * @notice Transfer ownership to a new address
      * @param newOwner Address of the new owner
-     * @dev New owner must call acceptOwnership() to complete the transfer
-     *      This two-step process prevents accidentally locking the wallet
+     * @dev Use carefully - this changes who can control the wallet
+     *      Consider adding a two-step process or timelock for production
      */
     function transferOwnership(address newOwner) external onlyOwner {
         if (newOwner == address(0)) revert InvalidOwner();
 
-        pendingOwner = newOwner;
-        emit OwnershipTransferStarted(owner, newOwner);
-    }
-
-    /**
-     * @notice Accept ownership transfer (step 2 of 2)
-     * @dev Only the pending owner can call this function
-     */
-    function acceptOwnership() external {
-        if (msg.sender != pendingOwner) revert OnlyOwner();
-
         address oldOwner = owner;
-        owner = pendingOwner;
-        pendingOwner = address(0);
+        owner = newOwner;
 
-        emit OwnershipTransferred(oldOwner, owner);
+        emit OwnershipTransferred(oldOwner, newOwner);
     }
 
     // ============ Asset Reception ============

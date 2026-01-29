@@ -69,6 +69,33 @@ contract LotteryAdapter is IBuildingAdapter, Ownable {
         treasury = _treasury;
     }
 
+    // ============ Internal Helper Functions ============
+
+    function _validateBuilding(uint256 buildingId, address user) internal view {
+        (
+            uint256 id,
+            address buildingOwner,
+            address smartWallet,
+            string memory buildingType,
+            address asset,
+            uint256 amount,
+            uint256 placedAt,
+            uint256 coordinateX,
+            uint256 coordinateY,
+            bool active,
+            bytes memory metadata
+        ) = core.buildings(buildingId);
+
+        // Silence unused variable warnings
+        id; smartWallet; asset; amount; placedAt; coordinateX; coordinateY; active; metadata;
+
+        require(
+            keccak256(bytes(buildingType)) == keccak256(bytes(BUILDING_TYPE)),
+            "Not a lottery"
+        );
+        require(buildingOwner == user, "Not owner");
+    }
+
     // ============ IBuildingAdapter Implementation ============
 
     function preparePlace(
@@ -137,24 +164,7 @@ contract LotteryAdapter is IBuildingAdapter, Ownable {
         HarvestParams memory p = abi.decode(params, (HarvestParams));
 
         // Validate building
-        (
-            ,
-            address buildingOwner,
-            ,
-            string memory buildingType,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-        ) = core.buildings(buildingId);
-
-        require(
-            keccak256(bytes(buildingType)) == keccak256(bytes(BUILDING_TYPE)),
-            "Not a lottery"
-        );
-        require(buildingOwner == user, "Not owner");
+        _validateBuilding(buildingId, user);
 
         // Prepare: [claimPrizes, recordHarvest]
         targets = new address[](2);
@@ -193,24 +203,10 @@ contract LotteryAdapter is IBuildingAdapter, Ownable {
         bytes[] memory datas
     ) {
         // Validate building
-        (
-            ,
-            address buildingOwner,
-            ,
-            string memory buildingType,
-            ,
-            uint256 amount,
-            ,
-            ,
-            ,
-            ,
-        ) = core.buildings(buildingId);
+        _validateBuilding(buildingId, user);
 
-        require(
-            keccak256(bytes(buildingType)) == keccak256(bytes(BUILDING_TYPE)),
-            "Not a lottery"
-        );
-        require(buildingOwner == user, "Not owner");
+        // Get amount for demolition record
+        (,,,,, uint256 amount,,,,,) = core.buildings(buildingId);
 
         // Lottery demolition only records (tickets stay in Megapot)
         targets = new address[](1);

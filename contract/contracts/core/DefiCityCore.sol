@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "../factory/WalletFactory.sol";
 
 /**
@@ -12,8 +13,23 @@ import "../factory/WalletFactory.sol";
  * @dev This contract tracks buildings, user statistics, and portfolio data
  *      All token custody is handled by user's SmartWallet
  *      This contract NEVER holds user tokens
+ *      Uses AccessControl for granular permissions alongside Ownable
  */
-contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
+contract DefiCityCore is ReentrancyGuard, Pausable, Ownable, AccessControl {
+
+    // ============ Access Control Roles ============
+
+    /// @notice Role for pausing/unpausing the contract
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+
+    /// @notice Role for managing supported assets
+    bytes32 public constant ASSET_MANAGER_ROLE = keccak256("ASSET_MANAGER_ROLE");
+
+    /// @notice Role for managing modules (building manager, fee manager, etc)
+    bytes32 public constant MODULE_MANAGER_ROLE = keccak256("MODULE_MANAGER_ROLE");
+
+    /// @notice Role for emergency operations
+    bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
 
     // ============ Constants ============
 
@@ -174,6 +190,13 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
     constructor(address _treasury) Ownable(msg.sender) {
         if (_treasury == address(0)) revert InvalidOwner();
         treasury = _treasury;
+
+        // Grant roles to deployer
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(PAUSER_ROLE, msg.sender);
+        _grantRole(ASSET_MANAGER_ROLE, msg.sender);
+        _grantRole(MODULE_MANAGER_ROLE, msg.sender);
+        _grantRole(EMERGENCY_ROLE, msg.sender);
     }
 
     // ============ Wallet Registration ============
@@ -209,11 +232,17 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
      * @return walletAddress Address of the created SmartWallet
      * @return buildingId ID of the Town Hall building
      */
-    function createTownHall() external nonReentrant whenNotPaused returns (address walletAddress, uint256 buildingId) {
+    function createTownHall(
+        uint256 x,
+        uint256 y
+    ) external nonReentrant whenNotPaused returns (address walletAddress, uint256 buildingId) {
         address user = msg.sender;
 
         // Check if user already has a wallet
         if (userSmartWallets[user] != address(0)) revert WalletAlreadyRegistered();
+
+        // Check grid position (user's own grid)
+        if (userGridBuildings[user][x][y] != 0) revert GridOccupied();
 
         // 1. Create SmartWallet via Factory
         SmartWallet wallet = walletFactory.createWallet(user, 0);
@@ -230,14 +259,14 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
             asset: address(0),
             amount: 0,
             placedAt: block.timestamp,
-            coordinateX: 0,
-            coordinateY: 0,
+            coordinateX: x,
+            coordinateY: y,
             active: true,
             metadata: abi.encode("First Town Hall")
         });
 
         userBuildings[user].push(buildingId);
-        // Note: We don't mark userGridBuildings for Town Hall as it behaves as a background/central entity
+        userGridBuildings[user][x][y] = buildingId;
         userStats[user].buildingCount++;
 
         emit BuildingPlaced(
@@ -247,8 +276,8 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
             "townhall",
             address(0),
             0,
-            0,
-            0
+            x,
+            y
         );
 
         return (walletAddress, buildingId);
@@ -502,7 +531,7 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
         address _buildingManager,
         address _feeManager,
         address _emergencyManager
-    ) external onlyOwner {
+    ) external onlyRole(MODULE_MANAGER_ROLE) {
         if (_buildingManager == address(0)) revert InvalidOwner();
         if (_feeManager == address(0)) revert InvalidOwner();
         if (_emergencyManager == address(0)) revert InvalidOwner();
@@ -529,7 +558,7 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
      * @notice Adds an asset to the supported assets list
      * @param asset Asset address to add
      */
-    function addSupportedAsset(address asset) external onlyOwner {
+    function addSupportedAsset(address asset) external onlyRole(ASSET_MANAGER_ROLE) {
         if (asset == address(0)) revert InvalidOwner();
         supportedAssets[asset] = true;
         emit AssetAdded(asset);
@@ -539,7 +568,7 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
      * @notice Removes an asset from the supported assets list
      * @param asset Asset address to remove
      */
-    function removeSupportedAsset(address asset) external onlyOwner {
+    function removeSupportedAsset(address asset) external onlyRole(ASSET_MANAGER_ROLE) {
         if (asset == address(0)) revert InvalidOwner();
         supportedAssets[asset] = false;
         emit AssetRemoved(asset);
@@ -558,14 +587,14 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable {
      * @notice Pause contract
      * @dev Emergency function
      */
-    function pause() external onlyOwner {
+    function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
     /**
      * @notice Unpause contract
      */
-    function unpause() external onlyOwner {
+    function unpause() external onlyRole(PAUSER_ROLE) {
         _unpause();
     }
 }
