@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { useAaveSupply, useAavePosition, useAaveMarketData, useAaveWithdraw, useAaveBorrow, useAaveReserveData } from '@/hooks'
+import { useAaveSupply, useAavePosition, useAaveMarketData, useAaveWithdraw, useAaveBorrow, useAaveRepay, useAaveReserveData } from '@/hooks'
 import { ASSET_PRICES, AAVE_MARKET_DATA } from '@/config/aave'
 import { ErrorPopup } from '@/components/ui/ErrorPopup'
 
@@ -74,12 +74,14 @@ export function AavePanel({
   const [amount, setAmount] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [successType, setSuccessType] = useState<'supply' | 'borrow' | 'withdraw' | 'repay' | null>(null)
   const [position, setPosition] = useState<any>(EMPTY_POSITION)
 
   // Use the hooks
   const { supply: realSupply, loading: loadingSupply } = useAaveSupply()
   const { withdraw: realWithdraw, loading: loadingWithdraw } = useAaveWithdraw()
   const { borrow: realBorrow, loading: loadingBorrow } = useAaveBorrow()
+  const { repayMax: realRepayMax, loading: loadingRepay } = useAaveRepay()
   const { position: realPosition, refresh: refreshPosition } = useAavePosition(smartWallet)
   const { marketData: aaveMarketData } = useAaveMarketData()
   const { reserveData, loading: loadingReserveData, isPoolFull } = useAaveReserveData()
@@ -96,7 +98,7 @@ export function AavePanel({
   }, [selectedAsset, amount, vaultBalances, activeTab])
 
   // Combined loading state
-  const loading = loadingSupply || loadingWithdraw || loadingBorrow
+  const loading = loadingSupply || loadingWithdraw || loadingBorrow || loadingRepay
 
   // Sync real position to local state
   useEffect(() => {
@@ -237,18 +239,31 @@ export function AavePanel({
 
     if (result.success) {
       setSuccess(true)
-      
-      // Trigger external refresh (closes modal)
-      if (onSuccess) {
-        onSuccess()
-      }
-
-      setTimeout(() => {
-        refreshPosition()
-      }, 2000)
-      setTimeout(() => setSuccess(false), 5000)
+      setSuccessType('withdraw')
+      if (onSuccess) onSuccess()
+      setTimeout(() => refreshPosition(), 2000)
+      setTimeout(() => { setSuccess(false); setSuccessType(null) }, 5000)
     } else {
       setError(result.error || 'Withdraw failed')
+    }
+  }
+
+  const handleRepay = async (asset: string) => {
+    if (!hasSmartWallet || !smartWallet) {
+      setError('Please create Town Hall first')
+      return
+    }
+    setError(null)
+    setSuccess(false)
+    const result = await realRepayMax(smartWallet, asset)
+    if (result.success) {
+      setSuccess(true)
+      setSuccessType('repay')
+      if (onSuccess) onSuccess()
+      setTimeout(() => refreshPosition(), 2000)
+      setTimeout(() => { setSuccess(false); setSuccessType(null) }, 5000)
+    } else {
+      setError(result.error || 'Repay failed')
     }
   }
 
@@ -282,19 +297,10 @@ export function AavePanel({
       
       if (result.success) {
         setSuccess(true)
+        setSuccessType('supply')
         setAmount('')
-        
-        // Trigger external refresh
-        if (onSuccess) {
-          onSuccess()
-        }
-        
-        // Refresh position from Aave
-        setTimeout(() => {
-          refreshPosition()
-        }, 2000)
-        
-        // Update local position optimistically (keep this for immediate feedback)
+        if (onSuccess) onSuccess()
+        setTimeout(() => refreshPosition(), 2000)
         const assetInfo = AAVE_MARKET_DATA.assets[selectedAsset]
         const amountUSD = parsedAmount * ASSET_PRICES[selectedAsset]
         setPosition((prev: any) => {
@@ -332,8 +338,7 @@ export function AavePanel({
             healthFactor,
           }
         })
-        
-        setTimeout(() => setSuccess(false), 5000)
+        setTimeout(() => { setSuccess(false); setSuccessType(null) }, 5000)
       } else {
         setError(result.error || 'Supply failed')
       }
@@ -359,10 +364,11 @@ export function AavePanel({
 
       if (result.success) {
         setSuccess(true)
+        setSuccessType('borrow')
         setAmount('')
         if (onSuccess) onSuccess()
         setTimeout(() => refreshPosition(), 2000)
-        setTimeout(() => setSuccess(false), 5000)
+        setTimeout(() => { setSuccess(false); setSuccessType(null) }, 5000)
       } else {
         setError(result.error || 'Borrow failed')
       }
@@ -786,7 +792,10 @@ export function AavePanel({
               className="text-green-400 text-[8px] text-center"
               style={{ fontFamily: '"Press Start 2P", monospace' }}
             >
-              {activeTab === 'supply' ? 'SUPPLY SUCCESSFUL!' : 'BORROW SUCCESSFUL!'}
+              {successType === 'supply' && 'SUPPLY SUCCESSFUL!'}
+              {successType === 'borrow' && 'BORROW SUCCESSFUL!'}
+              {successType === 'withdraw' && 'WITHDRAW SUCCESSFUL!'}
+              {successType === 'repay' && 'REPAY SUCCESSFUL!'}
             </p>
           </div>
         )}
@@ -912,25 +921,35 @@ export function AavePanel({
                     .map((b: any) => (
                       <div
                         key={b.asset}
-                      className="flex justify-between bg-slate-900/50 p-2"
-                    >
-                      <span
-                        className="text-white text-[8px]"
-                        style={{ fontFamily: '"Press Start 2P", monospace' }}
+                        className="flex justify-between items-center bg-slate-900/50 p-2"
                       >
-                        {b.amount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} {b.asset}
-                        <span className="text-slate-500 ml-2">
-                          (~${b.amountUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
-                        </span>
-                      </span>
-                      <span
-                        className="text-orange-400 text-[8px]"
-                        style={{ fontFamily: '"Press Start 2P", monospace' }}
-                      >
-                        -{b.apy}%
-                      </span>
-                    </div>
-                  ))}
+                        <div className="flex flex-col">
+                          <span
+                            className="text-white text-[8px]"
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          >
+                            {b.amount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} {b.asset}
+                            <span className="text-slate-500 ml-2">
+                              (~${b.amountUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                            </span>
+                          </span>
+                          <span
+                            className="text-orange-400 text-[6px] mt-1"
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          >
+                            -{b.apy}%
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleRepay(b.asset)}
+                          disabled={loading}
+                          className="px-2 py-1 bg-emerald-900/40 border border-emerald-700 text-emerald-400 text-[6px] hover:bg-emerald-800/60 hover:text-white transition-colors disabled:opacity-50"
+                          style={{ fontFamily: '"Press Start 2P", monospace' }}
+                        >
+                          {loadingRepay ? '...' : 'REPAY'}
+                        </button>
+                      </div>
+                    ))}
                 </div>
               </div>
             )}
