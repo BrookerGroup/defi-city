@@ -463,7 +463,7 @@ export default function AppPage() {
 
       {/* Build Modal - Shows Aave Bank when clicking tile */}
       {showBuildModal && selectedCoords && hasSmartWallet && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-4">
           <div className="relative max-w-2xl w-full mx-4">
             {/* Close Button */}
             <button
@@ -478,7 +478,7 @@ export default function AppPage() {
             <div className="absolute inset-0 bg-emerald-900 translate-x-4 translate-y-4" />
 
             {/* Main Card */}
-            <div className="relative bg-gradient-to-b from-slate-800 to-slate-900 border-4 border-emerald-500 p-6">
+            <div className="relative bg-gradient-to-b from-slate-800 to-slate-900 border-4 border-emerald-500 p-6 max-h-[90vh] overflow-y-auto">
               {/* Header */}
               <div className="text-center mb-6">
                 <p
@@ -529,6 +529,8 @@ export default function AppPage() {
                 existingAsset={selectedBuilding?.asset}
                 buildingId={selectedBuilding?.id}
                 allBuildings={allBuildings}
+                isBorrowBuilding={selectedBuilding?.type === 'borrow' || selectedBuilding?.isBorrow}
+                selectedBuilding={selectedBuilding}
                 vaultBalances={{
                   USDC: smartWalletUsdcBalance,
                   USDT: smartWalletUsdtBalance,
@@ -686,6 +688,14 @@ export default function AppPage() {
                 <span className="text-slate-500">EMPTY</span>
               </div>
               <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-emerald-900/40 border border-emerald-600" />
+                <span className="text-emerald-400">SUPPLY</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-red-900/40 border border-red-600" />
+                <span className="text-red-400">BORROW</span>
+              </div>
+              <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-blue-500/30 border border-blue-400" />
                 <span className="text-blue-400">SELECTED</span>
               </div>
@@ -808,14 +818,23 @@ export default function AppPage() {
                         </button>
                       ))}
                     </div>
-                    <input
-                      type="number"
-                      value={depositAmount}
-                      onChange={(e) => setDepositAmount(e.target.value)}
-                      placeholder="0.00"
-                      className={`w-full bg-slate-900 border-2 p-3 text-white text-xs ${hasInsufficientDepositBalance ? "border-red-500" : "border-slate-700"}`}
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    />
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={depositAmount}
+                        onChange={(e) => setDepositAmount(e.target.value)}
+                        placeholder="0.00"
+                        className={`w-full bg-slate-900 border-2 p-3 pr-16 text-white text-xs ${hasInsufficientDepositBalance ? "border-red-500" : "border-slate-700"}`}
+                        style={{ fontFamily: '"Press Start 2P", monospace' }}
+                      />
+                      <button
+                        onClick={() => setDepositAmount(currentTokenBalance.toString())}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-blue-600 text-white text-[6px] hover:bg-blue-500"
+                        style={{ fontFamily: '"Press Start 2P", monospace' }}
+                      >
+                        MAX
+                      </button>
+                    </div>
 
                     {hasInsufficientDepositBalance && (
                       <p
@@ -890,14 +909,23 @@ export default function AppPage() {
                         </button>
                       ))}
                     </div>
-                    <input
-                      type="number"
-                      value={withdrawAmount}
-                      onChange={(e) => setWithdrawAmount(e.target.value)}
-                      placeholder="0.00"
-                      className={`w-full bg-slate-900 border-2 p-3 text-white text-xs ${hasInsufficientWithdrawBalance ? "border-red-500" : "border-slate-700"}`}
-                      style={{ fontFamily: '"Press Start 2P", monospace' }}
-                    />
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={withdrawAmount}
+                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                        placeholder="0.00"
+                        className={`w-full bg-slate-900 border-2 p-3 pr-16 text-white text-xs ${hasInsufficientWithdrawBalance ? "border-red-500" : "border-slate-700"}`}
+                        style={{ fontFamily: '"Press Start 2P", monospace' }}
+                      />
+                      <button
+                        onClick={() => setWithdrawAmount(currentVaultBalance.toString())}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-purple-600 text-white text-[6px] hover:bg-purple-500"
+                        style={{ fontFamily: '"Press Start 2P", monospace' }}
+                      >
+                        MAX
+                      </button>
+                    </div>
 
                     {hasInsufficientWithdrawBalance && (
                       <p

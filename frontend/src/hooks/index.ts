@@ -8,6 +8,7 @@ export * from './useCityBuildings'
 export * from './useAaveMarketData'
 export * from './useAaveWithdraw'
 export * from './useAaveBorrow'
+export * from './useAaveRepay'
 export * from './useMoveBuilding'
 export * from './useAaveReserveData'
 

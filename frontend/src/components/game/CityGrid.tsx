@@ -206,7 +206,14 @@ export function CityGrid({ buildings, selectedCoords, onSelectTile, isLoading, o
 
     if (isSelected) return 'bg-blue-500/40 border-blue-400 shadow-lg shadow-blue-500/30'
     if (isTownHallPos) return 'bg-amber-900/30 border-amber-600/50'
-    if (hasBuilding) return 'bg-emerald-900/40 border-emerald-600/60'
+    if (hasBuilding) {
+      const building = buildingMap.get(`${x},${y}`)
+      // Borrow buildings get red/orange tint, supply buildings get green
+      if (building?.type === 'borrow' || building?.isBorrow) {
+        return 'bg-red-900/40 border-red-600/60'
+      }
+      return 'bg-emerald-900/40 border-emerald-600/60'
+    }
 
     return 'bg-slate-800/50 border-slate-700/50 hover:bg-slate-700/60 hover:border-slate-500'
   }
@@ -306,6 +313,7 @@ export function CityGrid({ buildings, selectedCoords, onSelectTile, isLoading, o
                         apy={building.apy}
                         floatSpeed={3}
                         asset={building.asset}
+                        isBorrow={building.isBorrow}
                       />
                     </div>
                   </div>
@@ -366,6 +374,7 @@ export function CityGrid({ buildings, selectedCoords, onSelectTile, isLoading, o
             apy={dragBuilding.apy}
             floatSpeed={0}
             asset={dragBuilding.asset}
+            isBorrow={dragBuilding.isBorrow}
           />
         </div>
       )}

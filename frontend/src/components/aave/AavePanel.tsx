@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { useAaveSupply, useAavePosition, useAaveMarketData, useAaveWithdraw, useAaveBorrow, useAaveReserveData } from '@/hooks'
+import { useAaveSupply, useAavePosition, useAaveMarketData, useAaveWithdraw, useAaveBorrow, useAaveRepay, useAaveReserveData } from '@/hooks'
+import { Building } from '@/hooks/useCityBuildings'
 import { ASSET_PRICES, AAVE_MARKET_DATA } from '@/config/aave'
 import { ErrorPopup } from '@/components/ui/ErrorPopup'
 
@@ -18,6 +19,8 @@ interface AavePanelProps {
   vaultBalances?: Record<string, string>
   buildingId?: number
   allBuildings?: any[]
+  isBorrowBuilding?: boolean  // true if clicked on a borrow building
+  selectedBuilding?: Building | null  // the building that was clicked (for repay demolition)
 }
 
 // Initial empty position
@@ -68,8 +71,11 @@ export function AavePanel({
   vaultBalances = {},
   buildingId,
   allBuildings = [],
+  isBorrowBuilding = false,
+  selectedBuilding,
 }: AavePanelProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('supply')
+  // Set initial tab based on building type
+  const [activeTab, setActiveTab] = useState<TabType>(isBorrowBuilding ? 'borrow' : 'supply')
   const [selectedAsset, setSelectedAsset] = useState<string>(existingAsset || 'USDC')
   const [amount, setAmount] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -80,6 +86,7 @@ export function AavePanel({
   const { supply: realSupply, loading: loadingSupply } = useAaveSupply()
   const { withdraw: realWithdraw, loading: loadingWithdraw } = useAaveWithdraw()
   const { borrow: realBorrow, loading: loadingBorrow } = useAaveBorrow()
+  const { repay: realRepay, loading: loadingRepay } = useAaveRepay()
   const { position: realPosition, refresh: refreshPosition } = useAavePosition(smartWallet)
   const { marketData: aaveMarketData } = useAaveMarketData()
   const { reserveData, loading: loadingReserveData, isPoolFull } = useAaveReserveData()
@@ -96,7 +103,7 @@ export function AavePanel({
   }, [selectedAsset, amount, vaultBalances, activeTab])
 
   // Combined loading state
-  const loading = loadingSupply || loadingWithdraw || loadingBorrow
+  const loading = loadingSupply || loadingWithdraw || loadingBorrow || loadingRepay
 
   // Sync real position to local state
   useEffect(() => {
@@ -105,17 +112,16 @@ export function AavePanel({
     }
   }, [realPosition])
 
-  // Sync selectedAsset when existingAsset changes
+  // Sync selectedAsset ONLY when existingAsset changes (not usedAssets)
+  // This prevents resetting user's manual selection
   useEffect(() => {
     if (existingAsset) {
       console.log(`[AavePanel] Syncing selectedAsset to existingAsset: ${existingAsset}`)
       setSelectedAsset(existingAsset)
-    } else {
-      // Default to first available (non-used) asset
-      const available = ['USDC', 'USDT', 'ETH'].find(a => !usedAssets.includes(a))
-      if (available) setSelectedAsset(available)
     }
-  }, [existingAsset, usedAssets])
+    // NOTE: We no longer reset to default when existingAsset is undefined
+    // The initial state handles the default (line 79)
+  }, [existingAsset])
 
   const assets: string[] = ['USDC', 'USDT', 'ETH', 'WBTC', 'LINK']
   const marketData = AAVE_MARKET_DATA
@@ -237,7 +243,7 @@ export function AavePanel({
 
     if (result.success) {
       setSuccess(true)
-      
+
       // Trigger external refresh (closes modal)
       if (onSuccess) {
         onSuccess()
@@ -249,6 +255,42 @@ export function AavePanel({
       setTimeout(() => setSuccess(false), 5000)
     } else {
       setError(result.error || 'Withdraw failed')
+    }
+  }
+
+  const handleRepay = async (asset: string, amount: number, repayAll: boolean = false) => {
+    if (!hasSmartWallet || !smartWallet || !userAddress) {
+      setError('Please create Town Hall first')
+      return
+    }
+
+    setError(null)
+    setSuccess(false)
+
+    // Find the borrow building for this asset (for demolition if repaying all)
+    const borrowBuilding = repayAll
+      ? (selectedBuilding?.isBorrow && selectedBuilding?.asset === asset
+          ? selectedBuilding
+          : allBuildings.find((b: any) => b.isBorrow && b.asset === asset && b.active))
+      : undefined
+
+    console.log(`[AavePanel] Repaying ${repayAll ? 'ALL' : amount} ${asset}`, borrowBuilding ? `(demolishing building ${borrowBuilding.id})` : '')
+    const result = await realRepay(userAddress, smartWallet, asset, amount, repayAll, borrowBuilding)
+
+    if (result.success) {
+      setSuccess(true)
+
+      // Trigger external refresh
+      if (onSuccess) {
+        onSuccess()
+      }
+
+      setTimeout(() => {
+        refreshPosition()
+      }, 2000)
+      setTimeout(() => setSuccess(false), 5000)
+    } else {
+      setError(result.error || 'Repay failed')
     }
   }
 
@@ -338,7 +380,7 @@ export function AavePanel({
         setError(result.error || 'Supply failed')
       }
     } else {
-      // Borrow (Aave Pool.borrow via Smart Wallet)
+      // Borrow (Aave Pool.borrow via Smart Wallet + record building on-chain)
       if (previewHF < 1) {
         setError('This would cause liquidation (Health Factor < 1)')
         return
@@ -355,11 +397,22 @@ export function AavePanel({
         return
       }
 
-      const result = await realBorrow(smartWallet, selectedAsset, parsedAmount)
+      // Pass userAddress and coordinates; building placement is now on-chain
+      console.log(`[AavePanel] Borrowing ${parsedAmount} ${selectedAsset} at (${selectedCoords?.x}, ${selectedCoords?.y})`)
+      const result = await realBorrow(
+        userAddress,
+        smartWallet,
+        selectedAsset,
+        parsedAmount,
+        selectedCoords?.x,
+        selectedCoords?.y,
+        !!buildingId  // isUpgrade: if we have buildingId, it's an upgrade (borrow more)
+      )
 
       if (result.success) {
         setSuccess(true)
         setAmount('')
+
         if (onSuccess) onSuccess()
         setTimeout(() => refreshPosition(), 2000)
         setTimeout(() => setSuccess(false), 5000)
@@ -440,23 +493,31 @@ export function AavePanel({
 
           {/* Tabs */}
           <div className="flex gap-1">
+            {/* Supply Tab - disabled if clicked on borrow building */}
             <button
-              onClick={() => setActiveTab('supply')}
+              onClick={() => !isBorrowBuilding && setActiveTab('supply')}
+              disabled={isBorrowBuilding && !!existingAsset}
               className={`px-3 py-1 text-[8px] border-2 transition-colors ${
-                activeTab === 'supply'
-                  ? 'bg-purple-600 border-purple-400 text-white'
-                  : 'bg-slate-700 border-slate-600 text-slate-400 hover:border-slate-500'
+                isBorrowBuilding && existingAsset
+                  ? 'bg-slate-900 border-slate-700 text-slate-600 cursor-not-allowed opacity-50'
+                  : activeTab === 'supply'
+                    ? 'bg-green-600 border-green-400 text-white'
+                    : 'bg-slate-700 border-slate-600 text-slate-400 hover:border-green-500'
               }`}
               style={{ fontFamily: '"Press Start 2P", monospace' }}
             >
               SUPPLY
             </button>
+            {/* Borrow Tab - disabled if clicked on supply building */}
             <button
-              onClick={() => setActiveTab('borrow')}
+              onClick={() => !(existingAsset && !isBorrowBuilding) && setActiveTab('borrow')}
+              disabled={!!existingAsset && !isBorrowBuilding}
               className={`px-3 py-1 text-[8px] border-2 transition-colors ${
-                activeTab === 'borrow'
-                  ? 'bg-purple-600 border-purple-400 text-white'
-                  : 'bg-slate-700 border-slate-600 text-slate-400 hover:border-slate-500'
+                existingAsset && !isBorrowBuilding
+                  ? 'bg-slate-900 border-slate-700 text-slate-600 cursor-not-allowed opacity-50'
+                  : activeTab === 'borrow'
+                    ? 'bg-orange-600 border-orange-400 text-white'
+                    : 'bg-slate-700 border-slate-600 text-slate-400 hover:border-orange-500'
               }`}
               style={{ fontFamily: '"Press Start 2P", monospace' }}
             >
@@ -524,18 +585,28 @@ export function AavePanel({
             className="text-slate-500 text-[8px] mb-2"
             style={{ fontFamily: '"Press Start 2P", monospace' }}
           >
-            {activeTab === 'borrow'
-              ? 'SELECT ASSET'
-              : existingAsset
-                ? `ASSET: ${existingAsset}`
-                : 'SELECT ASSET'}
+            {existingAsset
+              ? `ASSET: ${existingAsset}`
+              : 'SELECT ASSET'}
           </p>
+
           <div className="grid grid-cols-4 gap-2">
             {assets.map((asset) => {
+              // For Supply: lock to existingAsset if editing existing building
               const lockOnSupply = activeTab === 'supply' && !!existingAsset && asset !== existingAsset
+
+              // For Borrow: same logic as Supply
+              // - If existingAsset is set (clicked on a borrow building) → lock to that asset only
+              // - If no existingAsset but asset already has borrow → disable (can't create new borrow for same asset elsewhere)
+              const assetHasBorrow = position.borrows.some((b: any) => b.asset === asset && b.amount > 0.0001)
+              const lockOnBorrowExisting = activeTab === 'borrow' && !!existingAsset && asset !== existingAsset
+              const lockOnBorrowUsed = activeTab === 'borrow' && !existingAsset && assetHasBorrow
+
               const borrowDisabled = activeTab === 'borrow' && (reserveData[asset]?.borrowingEnabled === false)
-              const isLocked = lockOnSupply || borrowDisabled
+              const isLocked = lockOnSupply || lockOnBorrowExisting || lockOnBorrowUsed || borrowDisabled
+
               const hasExistingBuilding = activeTab === 'supply' && usedAssets.includes(asset) && !existingAsset
+              const hasExistingBorrow = activeTab === 'borrow' && assetHasBorrow && !existingAsset
 
               return (
                 <button
@@ -554,6 +625,9 @@ export function AavePanel({
                   {asset}
                   {hasExistingBuilding && (
                     <span className="block text-[5px] text-cyan-400 mt-0.5">+MORE</span>
+                  )}
+                  {hasExistingBorrow && (
+                    <span className="block text-[5px] text-orange-400 mt-0.5">BORROWED</span>
                   )}
                 </button>
               )
@@ -580,6 +654,75 @@ export function AavePanel({
                 {getMaxBorrow(selectedAsset).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 })} {selectedAsset}
               </span>
             </div>
+
+            {/* Borrow Reserve Info */}
+            {reserveData[selectedAsset] && (
+              <div className="space-y-1.5">
+                {/* Borrow Usage Progress Bar */}
+                <div className="bg-slate-900/50 border border-slate-700 p-1.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 text-[5px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>BORROW</span>
+                    <span className="text-orange-400 text-[6px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                      {reserveData[selectedAsset].borrowCap > 0
+                        ? `${((reserveData[selectedAsset].totalBorrowed / reserveData[selectedAsset].borrowCap) * 100).toFixed(1)}% (${reserveData[selectedAsset].totalBorrowed.toLocaleString(undefined, { maximumFractionDigits: 1 })}/${reserveData[selectedAsset].borrowCap.toLocaleString()})`
+                        : `${reserveData[selectedAsset].totalBorrowed.toLocaleString(undefined, { maximumFractionDigits: 1 })} (No Cap)`
+                      }
+                    </span>
+                  </div>
+                  {reserveData[selectedAsset].borrowCap > 0 && (
+                    <div className="w-full h-1.5 bg-slate-800 mt-1">
+                      <div
+                        className={`h-full transition-all ${
+                          (reserveData[selectedAsset].totalBorrowed / reserveData[selectedAsset].borrowCap) * 100 >= 95
+                            ? 'bg-red-500'
+                            : (reserveData[selectedAsset].totalBorrowed / reserveData[selectedAsset].borrowCap) * 100 >= 80
+                              ? 'bg-yellow-500'
+                              : 'bg-orange-500'
+                        }`}
+                        style={{ width: `${Math.min((reserveData[selectedAsset].totalBorrowed / reserveData[selectedAsset].borrowCap) * 100, 100)}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Borrow Stats: APY, Available Liquidity, Total Borrowed USD */}
+                <div className="grid grid-cols-3 gap-1">
+                  <div className="bg-slate-900/50 border border-slate-700 p-1 text-center">
+                    <p className="text-slate-500 text-[4px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>BORROW APY</p>
+                    <p className="text-orange-400 text-[8px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                      {(() => {
+                        const apy = reserveData[selectedAsset]?.borrowAPY || 0
+                        if (apy === 0) return '0%'
+                        if (apy < 0.01) return '<.01%'
+                        if (apy >= 10) return `${Math.round(apy)}%`
+                        return `${apy.toFixed(2)}%`
+                      })()}
+                    </p>
+                  </div>
+                  <div className="bg-slate-900/50 border border-slate-700 p-1 text-center">
+                    <p className="text-slate-500 text-[4px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>AVAILABLE</p>
+                    <p className="text-green-400 text-[7px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                      {reserveData[selectedAsset].availableLiquidity.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="bg-slate-900/50 border border-slate-700 p-1 text-center">
+                    <p className="text-slate-500 text-[4px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>TOTAL BORROWED</p>
+                    <p className="text-white text-[7px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                      ${reserveData[selectedAsset].totalBorrowedUSD.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Borrowing Status */}
+                {!reserveData[selectedAsset].borrowingEnabled && (
+                  <div className="bg-red-900/30 border border-red-600 p-2 text-center">
+                    <p className="text-red-400 text-[6px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                      ⚠️ BORROWING DISABLED FOR {selectedAsset}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -676,10 +819,14 @@ export function AavePanel({
             {/* Combined Stats Row: APY, Price, LTV, Threshold, Utilization */}
             <div className="grid grid-cols-5 gap-1">
               <div className="bg-slate-900/50 border border-slate-700 p-1 text-center">
-                <p className="text-slate-500 text-[4px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>APY</p>
-                <p className="text-green-400 text-[8px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                <p className="text-slate-500 text-[4px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                  {activeTab === 'borrow' ? 'BORROW' : 'SUPPLY'}
+                </p>
+                <p className={`text-[8px] ${activeTab === 'borrow' ? 'text-orange-400' : 'text-green-400'}`} style={{ fontFamily: '"Press Start 2P", monospace' }}>
                   {(() => {
-                    const apy = reserveData[selectedAsset]?.supplyAPY || 0
+                    const apy = activeTab === 'borrow'
+                      ? reserveData[selectedAsset]?.borrowAPY || 0
+                      : reserveData[selectedAsset]?.supplyAPY || 0
                     if (apy === 0) return '0%'
                     if (apy < 0.01) return '<.01%'
                     if (apy >= 10) return `${Math.round(apy)}%`
@@ -898,39 +1045,50 @@ export function AavePanel({
             )}
 
             {/* Borrows */}
-            {position.borrows.length > 0 && (
+            {position.borrows.filter((b: any) => (!existingAsset || b.asset === existingAsset) && b.amount > 0.0001).length > 0 && (
               <div>
                 <p
                   className="text-orange-400 text-[6px] mb-2"
                   style={{ fontFamily: '"Press Start 2P", monospace' }}
                 >
-                  BORROWED:
+                  {existingAsset ? `BORROWED: ${existingAsset}` : 'BORROWED:'}
                 </p>
                 <div className="space-y-1">
                   {position.borrows
-                    .filter((b: any) => b.amount > 0.0001)
+                    .filter((b: any) => (!existingAsset || b.asset === existingAsset) && b.amount > 0.0001)
                     .map((b: any) => (
                       <div
                         key={b.asset}
-                      className="flex justify-between bg-slate-900/50 p-2"
-                    >
-                      <span
-                        className="text-white text-[8px]"
-                        style={{ fontFamily: '"Press Start 2P", monospace' }}
+                        className="flex justify-between items-center bg-slate-900/50 p-2"
                       >
-                        {b.amount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} {b.asset}
-                        <span className="text-slate-500 ml-2">
-                          (~${b.amountUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
-                        </span>
-                      </span>
-                      <span
-                        className="text-orange-400 text-[8px]"
-                        style={{ fontFamily: '"Press Start 2P", monospace' }}
-                      >
-                        -{b.apy}%
-                      </span>
-                    </div>
-                  ))}
+                        <div className="flex flex-col">
+                          <span
+                            className="text-white text-[8px]"
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          >
+                            {b.amount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} {b.asset}
+                            <span className="text-slate-500 ml-2">
+                              (~${b.amountUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                            </span>
+                          </span>
+                          <span
+                            className="text-orange-400 text-[6px] mt-1"
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          >
+                            -{b.apy}% APY
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={() => handleRepay(b.asset, b.amount, true)}
+                          disabled={loading}
+                          className="px-2 py-1 bg-green-900/40 border border-green-700 text-green-400 text-[6px] hover:bg-green-800/60 hover:text-white transition-colors disabled:opacity-50"
+                          style={{ fontFamily: '"Press Start 2P", monospace' }}
+                        >
+                          {loadingRepay ? '...' : 'REPAY'}
+                        </button>
+                      </div>
+                    ))}
                 </div>
               </div>
             )}

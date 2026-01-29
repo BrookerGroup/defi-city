@@ -2,6 +2,8 @@
  * useMoveBuilding Hook
  * Moves a building to a new grid position via batch transaction:
  * recordDemolition (clear old) + recordBuildingPlacement (create at new position)
+ *
+ * Works for both supply and borrow buildings (both stored on-chain).
  */
 
 import { useState, useCallback } from 'react'
@@ -45,10 +47,13 @@ export function useMoveBuilding() {
       setError(null)
 
       try {
+        // Check if this is a virtual/legacy borrow building (ID >= 100000)
+        const isVirtualBorrow = building.id >= 100000
+
+        console.log(`[Move] Moving building ${building.id} (${building.type}/${building.asset}) from (${building.x},${building.y}) to (${newX},${newY}) [virtual: ${isVirtualBorrow}]`)
+
         const { signer, addresses } = await getContracts()
         const signerAddress = await signer.getAddress()
-
-        console.log(`[Move] Moving building ${building.id} (${building.type}/${building.asset}) from (${building.x},${building.y}) to (${newX},${newY})`)
 
         const targets: string[] = []
         const values: bigint[] = []
@@ -56,26 +61,32 @@ export function useMoveBuilding() {
 
         const coreInterface = new ethers.Interface(ABIS.DEFICITY_CORE)
 
-        // 1. Demolish old building
-        const demolitionData = coreInterface.encodeFunctionData('recordDemolition', [
-          signerAddress,
-          building.id,
-          0, // returnedAmount = 0 (no withdrawal, just relocating)
-        ])
-
-        targets.push(addresses.DEFICITY_CORE)
-        values.push(0n)
-        datas.push(demolitionData)
-
-        // 2. Place building at new position
         // Resolve asset address (CORE assets use zero address)
         const ASSET_ADDRESSES: Record<string, string> = {
           USDC: addresses.USDC,
           USDT: addresses.USDT,
           ETH: addresses.ETH,
+          WBTC: addresses.WBTC,
+          LINK: addresses.LINK,
         }
         const assetAddress = ASSET_ADDRESSES[building.asset] || ethers.ZeroAddress
 
+        // 1. Demolish old building (ONLY if it exists on-chain)
+        if (!isVirtualBorrow) {
+          const demolitionData = coreInterface.encodeFunctionData('recordDemolition', [
+            signerAddress,
+            building.id,
+            0, // returnedAmount = 0 (no withdrawal, just relocating)
+          ])
+
+          targets.push(addresses.DEFICITY_CORE)
+          values.push(0n)
+          datas.push(demolitionData)
+        } else {
+          console.log('[Move] Skipping demolition for virtual borrow building')
+        }
+
+        // 2. Place building at new position (this creates/updates the on-chain record)
         const placementData = coreInterface.encodeFunctionData('recordBuildingPlacement', [
           signerAddress,
           building.type,

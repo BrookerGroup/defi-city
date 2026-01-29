@@ -4,13 +4,14 @@ import { motion } from 'framer-motion'
 import { useState, useMemo } from 'react'
 
 interface IsometricBuildingProps {
-  type: 'townhall' | 'bank' | 'shop' | 'lottery'
+  type: 'townhall' | 'bank' | 'shop' | 'lottery' | 'borrow'
   size?: 'sm' | 'md' | 'lg'
   level?: number  // 1-5, affects building height
-  apy?: number    // Supply APY to display on badge
+  apy?: number    // Supply/Borrow APY to display on badge
   delay?: number
   floatSpeed?: number
   asset?: string  // USDC, USDT, ETH, etc.
+  isBorrow?: boolean // Whether to show borrow style (red APY badge)
 }
 
 const BUILDING_COLORS = {
@@ -25,6 +26,12 @@ const BUILDING_COLORS = {
     wall: '#6EE7B7',
     accent: '#047857',
     window: '#A7F3D0',
+  },
+  borrow: {
+    roof: '#EF4444', // Red for borrow/debt
+    wall: '#FCA5A5',
+    accent: '#B91C1C',
+    window: '#FEE2E2',
   },
   shop: {
     roof: '#06B6D4',
@@ -78,7 +85,8 @@ export function IsometricBuilding({
   apy,
   delay = 0,
   floatSpeed = 3,
-  asset
+  asset,
+  isBorrow = false
 }: IsometricBuildingProps) {
   const [randomFloat] = useState(() => Math.random() * 10)
 
@@ -99,8 +107,12 @@ export function IsometricBuilding({
 
   const { width, height } = sizeConfig[size]
   
-  // Determine color based on asset if provided, otherwise fallback to type
-  const colorKey = (asset?.toLowerCase() as keyof typeof BUILDING_COLORS) || type
+  // Determine color based on type and asset
+  // For borrow buildings, always use borrow colors (red)
+  // For supply buildings (bank), use asset-specific colors
+  const colorKey = (type === 'borrow' || isBorrow)
+    ? 'borrow'
+    : (asset?.toLowerCase() as keyof typeof BUILDING_COLORS) || type
   const colors = BUILDING_COLORS[colorKey as keyof typeof BUILDING_COLORS] || BUILDING_COLORS[type]
 
   // Calculate number of floors based on level
@@ -176,11 +188,11 @@ export function IsometricBuilding({
           {/* Roof based on type */}
           {type === 'townhall' ? (
             <>
-              <polygon 
-                points={`50,${viewBoxHeight - 20 - buildingHeight - 30} 85,${viewBoxHeight - 20 - buildingHeight} 15,${viewBoxHeight - 20 - buildingHeight}`} 
-                fill={colors.roof} 
-                stroke={colors.accent} 
-                strokeWidth="2" 
+              <polygon
+                points={`50,${viewBoxHeight - 20 - buildingHeight - 30} 85,${viewBoxHeight - 20 - buildingHeight} 15,${viewBoxHeight - 20 - buildingHeight}`}
+                fill={colors.roof}
+                stroke={colors.accent}
+                strokeWidth="2"
               />
               <rect x="47" y={viewBoxHeight - 20 - buildingHeight - 40} width="6" height="10" fill={colors.accent} />
               <polygon points={`53,${viewBoxHeight - 20 - buildingHeight - 40} 53,${viewBoxHeight - 20 - buildingHeight - 34} 63,${viewBoxHeight - 20 - buildingHeight - 37}`} fill="#ef4444" />
@@ -193,6 +205,21 @@ export function IsometricBuilding({
               {/* Dollar sign for bank */}
               <circle cx="50" cy={viewBoxHeight - 20 - buildingHeight - 15} r="10" fill={colors.accent} />
               <text x="50" y={viewBoxHeight - 20 - buildingHeight - 10} textAnchor="middle" fill="#fef08a" fontSize="12" fontWeight="bold">$</text>
+            </>
+          ) : type === 'borrow' ? (
+            <>
+              {/* Borrow building - similar to bank but with different icon */}
+              <rect x="10" y={viewBoxHeight - 20 - buildingHeight - 7} width="80" height="10" fill={colors.roof} />
+              <rect x="22" y={viewBoxHeight - 20 - buildingHeight + 3} width="8" height="32" fill={colors.accent} />
+              <rect x="70" y={viewBoxHeight - 20 - buildingHeight + 3} width="8" height="32" fill={colors.accent} />
+              {/* Percent sign for borrow/loan */}
+              <circle cx="50" cy={viewBoxHeight - 20 - buildingHeight - 15} r="10" fill={colors.accent} />
+              <text x="50" y={viewBoxHeight - 20 - buildingHeight - 10} textAnchor="middle" fill="#fef08a" fontSize="10" fontWeight="bold">%</text>
+              {/* Down arrow indicator for borrow */}
+              <polygon
+                points={`50,${viewBoxHeight - 20 - buildingHeight + 15} 44,${viewBoxHeight - 20 - buildingHeight + 8} 56,${viewBoxHeight - 20 - buildingHeight + 8}`}
+                fill={colors.accent}
+              />
             </>
           ) : type === 'shop' ? (
             <>
@@ -256,19 +283,20 @@ export function IsometricBuilding({
           <rect x="40" y={viewBoxHeight - 38} width="20" height="18" fill={colors.accent} rx="3" />
           <rect x="44" y={viewBoxHeight - 34} width="12" height="14" fill={colors.window} rx="2" />
 
-          {/* APY indicator (always show for bank buildings, not townhall) */}
+          {/* APY indicator (always show for bank/borrow buildings, not townhall) */}
           {apy !== undefined && type !== 'townhall' && (
             <g>
               <rect x="60" y={viewBoxHeight - 20 - buildingHeight + 8} width="35" height="14" rx="3" fill="#1e293b" stroke={colors.accent} strokeWidth="2" />
-              <text 
-                x="78" 
-                y={viewBoxHeight - 20 - buildingHeight + 18} 
-                textAnchor="middle" 
-                fill="#4ade80" 
-                fontSize="6" 
+              <text
+                x="78"
+                y={viewBoxHeight - 20 - buildingHeight + 18}
+                textAnchor="middle"
+                fill={type === 'borrow' || isBorrow ? '#fb923c' : '#4ade80'}
+                fontSize="6"
                 fontWeight="bold"
                 style={{ fontFamily: '"Press Start 2P", monospace' }}
               >
+                {type === 'borrow' || isBorrow ? '-' : ''}
                 {apy === 0 ? '0%' : apy < 0.01 ? '<.01%' : apy >= 10 ? `${Math.round(apy)}%` : `${apy.toFixed(2)}%`}
               </text>
             </g>

@@ -1,6 +1,7 @@
 /**
  * useCityBuildings Hook
- * Generates buildings based on Aave Supply positions
+ * Fetches buildings (supply + borrow) from DefiCityCore contract
+ * and updates amounts from live Aave data
  */
 
 import { useState, useCallback, useEffect } from 'react'
@@ -14,16 +15,17 @@ export interface Building {
   id: number
   owner: string
   smartWallet: string
-  type: string
+  type: string  // 'townhall' | 'bank' | 'borrow'
   asset: string
   amount: number
   amountUSD: number
-  level: number  // 1-5 based on supply amount
-  apy: number    // Supply APY percentage
+  level: number  // 1-5 based on supply/borrow amount
+  apy: number    // Supply/Borrow APY percentage
   placedAt: number
   x: number
   y: number
   active: boolean
+  isBorrow?: boolean  // true if this is a borrow position
 }
 
 // Asset addresses and decimals
@@ -83,55 +85,73 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
       const contractBuildings = await core.getUserBuildings(userAddress)
       console.log(`[City] Found ${contractBuildings.length} buildings in contract`)
 
-      // 2. Fetch Aave positions and APY for amount updates
-      const aavePositions: Record<string, bigint> = {}
-      const aaveAPYs: Record<string, number> = {}
+      // 2. Fetch Aave positions (Supply & Borrow) and APY for amount updates
+      const aaveSupplyPositions: Record<string, bigint> = {}
+      const aaveBorrowPositions: Record<string, bigint> = {}
+      const aaveSupplyAPYs: Record<string, number> = {}
+      const aaveBorrowAPYs: Record<string, number> = {}
       const RAY_NUMBER = 1e27
       const SECONDS_PER_YEAR = 31536000
-      
+
       for (const [symbol, address] of Object.entries(ASSET_ADDRESSES)) {
         try {
           const data = await dataProvider.getUserReserveData(address, smartWalletAddress)
-          aavePositions[symbol] = data.currentATokenBalance
-          
+          aaveSupplyPositions[symbol] = data.currentATokenBalance
+          // Borrow = stable debt + variable debt
+          aaveBorrowPositions[symbol] = data.currentStableDebt + data.currentVariableDebt
+
           // Fetch reserve data for APY
           const reserveData = await dataProvider.getReserveData(address)
-          const ratePerSecond = Number(reserveData.liquidityRate) / RAY_NUMBER / SECONDS_PER_YEAR
-          const apy = (Math.pow(1 + ratePerSecond, SECONDS_PER_YEAR) - 1) * 100
-          aaveAPYs[symbol] = apy
+          const supplyRatePerSecond = Number(reserveData.liquidityRate) / RAY_NUMBER / SECONDS_PER_YEAR
+          const borrowRatePerSecond = Number(reserveData.variableBorrowRate) / RAY_NUMBER / SECONDS_PER_YEAR
+          aaveSupplyAPYs[symbol] = (Math.pow(1 + supplyRatePerSecond, SECONDS_PER_YEAR) - 1) * 100
+          aaveBorrowAPYs[symbol] = (Math.pow(1 + borrowRatePerSecond, SECONDS_PER_YEAR) - 1) * 100
         } catch (e) {
-          aavePositions[symbol] = 0n
-          aaveAPYs[symbol] = 0
+          aaveSupplyPositions[symbol] = 0n
+          aaveBorrowPositions[symbol] = 0n
+          aaveSupplyAPYs[symbol] = 0
+          aaveBorrowAPYs[symbol] = 0
         }
       }
+
+
+      // Center coordinate for grid placement
+      const centerCoord = Math.ceil(GRID_SIZE / 2)
 
       // 3. Map contract buildings to our UI structure
       const mappedBuildings = contractBuildings.map((b: any) => {
         // Find asset symbol by address
-        const assetSymbol = Object.entries(ASSET_ADDRESSES).find(([_, addr]) => 
+        const assetSymbol = Object.entries(ASSET_ADDRESSES).find(([_, addr]) =>
           addr.toLowerCase() === b.asset.toLowerCase()
         )?.[0] || 'CORE'
 
         // Determine if this is an Aave asset building
         const isAaveAsset = assetSymbol !== 'CORE'
+        const isBorrowBuilding = b.buildingType.toLowerCase() === 'borrow'
 
-        // Use live Aave amount if applicable. 
-        // For Aave assets, if liveAmount is 0, we use 0 (don't fall back to b.amount)
-        const liveAmountBigInt = aavePositions[assetSymbol]
+        // Use live Aave amount if applicable.
+        // For borrow buildings, use borrow positions; for supply buildings, use supply positions
         let amount: number
-        
+
         if (isAaveAsset) {
+          const liveAmountBigInt = isBorrowBuilding
+            ? aaveBorrowPositions[assetSymbol]
+            : aaveSupplyPositions[assetSymbol]
           amount = Number(ethers.formatUnits(liveAmountBigInt || 0n, ASSET_DECIMALS[assetSymbol] || 18))
         } else {
           amount = Number(ethers.formatUnits(b.amount, ASSET_DECIMALS[assetSymbol] || 18))
         }
 
         const amountUSD = amount * (ASSET_PRICES[assetSymbol] || 1)
-        
-        const centerCoord = Math.ceil(GRID_SIZE / 2)
+
         const isTownHall = b.buildingType.toLowerCase() === 'townhall'
         const displayX = isTownHall ? centerCoord : Number(b.coordinateX)
         const displayY = isTownHall ? centerCoord : Number(b.coordinateY)
+
+        // Use borrow APY for borrow buildings, supply APY for others
+        const buildingAPY = isBorrowBuilding
+          ? aaveBorrowAPYs[assetSymbol] || 0
+          : aaveSupplyAPYs[assetSymbol] || 0
 
         const needsForceMsg = isTownHall && Number(b.coordinateX) !== centerCoord && Number(b.coordinateX) !== 0
         console.log(`[City] Building ${b.id}: type=${b.buildingType}, active=${b.active}, pos=(${displayX}, ${displayY})${needsForceMsg ? ' (MODIFIED FROM ' + b.coordinateX + ',' + b.coordinateY + ')' : ''}`)
@@ -145,11 +165,12 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
           amount,
           amountUSD,
           level: calculateLevel(amountUSD),
-          apy: aaveAPYs[assetSymbol] || 0,
+          apy: buildingAPY,
           placedAt: Number(b.placedAt) * 1000,
           x: displayX,
           y: displayY,
-          active: b.active
+          active: b.active,
+          isBorrow: isBorrowBuilding,
         }
       })
 
@@ -160,24 +181,31 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
         return true
       })
 
-      // Deduplication: Only show the LATEST building (highest ID) for each unique Aave asset
-      // This prevents "ghost" buildings from legacy data showing up when funds are supplied
-      const latestByAsset: Record<string, any> = {}
-      
+      // Deduplication: Only show the LATEST building (highest ID) for each unique (asset + type) combo
+      // This prevents "ghost" buildings from legacy data showing up
+      // Note: Same asset can have both supply (bank) and borrow buildings
+      const latestByAssetAndType: Record<string, any> = {}
+
       activeBuildings.forEach((b: any) => {
         if (b.asset === 'CORE') return // Keep CORE (Town Hall)
-        if (!latestByAsset[b.asset] || b.id > latestByAsset[b.asset].id) {
-          latestByAsset[b.asset] = b
+        const key = `${b.asset}-${b.isBorrow ? 'borrow' : 'supply'}`
+        if (!latestByAssetAndType[key] || b.id > latestByAssetAndType[key].id) {
+          latestByAssetAndType[key] = b
         }
       })
 
       const deduplicatedBuildings = activeBuildings.filter((b: any) => {
         if (b.asset === 'CORE') return true
-        return latestByAsset[b.asset] && b.id === latestByAsset[b.asset].id
+        const key = `${b.asset}-${b.isBorrow ? 'borrow' : 'supply'}`
+        return latestByAssetAndType[key] && b.id === latestByAssetAndType[key].id
       })
-      
-      console.log(`[City] Total: ${contractBuildings.length}, Visible Active: ${deduplicatedBuildings.length} (Deduplicated ${activeBuildings.length - deduplicatedBuildings.length})`)
-      
+
+      // Count supply vs borrow buildings
+      const supplyCount = deduplicatedBuildings.filter((b: any) => !b.isBorrow && b.asset !== 'CORE').length
+      const borrowCount = deduplicatedBuildings.filter((b: any) => b.isBorrow).length
+
+      console.log(`[City] Total: ${contractBuildings.length}, Supply: ${supplyCount}, Borrow: ${borrowCount}`)
+
       setBuildings(deduplicatedBuildings)
       setAllBuildings(mappedBuildings)
       setError(null)
