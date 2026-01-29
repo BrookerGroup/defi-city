@@ -1,5 +1,7 @@
 # Frontend Architecture - คู่มืออธิบายโครงสร้าง Frontend ทั้งหมด
 
+**Version: 2.0** - รองรับ Aave Supply + Borrow + On-chain Buildings
+
 ## สารบัญ
 
 - [1. Next.js คืออะไร? ทำงานยังไง?](#1-nextjs-คืออะไร-ทำงานยังไง)
@@ -75,7 +77,7 @@ frontend/src/
 │   │   ├── PrivyProvider.tsx    #    ตั้งค่า Privy (login wallet)
 │   │   └── WagmiProvider.tsx    #    ตั้งค่า Wagmi (อ่าน/เขียน contract)
 │   ├── aave/                    #    Aave Management (Bank)
-│   │   ├── AavePanel.tsx        #    หน้าจอจัดการเงินใน Aave (Supply/Withdraw)
+│   │   ├── AavePanel.tsx        #    หน้าจอจัดการเงินใน Aave (Supply/Borrow/Withdraw/Repay)
 │   │   └── index.ts             #    Export รวม
 │   ├── game/                    #    Game Components
 │   │   └── CityGrid.tsx         #    แผนที่เมือง 13x13 พร้อม drag-to-move
@@ -84,7 +86,7 @@ frontend/src/
 │   └── landing/                 #    Components สำหรับ Landing Page
 │       ├── LandingPage.tsx      #    หน้า Landing หลัก
 │       ├── FeatureCard.tsx      #    การ์ด feature
-│       ├── IsometricBuilding.tsx #   ตึก 3D isometric
+│       ├── IsometricBuilding.tsx #   ตึก 3D isometric (รองรับ townhall, bank, borrow)
 │       ├── ParticleField.tsx    #    พื้นหลัง particle
 │       ├── index.ts             #    Export รวม
 │       ├── pixel/               #    Pixel Art UI
@@ -112,13 +114,15 @@ frontend/src/
 │   ├── useCreateSmartAccount.ts #    สร้าง Town Hall (deploy wallet)
 │   ├── useVaultDeposit.ts       #    ฝากเงินจาก EOA เข้า Smart Wallet (Vault)
 │   ├── useVaultWithdraw.ts      #    ถอนเงินจาก Smart Wallet กลับ EOA
-│   ├── useAaveSupply.ts         #    Supply tokens เข้า Aave
-│   ├── useAaveWithdraw.ts       #    Withdraw tokens จาก Aave
+│   ├── useAaveSupply.ts         #    Supply tokens เข้า Aave + สร้าง bank building
+│   ├── useAaveWithdraw.ts       #    Withdraw tokens จาก Aave + demolish building
+│   ├── useAaveBorrow.ts         #    Borrow tokens จาก Aave + สร้าง borrow building
+│   ├── useAaveRepay.ts          #    Repay borrowed tokens + demolish borrow building
 │   ├── useAavePosition.ts       #    ดึง Position ใน Aave (Supply/Borrow/Health Factor)
 │   ├── useAaveMarketData.ts     #    ดึง Market Data (APY) จาก Aave on-chain
 │   ├── useAaveReserveData.ts    #    ดึง Reserve Data เต็มรูปแบบ (Cap, LTV, Oracle)
-│   ├── useCityBuildings.ts      #    ดึงข้อมูลตึกทั้งหมดจาก on-chain
-│   ├── useMoveBuilding.ts       #    ย้ายตึกบนแผนที่
+│   ├── useCityBuildings.ts      #    ดึงข้อมูลตึกทั้งหมด (supply + borrow) จาก on-chain
+│   ├── useMoveBuilding.ts       #    ย้ายตึกบนแผนที่ (รองรับทั้ง on-chain และ virtual)
 │   └── useContracts.ts          #    สร้าง Contract instances
 │
 ├── lib/                          # ← Utility และ Config
@@ -282,15 +286,16 @@ LandingPage ประกอบด้วย sections เรียงต่อก�
            │   └── VAULT address + balance (ETH, USDC, USDT, WBTC, LINK)
            ├── City Map (CityGrid 13x13)
            │   ├── Town Hall (กลาง grid ย้ายไม่ได้)
-           │   ├── Bank Buildings (คลิกเพื่อ Supply/Withdraw)
+           │   ├── Bank Buildings (สีเขียว - Supply)
+           │   ├── Borrow Buildings (สีแดง - Borrow)
            │   └── Drag-to-Move (ลาก building เพื่อย้ายตำแหน่ง)
            ├── Build Modal (popup เมื่อคลิก tile)
-           │   └── AavePanel (Supply/Withdraw จาก Aave)
+           │   └── AavePanel (Supply/Borrow Tabs)
            ├── Vault Management (Tabbed Interface)
            │   ├── DEPOSIT Tab (ฝากจาก EOA เข้า Vault)
-           │   │   └── รองรับ: ETH, USDC, USDT, WBTC, LINK
+           │   │   └── รองรับ: ETH, USDC, USDT, WBTC, LINK + MAX button
            │   └── WITHDRAW Tab (ถอนจาก Vault กลับ EOA)
-           │       └── รองรับ: ETH, USDC, USDT, WBTC, LINK
+           │       └── รองรับ: ETH, USDC, USDT, WBTC, LINK + MAX button
            └── Stats Preview (Level, Coins, Land)
 ```
 
@@ -339,9 +344,10 @@ Component เป็น "ชิ้นส่วน UI ที่ reuse ได้" �
 App Page (ตัวใหญ่)
 ├── Header Bar (แสดง wallet/vault info)
 ├── CityGrid (แผนที่เมือง)
-│   └── Building tiles (ตึกแต่ละช่อง)
+│   ├── Bank Buildings (supply - สีเขียว)
+│   └── Borrow Buildings (borrow - สีแดง)
 ├── Build Modal (popup)
-│   └── AavePanel (Supply/Withdraw)
+│   └── AavePanel (Supply/Borrow Tabs)
 │       └── ErrorPopup (แสดง error)
 ├── Vault Management (Deposit/Withdraw)
 └── Stats (Level, Coins, Land)
@@ -351,23 +357,49 @@ App Page (ตัวใหญ่)
 
 แผนที่เมืองขนาด **13x13 grid** ที่แสดงตึกทั้งหมดของ user:
 - **Town Hall** อยู่กลาง grid (ย้ายไม่ได้)
-- **Bank Buildings** แสดงตาม asset ที่ supply (USDC, ETH, USDT, WBTC, LINK)
+- **Bank Buildings** (สีเขียว) แสดงตาม asset ที่ supply
+- **Borrow Buildings** (สีแดง) แสดงตาม asset ที่ borrow
 - **Drag-to-Move** ลาก building เพื่อย้ายตำแหน่งบน grid
 - **Click Tile** คลิกช่องว่างหรือตึกที่มีอยู่เพื่อเปิด Build Modal
-- **Building Levels** (1-5) ขึ้นอยู่กับมูลค่า USD ที่ supply
+- **Building Levels** (1-5) ขึ้นอยู่กับมูลค่า USD
 
 ### AavePanel (`src/components/aave/AavePanel.tsx`)
 
 UI สำหรับจัดการเงินบน Aave Protocol:
-- **Supply Tab** - ฝากเงินเข้า Aave เพื่อรับ APY
+
+**Tabs:**
+- **SUPPLY Tab** (สีเขียว) - ฝากเงินเข้า Aave เพื่อรับ APY
+- **BORROW Tab** (สีส้ม) - ยืมเงินจาก Aave โดยใช้ supply เป็น collateral
+
+**Tab Switching Logic:**
+- คลิก **Supply Building** → เริ่มที่ SUPPLY tab, disable BORROW
+- คลิก **Borrow Building** → เริ่มที่ BORROW tab, disable SUPPLY
+- คลิก **Empty Tile** → ทั้งสอง tab ใช้งานได้
+
+**Features:**
 - **Asset Selection** - เลือก USDC, USDT, ETH, WBTC, LINK
+- **Asset Locking** - ถ้ามี building แล้ว จะ lock ที่ asset นั้น (ไม่ให้สร้างซ้ำที่อื่น)
 - **Vault Balance Display** - แสดงยอดเงินที่มีใน vault
 - **Insufficient Balance Check** - แจ้งเตือนเมื่อยอดไม่พอ
-- **Reserve Data Display** - แสดง Supply Cap, APY, Price, LTV, Utilization Rate
+- **Reserve Data Display** - แสดง Supply/Borrow Cap, APY, Price, LTV, Utilization
 - **Pool Full Warning** - แจ้งเตือนเมื่อ pool เต็ม
 - **Position Overview** - แสดง Total Supplied, Borrowed, Health Factor
-- **Withdraw Button** - ถอนเงินจาก Aave พร้อม demolish building ถ้าถอนทั้งหมด
+- **Withdraw Button** - ถอนเงินจาก Aave
+- **Repay Button** - ชำระเงินยืม
 - **Health Factor Preview** - จำลอง Health Factor ก่อนทำ transaction
+- **MAX Button** - สำหรับ borrow/repay สูงสุด
+
+### IsometricBuilding (`src/components/landing/IsometricBuilding.tsx`)
+
+ตึก 3D isometric รองรับ 4 ประเภท:
+
+| Type | สี | Icon | ความหมาย |
+|------|-----|------|----------|
+| `townhall` | เหลือง/ทอง | ธง | Town Hall ศูนย์กลาง |
+| `bank` | เขียว | $ | Supply Building |
+| `borrow` | แดง | % | Borrow Building |
+| `shop` | ฟ้า | ถุง | Shop (อนาคต) |
+| `lottery` | ม่วง | ดาว | Lottery (อนาคต) |
 
 ### ErrorPopup (`src/components/ui/ErrorPopup.tsx`)
 
@@ -380,17 +412,6 @@ Popup แสดง error แบบ pixel art พร้อมปุ่มปิ�
 "Something went wrong"
 [Try Again] [Reload Page]
 ```
-
-### Pixel Components (Landing Page)
-
-โปรเจคนี้ใช้ธีม **Pixel Art** (เกม 8-bit) โดยมี component พิเศษ:
-
-| Component | หน้าที่ |
-|-----------|---------|
-| `PixelBackground` | พื้นหลังดาว + grid + scanline |
-| `PixelButton` | ปุ่มสไตล์ pixel พร้อมเงา |
-| `PixelCard` | กรอบการ์ดสไตล์ pixel |
-| `BuildingIcon` | icon ตึก 4 แบบ (Town Hall, Bank, Shop, Lottery) |
 
 ---
 
@@ -417,11 +438,6 @@ Output: { smartWallet, loading, hasSmartWallet, refetch }
 3. ถ้าได้ address กลับมา (ไม่ใช่ 0x000...0) → มี Smart Wallet แล้ว
 4. ถ้าได้ 0x000...0 → ยังไม่มี Smart Wallet
 
-```
-User's EOA Address ──→ DefiCityCore.getWallet() ──→ Smart Wallet Address
-    (MetaMask)              (on-chain)                  (ERC-4337)
-```
-
 ### 7.2 `useCreateSmartAccount` - สร้าง Town Hall
 
 ```
@@ -436,27 +452,13 @@ Output: { createSmartAccount, isPending, hash }
 3. และสร้างตึก Town Hall ที่ตำแหน่งกลาง
 4. return transaction hash
 
-```
-กดปุ่ม "CREATE TOWN HALL"
-    ↓
-เรียก createTownHall(7, 7) บน chain
-    ↓
-Contract deploy Smart Wallet + สร้าง Town Hall
-    ↓
-return { walletAddress, buildingId }
-```
-
 ### 7.3 `useVaultDeposit` - ฝากเงินเข้า Smart Wallet (Vault)
 
 ```
 ไฟล์: src/hooks/useVaultDeposit.ts
 Input: ownerAddress, smartWalletAddress
-Output: { deposit, ethBalance, usdcBalance, usdtBalance, wbtcBalance, linkBalance,
-          smartWalletEthBalance, smartWalletUsdcBalance, smartWalletUsdtBalance,
-          smartWalletWbtcBalance, smartWalletLinkBalance, refetchBalances, ... }
+Output: { deposit, balances..., refetchBalances, ... }
 ```
-
-**ทำอะไร:** ย้ายเงินจากกระเป๋าส่วนตัว (EOA) เข้าสู่ระบบเมือง (Smart Wallet/Vault)
 
 **รองรับ 5 tokens:**
 | Token | วิธีฝาก | Decimals |
@@ -467,11 +469,6 @@ Output: { deposit, ethBalance, usdcBalance, usdtBalance, wbtcBalance, linkBalanc
 | WBTC | `ERC20.transfer()` | 8 |
 | LINK | `ERC20.transfer()` | 18 |
 
-**ดึง balance อัตโนมัติ:**
-- ETH balance: ใช้ `publicClient.getBalance()` จาก viem
-- Token balances: ใช้ `publicClient.readContract(ERC20.balanceOf)`
-- ดึงทั้ง EOA balance และ Smart Wallet balance
-
 ### 7.4 `useVaultWithdraw` - ถอนเงินจาก Smart Wallet (Vault)
 
 ```
@@ -479,13 +476,6 @@ Output: { deposit, ethBalance, usdcBalance, usdtBalance, wbtcBalance, linkBalanc
 Input: ownerAddress, smartWalletAddress, refetchBalances
 Output: { withdraw, isWithdrawing, isConfirming }
 ```
-
-**ทำอะไร:** ย้ายเงินจาก Vault กลับคืนเข้ากระเป๋าส่วนตัว (EOA)
-
-1. สำหรับ ETH: เรียก `SmartWallet.execute(owner, amount, "0x")`
-2. สำหรับ ERC20: เรียก `SmartWallet.execute(token_addr, 0, encoded_transfer_data)`
-
-Smart Wallet จะเป็นคนส่งเงินออกไปเอง โดยใช้ฟังก์ชัน `execute()` ซึ่งเซ็นลายเซ็นโดย Owner เท่านั้น
 
 ### 7.5 `useAaveSupply` - Supply tokens เข้า Aave
 
@@ -496,41 +486,94 @@ Output: { supply, loading, error }
 ```
 
 **ทำอะไร:**
-1. ตรวจสอบ balance ของ Smart Wallet ว่าพอไหม
+1. ตรวจสอบ balance ของ Smart Wallet
 2. เรียก BankAdapter.preparePlace() เพื่อเตรียม calldata
-3. สำหรับ ETH: เพิ่ม WETH.deposit() ไว้ต้น batch (wrap ETH → WETH)
-4. Execute batch transaction ผ่าน Smart Wallet:
-   - ETH: `[deposit (wrap), approve, supply, recordBuilding]`
+3. สำหรับ ETH: เพิ่ม WETH.deposit() (wrap ETH → WETH)
+4. Execute batch transaction:
+   - ETH: `[deposit, approve, supply, recordBuilding]`
    - ERC20: `[approve, supply, recordBuilding]`
-5. ถ้าเป็น upgrade (ตึกมีอยู่แล้ว): ข้าม recordBuilding call
+5. ถ้าเป็น upgrade: ข้าม recordBuilding
 
-```
-Smart Wallet ─── executeBatch ───→ Aave Protocol
-     │
-     ├── [1] WETH.deposit()         (เฉพาะ ETH: wrap native → WETH)
-     ├── [2] Token.approve(pool)    (อนุญาตให้ pool ดึง token)
-     ├── [3] Pool.supply(token)     (ฝากเข้า Aave)
-     └── [4] Core.recordBuilding()  (บันทึกตึกบน grid - ถ้าสร้างใหม่)
-```
-
-**Auto-find position:** ถ้าไม่ระบุ x, y จะหาตำแหน่งว่างรอบ Town Hall โดยอัตโนมัติ
+**Auto-find position:** ถ้าไม่ระบุ x, y จะหาตำแหน่งว่างรอบ Town Hall
 
 ### 7.6 `useAaveWithdraw` - ถอน tokens จาก Aave
 
 ```
 ไฟล์: src/hooks/useAaveWithdraw.ts
-Input: ไม่มี (ใช้ wallet จาก Privy)
 Output: { withdraw, loading, error }
 ```
 
 **ทำอะไร:**
 1. เรียก BankAdapter เพื่อเตรียม withdraw calldata
-2. Execute batch ผ่าน Smart Wallet:
-   - `Pool.withdraw(token, amount, smartWallet)`
+2. Execute batch: `Pool.withdraw(token, amount, smartWallet)`
 3. ถ้าถอนทั้งหมด → demolish buildings ที่เกี่ยวข้อง
-4. สำหรับ ETH: unwrap WETH → ETH หลังถอน
+4. สำหรับ ETH: unwrap WETH → ETH
 
-### 7.7 `useAavePosition` - ดึง Position ใน Aave
+### 7.7 `useAaveBorrow` - Borrow tokens จาก Aave (NEW)
+
+```
+ไฟล์: src/hooks/useAaveBorrow.ts
+Output: { borrow, loading, error }
+```
+
+**ทำอะไร:**
+1. เรียก Aave Pool.borrow() ผ่าน Smart Wallet
+2. บันทึก borrow building บน chain ด้วย `recordBuildingPlacement`
+3. Building type = 'borrow'
+
+**Parameters:**
+```typescript
+borrow(
+  userAddress: string,
+  smartWalletAddress: string,
+  asset: string,           // USDC, USDT, ETH, WBTC, LINK
+  amount: number,
+  x?: number,              // coordinate (auto-find if not provided)
+  y?: number,
+  isUpgrade?: boolean      // ถ้า true จะไม่สร้าง building ใหม่
+)
+```
+
+**Batch Transaction:**
+```
+Smart Wallet executeBatch:
+├── [1] Pool.borrow(asset, amount, rateMode, referral, onBehalfOf)
+└── [2] Core.recordBuildingPlacement(owner, 'borrow', asset, amount, x, y) -- ถ้าสร้างใหม่
+```
+
+### 7.8 `useAaveRepay` - Repay borrowed tokens (NEW)
+
+```
+ไฟล์: src/hooks/useAaveRepay.ts
+Output: { repay, loading, error }
+```
+
+**ทำอะไร:**
+1. Approve token ให้ Aave Pool
+2. เรียก Pool.repay() ผ่าน Smart Wallet
+3. ถ้า repayAll → เรียก `recordDemolition` เพื่อลบ borrow building
+
+**Parameters:**
+```typescript
+repay(
+  userAddress: string,
+  smartWalletAddress: string,
+  asset: string,
+  amount: number,
+  repayAll: boolean,        // ใช้ MaxUint256 ถ้า true
+  building?: Building       // ถ้ามี จะ demolish ตอน repayAll
+)
+```
+
+**Batch Transaction:**
+```
+Smart Wallet executeBatch:
+├── [1] Token.approve(pool, amount)
+├── [2] Pool.repay(asset, amount, rateMode, onBehalfOf)
+└── [3] Core.recordDemolition(owner, buildingId, 0) -- ถ้า repayAll + มี building
+```
+
+### 7.9 `useAavePosition` - ดึง Position ใน Aave
 
 ```
 ไฟล์: src/hooks/useAavePosition.ts
@@ -538,65 +581,42 @@ Input: smartWalletAddress
 Output: { position, loading, error, refresh }
 ```
 
-**ทำอะไร:**
-- ดึงข้อมูล position จาก Aave Pool และ Data Provider
+**ข้อมูลที่ได้:**
 - **supplies** - รายการ asset ที่ supply พร้อม amount, USD value, APY
 - **borrows** - รายการ asset ที่ borrow
 - **totalSuppliedUSD** - มูลค่ารวม supply
 - **totalBorrowedUSD** - มูลค่ารวม borrow
+- **availableBorrowsUSD** - วงเงิน borrow ที่เหลือ
 - **healthFactor** - Health Factor (ถ้า < 1 จะถูก liquidate)
 
-**Health Factor คืออะไร:**
-```
-Health Factor = (Total Collateral × Liquidation Threshold) / Total Borrowed
-
-ถ้า HF < 1 → จะถูก liquidate (ถูกยึด collateral)
-ถ้า HF > 1 → ปลอดภัย
-```
-
-**คำนวณ APY จาก on-chain:**
-```
-APY = ((1 + rate/RAY/SECONDS_PER_YEAR) ^ SECONDS_PER_YEAR - 1) × 100
-```
-
-### 7.8 `useAaveMarketData` - ดึง Market Data จาก Aave
+### 7.10 `useAaveMarketData` - ดึง Market Data จาก Aave
 
 ```
 ไฟล์: src/hooks/useAaveMarketData.ts
-Input: ไม่มี (ใช้ wallet จาก Privy)
 Output: { marketData, loading, error, refresh }
 ```
 
-**ทำอะไร:**
-- ดึง Supply APY และ Borrow APY ของแต่ละ asset
-- คำนวณ APY แบบ compound interest จาก liquidityRate และ variableBorrowRate
-- รองรับ: USDC, USDT, ETH
-
-### 7.9 `useAaveReserveData` - ดึง Reserve Data เต็มรูปแบบ
+### 7.11 `useAaveReserveData` - ดึง Reserve Data เต็มรูปแบบ
 
 ```
 ไฟล์: src/hooks/useAaveReserveData.ts
-Input: ไม่มี (ใช้ wallet จาก Privy)
 Output: { reserveData, loading, error, getOraclePrice, isPoolFull, refresh }
 ```
 
-**ทำอะไร:** ดึงข้อมูล reserve ครบถ้วนจาก Aave V3 on-chain
-
+**ข้อมูลที่ได้:**
 | ข้อมูล | คำอธิบาย |
 |--------|----------|
-| `totalSupplied` / `supplyCap` | จำนวนที่ supply แล้ว / cap สูงสุด |
-| `supplyAPY` / `borrowAPY` | อัตราดอกเบี้ย (compound interest) |
+| `totalSupplied` / `supplyCap` | Supply แล้ว / cap สูงสุด |
+| `totalBorrowed` / `borrowCap` | Borrow แล้ว / cap สูงสุด |
+| `supplyAPY` / `borrowAPY` | อัตราดอกเบี้ย |
 | `ltv` | Loan-to-Value ratio |
 | `liquidationThreshold` | เกณฑ์ liquidation |
 | `oraclePrice` | ราคาจาก Aave Oracle (USD) |
 | `utilizationRate` | อัตราการใช้งาน pool |
-| `isPoolFull` | pool เต็มหรือไม่ (>99.9% ของ cap) |
-| `canBeCollateral` | ใช้เป็น collateral ได้ไหม |
+| `borrowingEnabled` | Borrow เปิดใช้งานไหม |
+| `availableLiquidity` | Liquidity ที่เหลือสำหรับ borrow |
 
-- **Auto-refresh** ทุก 30 วินาที
-- รองรับ: USDC, USDT, ETH, WBTC, LINK
-
-### 7.10 `useCityBuildings` - ดึงข้อมูลตึกจาก On-chain
+### 7.12 `useCityBuildings` - ดึงข้อมูลตึกจาก On-chain (UPDATED)
 
 ```
 ไฟล์: src/hooks/useCityBuildings.ts
@@ -606,11 +626,32 @@ Output: { buildings, allBuildings, loading, error, refresh }
 
 **ทำอะไร:**
 1. ดึง buildings จาก `DefiCityCore.getUserBuildings()`
-2. ดึง Aave positions เพื่ออัปเดตจำนวนเงินจริง (live amount)
-3. ดึง APY จาก reserve data
-4. Map contract buildings เป็น UI structure พร้อม level (1-5)
-5. Deduplication: แสดงเฉพาะตึกล่าสุด (highest ID) ต่อ asset
-6. กรอง active buildings ที่มี amount > 0
+2. ดึง Aave positions (Supply + Borrow) เพื่ออัปเดต live amount
+3. ดึง APY จาก reserve data (Supply APY สำหรับ bank, Borrow APY สำหรับ borrow)
+4. Map contract buildings เป็น UI structure
+5. **แยก Supply vs Borrow buildings** ตาม `buildingType`
+6. Deduplication: แสดงเฉพาะตึกล่าสุดต่อ (asset + type) combo
+7. กรอง active buildings ที่มี amount > 0
+
+**Building Interface:**
+```typescript
+interface Building {
+  id: number
+  owner: string
+  smartWallet: string
+  type: string          // 'townhall' | 'bank' | 'borrow'
+  asset: string         // 'USDC' | 'USDT' | 'ETH' | 'WBTC' | 'LINK'
+  amount: number
+  amountUSD: number
+  level: number         // 1-5 based on USD value
+  apy: number           // Supply APY หรือ Borrow APY ตาม type
+  placedAt: number
+  x: number
+  y: number
+  active: boolean
+  isBorrow?: boolean    // true ถ้าเป็น borrow building
+}
+```
 
 **Building Levels:**
 | Level | มูลค่า USD |
@@ -621,35 +662,36 @@ Output: { buildings, allBuildings, loading, error, refresh }
 | 4 | $1,000 - $1,999 |
 | 5 | >= $2,000 |
 
-### 7.11 `useMoveBuilding` - ย้ายตึกบนแผนที่
+### 7.13 `useMoveBuilding` - ย้ายตึกบนแผนที่ (UPDATED)
 
 ```
 ไฟล์: src/hooks/useMoveBuilding.ts
-Input: ไม่มี
-Output: { moveBuilding, loading }
+Output: { moveBuilding, loading, error }
 ```
 
 **ทำอะไร:**
-1. เรียก `DefiCityCore.moveBuilding(buildingId, newX, newY)` ผ่าน Smart Wallet
-2. อัปเดตตำแหน่งตึกบน on-chain grid
+1. **ตรวจสอบ virtual vs on-chain building**
+   - ID >= 100000 = virtual (legacy borrow ที่ยังไม่ได้บันทึกบน chain)
+   - ID < 100000 = on-chain building
+2. **สำหรับ on-chain building:**
+   - เรียก `recordDemolition(buildingId)` เพื่อลบตึกเดิม
+   - เรียก `recordBuildingPlacement(x, y)` เพื่อสร้างตึกใหม่ที่ตำแหน่งใหม่
+3. **สำหรับ virtual building:**
+   - ข้าม demolition (ไม่มีบน chain)
+   - สร้าง building ใหม่ที่ตำแหน่งใหม่ → กลายเป็น on-chain building
 
-### 7.12 `useContracts` - สร้าง Contract Instances
-
+**Batch Transaction:**
 ```
-ไฟล์: src/hooks/useContracts.ts
-Input: ไม่มี (ใช้ wallet จาก Privy)
-Output: { getContracts }
+Smart Wallet executeBatch:
+├── [1] Core.recordDemolition(owner, buildingId, 0) -- ถ้า on-chain
+└── [2] Core.recordBuildingPlacement(owner, type, asset, 0, newX, newY)
 ```
-
-**ทำอะไร:** สร้าง ethers.js contract instances สำหรับ BankAdapter, BuildingRegistry, DefiCityCore, etc.
 
 ---
 
 ## 8. Config - ค่า Contract และ Aave
 
 ### 8.1 `config/contracts.ts` - Contract Addresses + ABIs
-
-รวม **ที่อยู่ contract** และ **ABI** ทั้งหมดไว้ในไฟล์เดียว
 
 **Contract Addresses (Base Sepolia):**
 
@@ -662,7 +704,6 @@ Output: { getContracts }
 | `BANK_ADAPTER` | `0x1630...` | Adapter สำหรับ Aave |
 | `AAVE_POOL` | `0x8bAB...` | Aave V3 Pool |
 | `AAVE_DATA_PROVIDER` | `0xBc9f...` | Aave Data Provider |
-| `AAVE_POOL_ADDRESSES_PROVIDER` | `0xE4C2...` | Aave Addresses Provider |
 
 **Token Addresses (Base Sepolia):**
 
@@ -678,28 +719,20 @@ Output: { getContracts }
 
 | ABI | ฟังก์ชันหลัก |
 |-----|-------------|
-| `WALLET_FACTORY` | createWallet, createOrGetWallet |
-| `DEFICITY_CORE` | createTownHall, getUserBuildings, moveBuilding |
+| `DEFICITY_CORE` | createTownHall, getUserBuildings, recordBuildingPlacement, recordDemolition |
 | `SMART_WALLET` | execute, executeBatch |
-| `BUILDING_REGISTRY` | preparePlace |
-| `BANK_ADAPTER` | preparePlace |
-| `ERC20` | balanceOf, approve, transfer |
 | `AAVE_POOL` | supply, withdraw, borrow, repay, getUserAccountData |
-| `AAVE_DATA_PROVIDER` | getUserReserveData, getReserveData, getReserveCaps, getReserveConfigurationData |
-| `AAVE_ORACLE` | getAssetPrice, BASE_CURRENCY_UNIT |
-| `AAVE_POOL_ADDRESSES_PROVIDER` | getPriceOracle, getPool |
+| `AAVE_DATA_PROVIDER` | getUserReserveData, getReserveData, getReserveCaps |
 
 ### 8.2 `config/aave.ts` - Aave Market Config
 
-**Fallback asset prices (ใช้เมื่อ Oracle ไม่พร้อม):**
+**Fallback asset prices:**
 ```typescript
 ASSET_PRICES = {
   USDC: 1, USDT: 1, ETH: 3000,
   WBTC: 90000, LINK: 15, cbETH: 3100
 }
 ```
-
-**Aave Market Data:** ข้อมูล fallback สำหรับ APY, LTV, Liquidation Threshold ของแต่ละ asset
 
 ---
 
@@ -719,24 +752,8 @@ GRID_SIZE = 13                      // ขนาดแผนที่เมื�
 
 ตั้งค่า Wagmi ให้รู้จัก:
 - **Chain ไหน**: Base Sepolia
-- **เชื่อมต่อ wallet ยังไง**: MetaMask (injected) + WalletConnect
+- **เชื่อมต่อ wallet ยังไง**: MetaMask + WalletConnect
 - **ส่ง request ไปที่ไหน**: RPC URL
-
-### 9.3 `contracts/` - Legacy Contract Config
-
-ที่อยู่ contract และ ABI แบบเดิม (ใช้ร่วมกับ `config/contracts.ts`):
-- `addresses.ts` - ที่อยู่แบบ typed (`0x${string}`)
-- `abis/ERC20.ts` - ABI ของ ERC20
-- `abis/SmartWallet.ts` - ABI ของ Smart Wallet
-- `abis/SimpleWalletFactory.ts` - ABI ของ WalletFactory + DefiCityCore
-
-### 9.4 `utils.ts` - Utility
-
-มีฟังก์ชัน `cn()` สำหรับรวม CSS class:
-```typescript
-cn('text-red', isActive && 'font-bold', className)
-// → "text-red font-bold custom-class"
-```
 
 ---
 
@@ -747,144 +764,106 @@ cn('text-red', isActive && 'font-bold', className)
 ```
 1. User เปิด https://deficity.com/
          ↓
-2. Next.js render:
-   Root Layout (โหลด font, dark mode)
-     └── Landing Page (HeroSection, Features, ...)
+2. Next.js render Landing Page
          ↓
-3. User เห็นหน้า Landing สวยงาม
-         ↓
-4. User กดปุ่ม "CONNECT" หรือ "START PLAYING"
-         ↓
-5. Redirect ไป /app
+3. User กดปุ่ม "CONNECT" → Redirect ไป /app
 ```
 
 ### Flow 2: Login ด้วย Wallet
 
 ```
-1. เข้า /app → Next.js render:
-   Root Layout
-     └── App Layout (PrivyProvider + WagmiProvider)
-         └── App Page
-              ↓
-2. Privy ยังไม่ ready → แสดง "LOADING..."
-              ↓
-3. Privy ready, ยังไม่ authenticated → แสดงปุ่ม "CONNECT WALLET"
-              ↓
-4. User กด "CONNECT WALLET" → Privy เปิด popup ให้เลือก wallet
-              ↓
-5. User เลือก MetaMask → MetaMask popup ขึ้น → กด approve
-              ↓
-6. authenticated = true, ได้ address
-              ↓
-7. ดึงข้อมูล Smart Wallet → ถ้ายังไม่มี แสดง Modal สร้าง Town Hall
+1. เข้า /app → PrivyProvider + WagmiProvider ถูกโหลด
+         ↓
+2. User กด "CONNECT WALLET" → เลือก MetaMask
+         ↓
+3. ได้ address → ดึง Smart Wallet
+         ↓
+4. ถ้ายังไม่มี → แสดง Modal สร้าง Town Hall
 ```
 
-### Flow 3: สร้าง Town Hall (ครั้งแรก)
+### Flow 3: สร้าง Town Hall
 
 ```
-1. ไม่มี Smart Wallet → แสดง Modal บังคับ (fullscreen overlay)
-              ↓
-2. User กดปุ่ม "CREATE TOWN HALL"
-              ↓
-3. เรียก DefiCityCore.createTownHall(7, 7) (กลาง grid 13x13)
-              ↓
-4. MetaMask popup → user confirm transaction
-              ↓
-5. Transaction ส่งไป Base Sepolia → contract deploy Smart Wallet
-              ↓
-6. refetch ข้อมูล Smart Wallet
-              ↓
-7. แสดง Dashboard เต็ม + City Map พร้อม Town Hall ตรงกลาง
+1. กดปุ่ม "CREATE TOWN HALL"
+         ↓
+2. DefiCityCore.createTownHall(7, 7)
+         ↓
+3. Deploy Smart Wallet + สร้าง Town Hall
+         ↓
+4. แสดง Dashboard + City Map
 ```
 
-### Flow 4: ฝากเงินเข้า Vault (Deposit)
+### Flow 4: Supply เข้า Aave (สร้าง Bank Building)
 
 ```
-1. User เลือก token (ETH, USDC, USDT, WBTC, LINK)
-              ↓
-2. User ใส่จำนวน
-   → ถ้ายอดไม่พอ → แสดง "INSUFFICIENT [TOKEN] BALANCE" (ปุ่ม disabled)
-              ↓
-3. User กดปุ่ม "DEPOSIT TO VAULT"
-              ↓
-4. ถ้า ETH → ส่ง ETH ตรงจาก MetaMask ไป Smart Wallet
-   ถ้า ERC20 → เรียก Token.transfer() ไป Smart Wallet
-              ↓
-5. MetaMask popup → user confirm
-              ↓
-6. Transaction ส่งไป chain → รอ confirm
-              ↓
-7. รอ 2 วินาที → refetch balance ใหม่
+1. คลิก tile บน City Map → Build Modal เปิด
+         ↓
+2. เลือก SUPPLY tab → เลือก asset + ใส่จำนวน
+         ↓
+3. กดปุ่ม "SUPPLY & BUILD"
+         ↓
+4. Smart Wallet executeBatch:
+   [wrap (ถ้า ETH)] → [approve] → [supply] → [recordBuilding]
+         ↓
+5. Bank Building (สีเขียว) ปรากฏบน City Map
 ```
 
-### Flow 5: ถอนเงินจาก Vault (Withdraw)
+### Flow 5: Borrow จาก Aave (สร้าง Borrow Building)
 
 ```
-1. User เลือก token + ใส่จำนวน
-   → ถ้ายอดไม่พอ → แสดง "INSUFFICIENT [TOKEN] IN VAULT" (ปุ่ม disabled)
-              ↓
-2. กดปุ่ม "WITHDRAW TO WALLET"
-              ↓
-3. เรียก SmartWallet.execute() ให้ Smart Wallet ส่งเงินกลับ EOA
-              ↓
-4. MetaMask popup → user confirm
-              ↓
-5. Smart Wallet ส่งเงินไปที่ EOA address
-              ↓
-6. refetch balance ใหม่
+1. คลิก tile บน City Map → Build Modal เปิด
+         ↓
+2. เลือก BORROW tab → เลือก asset + ใส่จำนวน
+   → ต้องมี Supply เป็น collateral ก่อน
+   → แสดง Health Factor preview
+         ↓
+3. กดปุ่ม "BORROW"
+         ↓
+4. Smart Wallet executeBatch:
+   [borrow] → [recordBuildingPlacement]
+         ↓
+5. Borrow Building (สีแดง) ปรากฏบน City Map
 ```
 
-### Flow 6: Supply เข้า Aave (สร้าง/อัปเกรด Bank Building)
+### Flow 6: Withdraw จาก Aave
 
 ```
-1. User คลิก tile บน City Map
-              ↓
-2. Build Modal เปิดขึ้น → แสดง AavePanel
-              ↓
-3. User เลือก asset + ใส่จำนวน
-   → แสดง Reserve Data (APY, Supply Cap, Oracle Price, LTV)
-   → ถ้า pool เต็ม → แสดง "SUPPLY CAP REACHED" (ปุ่ม disabled)
-   → ถ้ายอดไม่พอ → แสดง "INSUFFICIENT [TOKEN] IN VAULT"
-              ↓
-4. กดปุ่ม "SUPPLY & BUILD" (สร้างใหม่) หรือ "SUPPLY MORE" (อัปเกรด)
-              ↓
-5. Smart Wallet execute batch:
-   [wrap ETH (ถ้า ETH)] → [approve] → [supply to Aave] → [record building (ถ้าสร้างใหม่)]
-              ↓
-6. Transaction confirm → refetch buildings + balances
-              ↓
-7. Building ปรากฏบน City Map (หรือ level เพิ่มขึ้น)
+1. คลิก Bank Building → SUPPLY tab เปิด
+         ↓
+2. กดปุ่ม "WITHDRAW" ข้างๆ position
+         ↓
+3. ถ้าถอนทั้งหมด → demolish building
+         ↓
+4. เงินกลับมาที่ Smart Wallet (Vault)
 ```
 
-### Flow 7: Withdraw จาก Aave (ถอน + ทำลายตึก)
+### Flow 7: Repay เงินยืม
 
 ```
-1. User คลิกตึกที่มีอยู่ → Build Modal เปิด
-              ↓
-2. เห็น position ปัจจุบัน → กดปุ่ม "WITHDRAW" ข้างๆ asset
-              ↓
-3. ถ้าถอนทั้งหมด (>99%) → demolish buildings ที่เกี่ยวข้อง
-   ถ้าถอนบางส่วน → ไม่ demolish (แค่ลด amount)
-              ↓
-4. Smart Wallet execute: Aave Pool.withdraw()
-              ↓
-5. เงินกลับมาที่ Smart Wallet (Vault)
-              ↓
-6. refetch buildings + positions → ตึกหายจาก map (ถ้า demolish)
+1. คลิก Borrow Building → BORROW tab เปิด
+         ↓
+2. กดปุ่ม "REPAY" ข้างๆ position
+         ↓
+3. Smart Wallet executeBatch:
+   [approve] → [repay] → [recordDemolition (ถ้า repay all)]
+         ↓
+4. Borrow Building หายไป (ถ้า repay all)
 ```
 
 ### Flow 8: ย้ายตึกบน City Map
 
 ```
-1. User ลากตึก (drag) จากตำแหน่งเดิม
-              ↓
-2. ปล่อยที่ตำแหน่งใหม่ (drop) บน tile ว่าง
-              ↓
-3. เรียก DefiCityCore.moveBuilding(buildingId, newX, newY) ผ่าน Smart Wallet
-              ↓
-4. MetaMask popup → confirm
-              ↓
-5. refetch buildings → ตึกแสดงที่ตำแหน่งใหม่
+1. ลากตึกจากตำแหน่งเดิม
+         ↓
+2. ปล่อยที่ตำแหน่งใหม่
+         ↓
+3. ถ้า on-chain building (ID < 100000):
+   [recordDemolition] → [recordBuildingPlacement]
+
+   ถ้า virtual building (ID >= 100000):
+   [recordBuildingPlacement] เท่านั้น
+         ↓
+4. ตึกแสดงที่ตำแหน่งใหม่
 ```
 
 ---
@@ -894,25 +873,20 @@ cn('text-red', isActive && 'font-bold', className)
 ### Blockchain Stack
 
 ```
-Privy (@privy-io/react-auth v3.10.2)
+Privy (@privy-io/react-auth)
   └── จัดการ login/logout ด้วย wallet
-      └── ให้ authenticated, login(), logout()
 
-Wagmi (wagmi v3.3.2)
-  └── อ่าน/เขียน smart contract จาก React
-      └── useWriteContract, useSendTransaction, ...
+Wagmi (wagmi)
+  └── React hooks สำหรับอ่าน/เขียน contract
 
-Viem (viem v2.44.2)
+Viem (viem)
   └── library พื้นฐานสำหรับ Ethereum
-      └── createPublicClient, parseEther, formatUnits, ...
 
-Ethers.js (ethers - peer dependency)
+Ethers.js (ethers)
   └── ใช้ใน hooks สำหรับ Aave integration
-      └── Contract, BrowserProvider, AbiCoder, ...
 
-React Query (@tanstack/react-query v5.90.16)
+React Query (@tanstack/react-query)
   └── cache ข้อมูลจาก blockchain
-      └── ไม่ต้อง fetch ซ้ำๆ ถ้าข้อมูลยังใหม่อยู่
 ```
 
 ### UI Stack
@@ -922,60 +896,13 @@ Next.js 16.1.1 (next)
   └── Framework หลัก (routing, SSR, build)
 
 React 19.2.3 (react)
-  └── UI library (components, hooks, state)
+  └── UI library
 
 Tailwind CSS 4 (tailwindcss)
-  └── CSS framework (class-based styling)
-      └── เช่น "text-amber-400 text-sm bg-slate-900"
+  └── CSS framework
 
-Framer Motion 12.26.2 (framer-motion)
+Framer Motion (framer-motion)
   └── Animation library
-      └── เช่น scroll animation, hover effects
-
-Lucide React + React Icons
-  └── Icon libraries
-```
-
-### ความสัมพันธ์ระหว่าง Privy, Wagmi, Viem, Ethers
-
-```
-              User กดปุ่ม
-                  │
-                  ▼
-┌─────────────────────────────┐
-│         Privy                │  ← จัดการ login + ให้ wallet provider
-│   "user ใช้ wallet ไหน?"    │
-│   "authenticated หรือยัง?"  │
-└──────────┬──────────────────┘
-           │ ได้ wallet address + provider
-           ▼
-┌─────────────────────────────┐     ┌──────────────────────────┐
-│         Wagmi                │     │       Ethers.js          │
-│   useSendTransaction()      │     │  new Contract(addr, abi) │
-│   useWriteContract()        │     │  signer.sendTransaction  │
-│   React hooks สำหรับ chain   │     │  ใช้ใน Aave hooks       │
-└──────────┬──────────────────┘     └──────────┬───────────────┘
-           │ ใช้ viem ข้างใน                    │
-           ▼                                    │
-┌─────────────────────────────┐                │
-│         Viem                 │  ←─────────────┘
-│   createPublicClient()       │
-│   parseEther(), formatUnits()│
-│   encodeFunctionData()       │
-│   ส่ง request ไปหา RPC node │
-└──────────┬──────────────────┘
-           │ HTTP request
-           ▼
-┌─────────────────────────────┐
-│    Base Sepolia (blockchain) │
-│    Smart Contracts:          │
-│    ├── DefiCityCore          │
-│    ├── SmartWallet           │
-│    ├── BankAdapter           │
-│    ├── BuildingRegistry      │
-│    ├── Aave Pool             │
-│    └── ERC20 Tokens          │
-└─────────────────────────────┘
 ```
 
 ---
@@ -990,18 +917,16 @@ Lucide React + React Icons
 | **Blockchain** | `WagmiProvider.tsx`, `wagmi.ts` | เชื่อม chain |
 | **Smart Wallet** | `useSmartWallet.ts` | ดึง Smart Wallet address |
 | **Deploy** | `useCreateSmartAccount.ts` | สร้าง Town Hall |
-| **Deposit** | `useVaultDeposit.ts` | ฝากเงิน EOA → Vault (5 tokens) |
-| **Withdraw** | `useVaultWithdraw.ts` | ถอนเงิน Vault → EOA (5 tokens) |
-| **Aave Supply** | `useAaveSupply.ts` | Supply เข้า Aave + สร้างตึก |
-| **Aave Withdraw** | `useAaveWithdraw.ts` | ถอนจาก Aave + demolish ตึก |
+| **Deposit** | `useVaultDeposit.ts` | ฝากเงิน EOA → Vault |
+| **Withdraw** | `useVaultWithdraw.ts` | ถอนเงิน Vault → EOA |
+| **Aave Supply** | `useAaveSupply.ts` | Supply เข้า Aave + สร้าง bank building |
+| **Aave Withdraw** | `useAaveWithdraw.ts` | ถอนจาก Aave + demolish |
+| **Aave Borrow** | `useAaveBorrow.ts` | Borrow จาก Aave + สร้าง borrow building |
+| **Aave Repay** | `useAaveRepay.ts` | Repay + demolish borrow building |
 | **Aave Position** | `useAavePosition.ts` | ดึง position (supply/borrow/HF) |
-| **Aave Market** | `useAaveMarketData.ts` | ดึง APY จาก on-chain |
-| **Aave Reserve** | `useAaveReserveData.ts` | ดึง reserve data ครบ (cap, oracle, LTV) |
-| **Buildings** | `useCityBuildings.ts` | ดึงตึกจาก on-chain + live amounts |
+| **Aave Reserve** | `useAaveReserveData.ts` | ดึง reserve data ครบ |
+| **Buildings** | `useCityBuildings.ts` | ดึงตึก (supply + borrow) จาก on-chain |
 | **Move** | `useMoveBuilding.ts` | ย้ายตึกบน grid |
 | **City Map** | `CityGrid.tsx` | แผนที่เมือง 13x13 + drag-to-move |
-| **Aave UI** | `AavePanel.tsx` | UI Supply/Withdraw + reserve info |
-| **Config** | `config/contracts.ts`, `config/aave.ts` | Contract addresses, ABIs, Aave config |
-| **Legacy Config** | `lib/contracts/` | Contract addresses + ABIs (เดิม) |
-| **UI** | `components/landing/*` | หน้า Landing |
-| **Style** | `globals.css` | Tailwind + theme |
+| **Aave UI** | `AavePanel.tsx` | UI Supply/Borrow Tabs |
+| **Config** | `config/contracts.ts`, `config/aave.ts` | Contract addresses, ABIs |
