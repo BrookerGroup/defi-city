@@ -1,7 +1,7 @@
 # DefiCity Contract Architecture v2.0: Self-Custodial Design
 
-**Document Version:** 2.1
-**Last Updated:** 2026-01-28
+**Document Version:** 2.2
+**Last Updated:** 2026-01-29
 **Status:** Implemented (Base Sepolia Testnet)
 
 ---
@@ -64,6 +64,7 @@ User EOA → SmartWallet → execute/executeBatch → DeFi Protocols
 ### 3. Trustless Operation
 
 Users can:
+
 - View SmartWallet balance on-chain without game UI
 - Withdraw from SmartWallet directly via block explorer
 - Revoke session keys at any time
@@ -119,9 +120,20 @@ Users can:
 ### 1. DefiCityCore (`contracts/core/DefiCityCore.sol`)
 
 **Type:** Central bookkeeping contract
-**Inheritance:** `ReentrancyGuard`, `Pausable`, `Ownable`
+**Inheritance:** `ReentrancyGuard`, `Pausable`, `Ownable`, `AccessControl`
+
+**Access Control Roles:**
+
+| Role                  | Purpose                           |
+| --------------------- | --------------------------------- |
+| `PAUSER_ROLE`         | Can pause/unpause the contract    |
+| `ASSET_MANAGER_ROLE`  | Can add/remove supported assets   |
+| `MODULE_MANAGER_ROLE` | Can update module addresses       |
+| `EMERGENCY_ROLE`      | Reserved for emergency operations |
+| `DEFAULT_ADMIN_ROLE`  | Can grant/revoke all roles        |
 
 **Responsibilities:**
+
 - Track buildings and game state on a 13x13 grid
 - Record user actions for analytics
 - Maintain user statistics and leaderboards
@@ -174,21 +186,24 @@ struct UserStats {
 
 **Key Functions:**
 
-| Function | Access | Purpose |
-|----------|--------|---------|
-| `createTownHall(uint256 x, uint256 y)` | External | Entry point: deploy SmartWallet + create Town Hall |
-| `registerWallet(address user, address smartWallet)` | WalletFactory | Register SmartWallet mapping |
-| `recordBuildingPlacement(...)` | onlyModules | Record building after DeFi action |
-| `recordDemolition(address user, uint256 buildingId, uint256 returnedAmount)` | onlyModules | Record building demolition |
-| `recordHarvest(address user, uint256 buildingId, uint256 yieldAmount)` | onlyModules | Record reward harvest |
-| `recordDeposit(address user, address asset, uint256 amount)` | onlyModules | Record deposit for analytics |
-| `recordWithdrawal(address user, address asset, uint256 amount)` | onlyModules | Record withdrawal |
-| `moveBuilding(uint256 buildingId, uint256 newX, uint256 newY)` | onlyUserWallet | Move building on grid |
-| `getUserBuildings(address user)` | View | Get all user's buildings |
-| `getBuildingAt(address user, uint256 x, uint256 y)` | View | Get building at grid position |
-| `getUserStats(address user)` | View | Get user statistics |
-| `addSupportedAsset(address asset)` | Owner | Whitelist asset |
-| `setModules(address buildingManager, address feeManager, address emergencyManager)` | Owner | Set module addresses |
+| Function                                                                            | Access              | Purpose                                            |
+| ----------------------------------------------------------------------------------- | ------------------- | -------------------------------------------------- |
+| `createTownHall(uint256 x, uint256 y)`                                              | External            | Entry point: deploy SmartWallet + create Town Hall |
+| `registerWallet(address user, address smartWallet)`                                 | WalletFactory       | Register SmartWallet mapping                       |
+| `recordBuildingPlacement(...)`                                                      | onlyModules         | Record building after DeFi action                  |
+| `recordDemolition(address user, uint256 buildingId, uint256 returnedAmount)`        | onlyModules         | Record building demolition                         |
+| `recordHarvest(address user, uint256 buildingId, uint256 yieldAmount)`              | onlyModules         | Record reward harvest                              |
+| `recordDeposit(address user, address asset, uint256 amount)`                        | onlyModules         | Record deposit for analytics                       |
+| `recordWithdrawal(address user, address asset, uint256 amount)`                     | onlyModules         | Record withdrawal                                  |
+| `moveBuilding(uint256 buildingId, uint256 newX, uint256 newY)`                      | onlyUserWallet      | Move building on grid                              |
+| `getUserBuildings(address user)`                                                    | View                | Get all user's buildings                           |
+| `getBuildingAt(address user, uint256 x, uint256 y)`                                 | View                | Get building at grid position                      |
+| `getUserStats(address user)`                                                        | View                | Get user statistics                                |
+| `addSupportedAsset(address asset)`                                                  | ASSET_MANAGER_ROLE  | Whitelist asset                                    |
+| `removeSupportedAsset(address asset)`                                               | ASSET_MANAGER_ROLE  | Remove asset from whitelist                        |
+| `setModules(address buildingManager, address feeManager, address emergencyManager)` | MODULE_MANAGER_ROLE | Set module addresses                               |
+| `pause()`                                                                           | PAUSER_ROLE         | Pause contract                                     |
+| `unpause()`                                                                         | PAUSER_ROLE         | Unpause contract                                   |
 
 **Events:**
 
@@ -200,6 +215,10 @@ event BuildingDemolished(uint256 indexed buildingId, address indexed user, uint2
 event Harvested(uint256 indexed buildingId, address indexed user, uint256 yieldAmount);
 event DepositRecorded(address indexed user, address indexed asset, uint256 amount);
 event WithdrawalRecorded(address indexed user, address indexed asset, uint256 amount);
+event ModulesUpdated(address buildingManager, address feeManager, address emergencyManager);
+event FactoryUpdated(address walletFactory);
+event AssetAdded(address indexed asset);
+event AssetRemoved(address indexed asset);
 ```
 
 ---
@@ -210,6 +229,7 @@ event WithdrawalRecorded(address indexed user, address indexed asset, uint256 am
 **Inheritance:** `IAccount`, `IAccountExecute`, `ReentrancyGuard`, `IERC721Receiver`, `IERC1155Receiver`
 
 **Responsibilities:**
+
 - Hold all user tokens (ERC20, native ETH, ERC721, ERC1155)
 - Execute DeFi protocol interactions
 - Manage session key permissions
@@ -241,21 +261,22 @@ struct SessionKeyInfo {
 
 **Key Functions:**
 
-| Function | Access | Purpose |
-|----------|--------|---------|
-| `validateUserOp(UserOperation, bytes32, uint256)` | EntryPoint | ERC-4337 validation |
-| `execute(address dest, uint256 value, bytes func)` | Owner/EntryPoint | Execute single transaction |
-| `executeBatch(address[] dest, uint256[] value, bytes[] func)` | Owner/EntryPoint | Execute batch transactions |
-| `executeFromGame(address[] targets, uint256[] values, bytes[] datas)` | SessionKey | Execute via session key |
-| `createSessionKey(address key, uint256 validUntil, uint256 dailyLimit)` | Owner | Create session key |
-| `revokeSessionKey(address key)` | Owner | Revoke session key |
-| `updateWhitelistedTarget(address target, bool whitelisted)` | Owner | Manage target whitelist |
-| `emergencyWithdraw(address token, address to, uint256 amount)` | Owner | Recover tokens |
-| `transferOwnership(address newOwner)` | Owner | Start 2-step ownership transfer |
-| `acceptOwnership()` | PendingOwner | Accept ownership transfer |
-| `pause()` / `unpause()` | Owner | Emergency pause |
+| Function                                                                | Access           | Purpose                         |
+| ----------------------------------------------------------------------- | ---------------- | ------------------------------- |
+| `validateUserOp(UserOperation, bytes32, uint256)`                       | EntryPoint       | ERC-4337 validation             |
+| `execute(address dest, uint256 value, bytes func)`                      | Owner/EntryPoint | Execute single transaction      |
+| `executeBatch(address[] dest, uint256[] value, bytes[] func)`           | Owner/EntryPoint | Execute batch transactions      |
+| `executeFromGame(address[] targets, uint256[] values, bytes[] datas)`   | SessionKey       | Execute via session key         |
+| `createSessionKey(address key, uint256 validUntil, uint256 dailyLimit)` | Owner            | Create session key              |
+| `revokeSessionKey(address key)`                                         | Owner            | Revoke session key              |
+| `updateWhitelistedTarget(address target, bool whitelisted)`             | Owner            | Manage target whitelist         |
+| `emergencyWithdraw(address token, address to, uint256 amount)`          | Owner            | Recover tokens                  |
+| `transferOwnership(address newOwner)`                                   | Owner            | Start 2-step ownership transfer |
+| `acceptOwnership()`                                                     | PendingOwner     | Accept ownership transfer       |
+| `pause()` / `unpause()`                                                 | Owner            | Emergency pause                 |
 
 **Token Reception:**
+
 - Supports receiving ETH, ERC-721, ERC-1155 tokens
 - Implements `onERC721Received()`, `onERC1155Received()`
 
@@ -264,6 +285,15 @@ struct SessionKeyInfo {
 ### 3. WalletFactory (`contracts/factory/WalletFactory.sol`)
 
 **Type:** Deterministic wallet deployer using CREATE2
+**Inheritance:** `AccessControl`
+
+**Access Control Roles:**
+
+| Role                 | Purpose                                      |
+| -------------------- | -------------------------------------------- |
+| `DEPLOYER_ROLE`      | Can deploy wallets (granted to DefiCityCore) |
+| `ADMIN_ROLE`         | Administrative operations                    |
+| `DEFAULT_ADMIN_ROLE` | Can grant/revoke all roles                   |
 
 **Key State:**
 
@@ -277,14 +307,15 @@ uint256 public totalWallets;
 
 **Key Functions:**
 
-| Function | Access | Purpose |
-|----------|--------|---------|
-| `createWallet(address owner, uint256 salt)` | External | Deploy wallet via CREATE2 |
-| `createOrGetWallet(address owner)` | External | Create if needed or return existing |
-| `getAddress(address owner, uint256 salt)` | View | Compute counterfactual address |
-| `isWalletDeployed(address owner, uint256 salt)` | View | Check if wallet exists |
-| `getWalletByOwner(address owner)` | View | Get default wallet |
-| `createWalletsBatch(address[] owners, uint256[] salts)` | External | Batch deployment |
+| Function                                                | Access        | Purpose                             |
+| ------------------------------------------------------- | ------------- | ----------------------------------- |
+| `createWallet(address owner, uint256 salt)`             | DEPLOYER_ROLE | Deploy wallet via CREATE2           |
+| `createOrGetWallet(address owner)`                      | DEPLOYER_ROLE | Create if needed or return existing |
+| `getAddress(address owner, uint256 salt)`               | View          | Compute counterfactual address      |
+| `isWalletDeployed(address owner, uint256 salt)`         | View          | Check if wallet exists              |
+| `getWalletByOwner(address owner)`                       | View          | Get default wallet                  |
+| `createWalletsBatch(address[] owners, uint256[] salts)` | DEPLOYER_ROLE | Batch deployment                    |
+| `getAddressesBatch(address[] owners, uint256[] salts)`  | View          | Compute multiple addresses          |
 
 **Events:**
 
@@ -297,7 +328,15 @@ event WalletCreated(address indexed wallet, address indexed owner, uint256 salt,
 ### 4. BuildingRegistry (`contracts/core/BuildingRegistry.sol`)
 
 **Type:** Adapter routing and management
-**Inheritance:** `Ownable`, `ReentrancyGuard`
+**Inheritance:** `AccessControl`, `Pausable`, `ReentrancyGuard`
+
+**Access Control Roles:**
+
+| Role                   | Purpose                                    |
+| ---------------------- | ------------------------------------------ |
+| `ADAPTER_MANAGER_ROLE` | Can register, upgrade, and remove adapters |
+| `PAUSER_ROLE`          | Can pause/unpause the contract             |
+| `DEFAULT_ADMIN_ROLE`   | Can grant/revoke all roles                 |
 
 **Purpose:** Central registry that routes building operations to the correct adapter. Enables hot-swappable adapter implementations without changing core contracts.
 
@@ -311,17 +350,21 @@ mapping(string => bool) public isRegistered;      // Registration status
 
 **Key Functions:**
 
-| Function | Access | Purpose |
-|----------|--------|---------|
-| `preparePlace(string type, address user, address wallet, bytes params)` | View | Route to adapter's preparePlace |
-| `prepareHarvest(string type, address user, address wallet, uint256 id, bytes params)` | View | Route to adapter's prepareHarvest |
-| `prepareDemolish(string type, address user, address wallet, uint256 id, bytes params)` | View | Route to adapter's prepareDemolish |
-| `registerAdapter(string type, address adapter)` | Owner | Register new adapter |
-| `upgradeAdapter(string type, address newAdapter)` | Owner | Hot-swap adapter |
-| `removeAdapter(string type)` | Owner | Remove adapter |
-| `validatePlacement(string type, bytes params)` | View | Validate placement params |
-| `getPlacementFee(string type)` | View | Get fee in basis points |
-| `calculateFee(string type, uint256 amount)` | View | Calculate fee amount |
+| Function                                                                               | Access               | Purpose                                  |
+| -------------------------------------------------------------------------------------- | -------------------- | ---------------------------------------- |
+| `preparePlace(string type, address user, address wallet, bytes params)`                | View (whenNotPaused) | Route to adapter's preparePlace          |
+| `prepareHarvest(string type, address user, address wallet, uint256 id, bytes params)`  | View (whenNotPaused) | Route to adapter's prepareHarvest        |
+| `prepareDemolish(string type, address user, address wallet, uint256 id, bytes params)` | View (whenNotPaused) | Route to adapter's prepareDemolish       |
+| `registerAdapter(string type, address adapter)`                                        | ADAPTER_MANAGER_ROLE | Register new adapter                     |
+| `upgradeAdapter(string type, address newAdapter)`                                      | ADAPTER_MANAGER_ROLE | Hot-swap adapter                         |
+| `removeAdapter(string type)`                                                           | ADAPTER_MANAGER_ROLE | Remove adapter                           |
+| `validatePlacement(string type, bytes params)`                                         | View                 | Validate placement params                |
+| `getPlacementFee(string type)`                                                         | View                 | Get fee in basis points                  |
+| `calculateFee(string type, uint256 amount)`                                            | View                 | Calculate fee amount                     |
+| `getRequiredProtocols(string type)`                                                    | View                 | Get protocol addresses for building type |
+| `estimateYield(string type, uint256 buildingId)`                                       | View                 | Estimate yield for building              |
+| `pause()`                                                                              | PAUSER_ROLE          | Pause contract                           |
+| `unpause()`                                                                            | PAUSER_ROLE          | Unpause contract                         |
 
 ---
 
@@ -436,6 +479,7 @@ struct SessionKeyInfo {
 ### Lifecycle
 
 **1. Creation (user signs once):**
+
 ```solidity
 smartWallet.createSessionKey(
     sessionKeyAddress,
@@ -445,6 +489,7 @@ smartWallet.createSessionKey(
 ```
 
 **2. Usage (no user signature needed):**
+
 ```solidity
 // Backend calls with session key signature
 smartWallet.executeFromGame(
@@ -455,26 +500,28 @@ smartWallet.executeFromGame(
 ```
 
 **3. Validation (automatic):**
+
 - Session key must be active and not expired
 - Rolling 24-hour spending window enforced
 - All targets must be whitelisted
 - ETH value estimated at $2000/ETH for limit tracking
 
 **4. Revocation (user can revoke anytime):**
+
 ```solidity
 smartWallet.revokeSessionKey(sessionKeyAddress);
 ```
 
 ### Security Constraints
 
-| Constraint | Limit |
-|-----------|-------|
-| Min validity | 1 hour |
-| Max validity | 30 days |
-| Daily spending cap | Configurable per key |
-| Target whitelist | Only approved contracts |
+| Constraint             | Limit                                 |
+| ---------------------- | ------------------------------------- |
+| Min validity           | 1 hour                                |
+| Max validity           | 30 days                               |
+| Daily spending cap     | Configurable per key                  |
+| Target whitelist       | Only approved contracts               |
 | Withdrawal restriction | Cannot transfer to external addresses |
-| Revocation | Owner can revoke immediately |
+| Revocation             | Owner can revoke immediately          |
 
 ---
 
@@ -518,6 +565,7 @@ interface IBuildingAdapter {
 **Fee:** 0.05% (5 basis points)
 
 **PlaceParams:**
+
 ```solidity
 struct PlaceParams {
     address asset;          // Token to supply
@@ -540,6 +588,7 @@ struct PlaceParams {
 **Fee:** 0.05% (5 basis points)
 
 **PlaceParams:**
+
 ```solidity
 struct PlaceParams {
     address tokenA;
@@ -563,6 +612,7 @@ struct PlaceParams {
 **Fee:** 0.05% (5 basis points)
 
 **PlaceParams:**
+
 ```solidity
 struct PlaceParams {
     uint256 amount;         // USDC amount for tickets
@@ -581,37 +631,53 @@ struct PlaceParams {
 ### Trust Requirements (Self-Custodial)
 
 Users must trust:
+
 1. Their own SmartWallet contract (they own it)
 2. Session key is properly scoped (they created it)
 
 Users DON'T need to trust:
+
 - Game contracts holding funds correctly (they don't hold any)
 - Admin won't drain funds (can't access SmartWallet)
 - Emergency pause won't lock funds (funds in SmartWallet, not Core)
 
 ### Security Features
 
-| Feature | Implementation |
-|---------|---------------|
-| Reentrancy Protection | `ReentrancyGuard` on all critical functions |
-| Pausable | Emergency pause on Core and SmartWallet |
-| Access Control | `onlyOwner`, `onlyModules`, `onlyUserWallet` modifiers |
-| Session Key Limits | Rolling 24h window with USD spending cap |
-| Health Factor | BankAdapter checks HF >= 1.5 before borrowing |
-| Grid Occupancy | Prevents duplicate buildings at same coordinates |
-| 2-Step Ownership | `transferOwnership()` + `acceptOwnership()` pattern |
-| Target Whitelist | Session keys can only call whitelisted contracts |
-| CREATE2 | Deterministic wallet addresses via factory |
+| Feature                   | Implementation                                             |
+| ------------------------- | ---------------------------------------------------------- |
+| Reentrancy Protection     | `ReentrancyGuard` on all critical functions                |
+| Pausable                  | Emergency pause on Core, BuildingRegistry, and SmartWallet |
+| Role-Based Access Control | OpenZeppelin `AccessControl` with granular roles           |
+| Legacy Access Control     | `onlyOwner`, `onlyModules`, `onlyUserWallet` modifiers     |
+| Session Key Limits        | Rolling 24h window with USD spending cap                   |
+| Health Factor             | BankAdapter checks HF >= 1.5 before borrowing              |
+| Grid Occupancy            | Prevents duplicate buildings at same coordinates           |
+| 2-Step Ownership          | `transferOwnership()` + `acceptOwnership()` pattern        |
+| Target Whitelist          | Session keys can only call whitelisted contracts           |
+| CREATE2                   | Deterministic wallet addresses via factory                 |
+
+### Access Control Roles Summary
+
+| Contract         | Role                   | Purpose                     |
+| ---------------- | ---------------------- | --------------------------- |
+| DefiCityCore     | `PAUSER_ROLE`          | Pause/unpause contract      |
+| DefiCityCore     | `ASSET_MANAGER_ROLE`   | Add/remove supported assets |
+| DefiCityCore     | `MODULE_MANAGER_ROLE`  | Update module addresses     |
+| DefiCityCore     | `EMERGENCY_ROLE`       | Emergency operations        |
+| BuildingRegistry | `ADAPTER_MANAGER_ROLE` | Manage adapters             |
+| BuildingRegistry | `PAUSER_ROLE`          | Pause/unpause contract      |
+| WalletFactory    | `DEPLOYER_ROLE`        | Deploy new wallets          |
+| WalletFactory    | `ADMIN_ROLE`           | Administrative operations   |
 
 ### Attack Vector Analysis
 
-| Attack | Mitigation |
-|--------|-----------|
-| Session key compromise | Limited: daily cap, time limit, target whitelist |
-| Core contract bug | Funds safe: Core is bookkeeping-only |
-| Bookkeeping inconsistency | UI issues only, funds unaffected |
-| Admin key compromise | Cannot access user SmartWallets |
-| Grid manipulation | `onlyUserWallet` modifier, occupancy checks |
+| Attack                    | Mitigation                                       |
+| ------------------------- | ------------------------------------------------ |
+| Session key compromise    | Limited: daily cap, time limit, target whitelist |
+| Core contract bug         | Funds safe: Core is bookkeeping-only             |
+| Bookkeeping inconsistency | UI issues only, funds unaffected                 |
+| Admin key compromise      | Cannot access user SmartWallets                  |
+| Grid manipulation         | `onlyUserWallet` modifier, occupancy checks      |
 
 ---
 
@@ -659,43 +725,43 @@ Users DON'T need to trust:
 
 **Core Contracts:**
 
-| Contract | Address |
-|----------|---------|
-| DefiCityCore | `0x641adC5d1e2AB02f772E86Dc3694d3e763fC549B` |
-| WalletFactory | `0x764f2D0F274d23B4cf51e5ae0c27e4020eD8ee2A` |
-| EntryPoint | `0x5864A489a25e8cE84b22903dc8f3038F6b0484f3` |
+| Contract         | Address                                      |
+| ---------------- | -------------------------------------------- |
+| DefiCityCore     | `0x641adC5d1e2AB02f772E86Dc3694d3e763fC549B` |
+| WalletFactory    | `0x764f2D0F274d23B4cf51e5ae0c27e4020eD8ee2A` |
+| EntryPoint       | `0x5864A489a25e8cE84b22903dc8f3038F6b0484f3` |
 | BuildingRegistry | `0x4c85d20BEF9D52ae6f4dAA05DE758932A3042486` |
-| BankAdapter | `0x16306E942AE4140ff4114C4548Bcb89500DaE5af` |
+| BankAdapter      | `0x16306E942AE4140ff4114C4548Bcb89500DaE5af` |
 
 **Aave V3 Protocol:**
 
-| Contract | Address |
-|----------|---------|
-| Aave Pool | `0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27` |
-| Aave Data Provider | `0xBc9f5b7E248451CdD7cA54e717a2BFe1F32b566b` |
+| Contract                     | Address                                      |
+| ---------------------------- | -------------------------------------------- |
+| Aave Pool                    | `0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27` |
+| Aave Data Provider           | `0xBc9f5b7E248451CdD7cA54e717a2BFe1F32b566b` |
 | Aave Pool Addresses Provider | `0xE4C23309117Aa30342BFaae6c95c6478e0A4Ad00` |
 
 **Token Addresses:**
 
-| Token | Address | Decimals |
-|-------|---------|----------|
-| USDC | `0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f` | 6 |
-| USDT | `0x0a215D8ba66387DCA84B284D18c3B4ec3de6E54a` | 6 |
-| ETH (WETH) | `0x4200000000000000000000000000000000000006` | 18 |
-| WBTC | `0x54114591963CF60EF3aA63bEfD6eC263D98145a4` | 8 |
-| LINK | `0x810D46F9a9027E28F9B01F75E2bdde839dA61115` | 18 |
+| Token      | Address                                      | Decimals |
+| ---------- | -------------------------------------------- | -------- |
+| USDC       | `0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f` | 6        |
+| USDT       | `0x0a215D8ba66387DCA84B284D18c3B4ec3de6E54a` | 6        |
+| ETH (WETH) | `0x4200000000000000000000000000000000000006` | 18       |
+| WBTC       | `0x54114591963CF60EF3aA63bEfD6eC263D98145a4` | 8        |
+| LINK       | `0x810D46F9a9027E28F9B01F75E2bdde839dA61115` | 18       |
 
 ---
 
 ## Supported Assets
 
-| Asset | Decimals | Building Type | DeFi Protocol | Status |
-|-------|----------|---------------|---------------|--------|
-| USDC | 6 | Bank | Aave V3 Supply | Active |
-| USDT | 6 | Bank | Aave V3 Supply | Active |
-| ETH (WETH) | 18 | Bank | Aave V3 Supply | Active |
-| WBTC | 8 | Bank | Aave V3 Supply | Active |
-| LINK | 18 | Bank | Aave V3 Supply | Active |
+| Asset      | Decimals | Building Type | DeFi Protocol  | Status |
+| ---------- | -------- | ------------- | -------------- | ------ |
+| USDC       | 6        | Bank          | Aave V3 Supply | Active |
+| USDT       | 6        | Bank          | Aave V3 Supply | Active |
+| ETH (WETH) | 18       | Bank          | Aave V3 Supply | Active |
+| WBTC       | 8        | Bank          | Aave V3 Supply | Active |
+| LINK       | 18       | Bank          | Aave V3 Supply | Active |
 
 Assets are whitelisted via `DefiCityCore.addSupportedAsset()` by contract owner.
 
@@ -737,7 +803,12 @@ contract/
 │   │   ├── IMegapot.sol             # Megapot Lottery
 │   │   └── IAToken.sol              # Aave aToken
 │   ├── mocks/
-│   │   └── MockEntryPoint.sol       # Test mock
+│   │   ├── MockEntryPoint.sol       # ERC-4337 EntryPoint mock
+│   │   ├── MockAavePool.sol         # Aave V3 Pool mock
+│   │   ├── MockAerodromeRouter.sol  # Aerodrome Router mock
+│   │   ├── MockAerodromePair.sol    # Aerodrome Pair mock
+│   │   ├── MockAerodromeGauge.sol   # Aerodrome Gauge mock
+│   │   └── MockMegapot.sol          # Megapot lottery mock
 │   └── MockERC20.sol               # Test token
 ├── deployments/
 │   └── baseSepolia.json            # Deployed addresses
@@ -745,6 +816,8 @@ contract/
 │   ├── deploy-base-sepolia.js      # Main deployment
 │   ├── deploy.js                   # Generic deployment
 │   └── test-deployed.js            # Verify deployment
-└── test/
-    └── DefiCityCore.test.js        # Core tests
+├── scripts/
+│   ├── verify-contracts.ts         # Contract verification script
+│   └── auto-verify-wallets.ts      # Auto-verify deployed wallets
+
 ```
