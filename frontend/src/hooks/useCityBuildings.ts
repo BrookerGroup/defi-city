@@ -70,6 +70,14 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
     setLoading(true)
     try {
       const wallet = wallets.find((w) => w.walletClientType === 'privy') || wallets[0]
+      
+      // Ensure we are on the correct chain before fetching
+      if (wallet.chainId !== 'eip155:84532' && wallet.chainId !== '84532') {
+        console.warn(`[City] Wallet is on wrong chain (${wallet.chainId}). Skipping fetch.`)
+        setLoading(false)
+        return
+      }
+
       const ethereumProvider = await wallet.getEthereumProvider()
       const provider = new ethers.BrowserProvider(ethereumProvider)
       

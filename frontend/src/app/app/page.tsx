@@ -29,24 +29,34 @@ export default function AppPage() {
   // Track if waiting too long for wallet
   const [waitingTooLong, setWaitingTooLong] = useState(false);
 
-  // Auto-trigger wallet connection when authenticated but no address
+  // Auto-trigger wallet connection and network switch when authenticated
   useEffect(() => {
-    if (authenticated && !address) {
-      const triggerWallet = async () => {
+    if (authenticated) {
+      const handleNetworkAndWallet = async () => {
         try {
-          const ethereum = (window as any).ethereum;
-          if (ethereum) {
-            await ethereum.request({ method: "eth_requestAccounts" });
+          // If we have a wallet but it's on the wrong chain, switch it
+          if (wallet && wallet.chainId !== 'eip155:84532' && wallet.chainId !== '84532') {
+            console.log("[App] Switching to Base Sepolia...");
+            await wallet.switchChain(84532);
+          }
+
+          // If no address yet, request accounts
+          if (!address) {
+            const ethereum = (window as any).ethereum;
+            if (ethereum) {
+              await ethereum.request({ method: "eth_requestAccounts" });
+            }
           }
         } catch (err) {
+          console.error("[App] External wallet error:", err);
           setWaitingTooLong(true);
         }
       };
-      triggerWallet();
+      handleNetworkAndWallet();
     } else {
       setWaitingTooLong(false);
     }
-  }, [authenticated, address]);
+  }, [authenticated, address, wallet]);
 
   // Smart Account
   const {
