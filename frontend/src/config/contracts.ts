@@ -77,6 +77,7 @@ export const ABIS = {
 
   BUILDING_REGISTRY: [
     'function preparePlace(address user, address userSmartWallet, string calldata buildingType, uint256 x, uint256 y, bytes calldata params) external view returns (address[] memory targets, uint256[] memory values, bytes[] memory datas)',
+    'function prepareHarvest(string calldata buildingType, address user, address userSmartWallet, uint256 buildingId, bytes calldata params) external view returns (address[] memory targets, uint256[] memory values, bytes[] memory datas)',
     'function adapters(string calldata buildingType) external view returns (address)',
     'function isRegistered(string calldata buildingType) external view returns (bool)',
   ],

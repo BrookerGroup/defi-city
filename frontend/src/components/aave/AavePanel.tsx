@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { useAaveSupply, useAavePosition, useAaveMarketData, useAaveWithdraw, useAaveBorrow, useAaveRepay, useAaveReserveData } from '@/hooks'
+import { useAaveSupply, useAavePosition, useAaveMarketData, useAaveWithdraw, useAaveHarvest, useAaveBorrow, useAaveRepay, useAaveReserveData } from '@/hooks'
 import { Building } from '@/hooks/useCityBuildings'
 import { ASSET_PRICES, AAVE_MARKET_DATA } from '@/config/aave'
 import { ErrorPopup } from '@/components/ui/ErrorPopup'
@@ -80,11 +80,18 @@ export function AavePanel({
   const [amount, setAmount] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [successType, setSuccessType] = useState<'supply' | 'borrow' | 'withdraw' | 'repay' | 'harvest' | 'demolish' | null>(null)
   const [position, setPosition] = useState<any>(EMPTY_POSITION)
+  const [showHarvestModal, setShowHarvestModal] = useState(false)
+  const [harvestAsset, setHarvestAsset] = useState<string>('')
+  const [harvestAmount, setHarvestAmount] = useState('')
+  const [harvestMaxAmount, setHarvestMaxAmount] = useState(0)
+  const [showDemolishModal, setShowDemolishModal] = useState(false)
 
   // Use the hooks
   const { supply: realSupply, loading: loadingSupply } = useAaveSupply()
   const { withdraw: realWithdraw, loading: loadingWithdraw } = useAaveWithdraw()
+  const { harvest: realHarvest, loading: loadingHarvest } = useAaveHarvest()
   const { borrow: realBorrow, loading: loadingBorrow } = useAaveBorrow()
   const { repay: realRepay, loading: loadingRepay } = useAaveRepay()
   const { position: realPosition, refresh: refreshPosition } = useAavePosition(smartWallet)
@@ -103,7 +110,7 @@ export function AavePanel({
   }, [selectedAsset, amount, vaultBalances, activeTab])
 
   // Combined loading state
-  const loading = loadingSupply || loadingWithdraw || loadingBorrow || loadingRepay
+  const loading = loadingSupply || loadingWithdraw || loadingBorrow || loadingRepay || loadingHarvest
 
   // Sync real position to local state
   useEffect(() => {
@@ -129,6 +136,9 @@ export function AavePanel({
 
   // Max borrowable USD (from Aave getUserAccountData.availableBorrowsBase)
   const availableBorrowsUSD = position?.availableBorrowsUSD ?? 0
+
+  // Must repay all borrows before demolishing
+  const hasOpenBorrows = (position?.borrows?.filter((b: any) => b.amount > 0.0001).length ?? 0) > 0
 
   // Get max borrowable amount per asset (from Aave + reserve liquidity)
   const getMaxBorrow = useCallback((asset: string): number => {
@@ -208,7 +218,7 @@ export function AavePanel({
       )
     : position.healthFactor
 
-  const handleWithdraw = async (asset: string, amount: number) => {
+  const handleWithdraw = async (asset: string, amount: number, isDemolishIntent?: boolean) => {
     if (!hasSmartWallet || !smartWallet) {
       setError('Please create Town Hall first')
       return
@@ -233,8 +243,6 @@ export function AavePanel({
       
       console.log(`[AavePanel] Full withdrawal detected for ${asset}. Demolishing buildings: ${buildingIdsToDemolish.join(', ')}`)
     } else if (buildingId) {
-      // Fallback: strictly the selected building if not a full withdrawal (rarely used now)
-      // buildingIdsToDemolish = [buildingId]
       console.log(`[AavePanel] Partial withdrawal for ${asset}. No buildings will be demolished to maintain UI consistency.`)
     }
 
@@ -243,16 +251,10 @@ export function AavePanel({
 
     if (result.success) {
       setSuccess(true)
-
-      // Trigger external refresh (closes modal)
-      if (onSuccess) {
-        onSuccess()
-      }
-
-      setTimeout(() => {
-        refreshPosition()
-      }, 2000)
-      setTimeout(() => setSuccess(false), 5000)
+      setSuccessType(isDemolishIntent || buildingIdsToDemolish.length > 0 ? 'demolish' : 'withdraw')
+      if (onSuccess) onSuccess()
+      setTimeout(() => refreshPosition(), 2000)
+      setTimeout(() => { setSuccess(false); setSuccessType(null) }, 5000)
     } else {
       setError(result.error || 'Withdraw failed')
     }
@@ -294,6 +296,58 @@ export function AavePanel({
     }
   }
 
+  const openHarvestModal = (asset: string, maxAmount: number) => {
+    setHarvestAsset(asset)
+    setHarvestMaxAmount(maxAmount)
+    setHarvestAmount('')
+    setShowHarvestModal(true)
+    setError(null)
+  }
+
+  const handleHarvestConfirm = async () => {
+    if (!hasSmartWallet || !smartWallet || !userAddress || !buildingId) {
+      setError('Missing wallet or building')
+      return
+    }
+    const amount = parseFloat(harvestAmount)
+    if (!harvestAmount || isNaN(amount) || amount <= 0) {
+      setError('Enter a valid amount to harvest')
+      return
+    }
+    if (amount > harvestMaxAmount) {
+      setError(`Max harvestable: ${harvestMaxAmount.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${harvestAsset}`)
+      return
+    }
+    setError(null)
+    const result = await realHarvest(userAddress, smartWallet, buildingId, harvestAsset, amount)
+    if (result.success) {
+      setShowHarvestModal(false)
+      setSuccess(true)
+      setSuccessType('harvest')
+      if (onSuccess) onSuccess()
+      setTimeout(() => refreshPosition(), 2000)
+      setTimeout(() => { setSuccess(false); setSuccessType(null) }, 5000)
+    } else {
+      setError(result.error || 'Harvest failed')
+    }
+  }
+
+  const openDemolishModal = () => {
+    setShowDemolishModal(true)
+    setError(null)
+  }
+
+  const handleDemolishConfirm = async () => {
+    if (!existingAsset || !hasSmartWallet || !smartWallet) return
+    const supply = position.supplies.find((s: any) => s.asset === existingAsset)
+    if (!supply || supply.amount <= 0) {
+      setError('No supply to withdraw')
+      return
+    }
+    setShowDemolishModal(false)
+    await handleWithdraw(existingAsset, supply.amount, true)
+  }
+
   const handleSubmit = async () => {
     if (!amount || parseFloat(amount) <= 0) {
       setError('Please enter a valid amount')
@@ -325,17 +379,17 @@ export function AavePanel({
       if (result.success) {
         setSuccess(true)
         setAmount('')
-        
+
         // Trigger external refresh
         if (onSuccess) {
           onSuccess()
         }
-        
+
         // Refresh position from Aave
         setTimeout(() => {
           refreshPosition()
         }, 2000)
-        
+
         // Update local position optimistically (keep this for immediate feedback)
         const assetInfo = AAVE_MARKET_DATA.assets[selectedAsset]
         const amountUSD = parsedAmount * ASSET_PRICES[selectedAsset]
@@ -374,7 +428,7 @@ export function AavePanel({
             healthFactor,
           }
         })
-        
+
         setTimeout(() => setSuccess(false), 5000)
       } else {
         setError(result.error || 'Supply failed')
@@ -927,12 +981,127 @@ export function AavePanel({
         {/* Error Popup */}
         <ErrorPopup error={error} onClose={() => setError(null)} />
 
+        {/* Harvest confirmation modal */}
+        {showHarvestModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm">
+            <div className="relative bg-slate-800 border-4 border-amber-500 p-4 max-w-sm w-full mx-4">
+              <p className="text-amber-400 text-[8px] mb-2" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                HARVEST REWARDS
+              </p>
+              <p className="text-slate-500 text-[6px] mb-2" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                Pending / Harvestable
+              </p>
+              <p className="text-cyan-400 text-[10px] mb-3" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                {harvestMaxAmount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 })} {harvestAsset}
+              </p>
+              <div className="mb-3">
+                <label className="text-slate-500 text-[6px] block mb-1" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                  AMOUNT TO HARVEST
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={harvestAmount}
+                    onChange={(e) => setHarvestAmount(e.target.value)}
+                    placeholder="0"
+                    className="flex-1 bg-slate-900 border-2 border-slate-600 p-2 text-white text-[10px] focus:border-amber-500 focus:outline-none"
+                    style={{ fontFamily: '"Press Start 2P", monospace' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setHarvestAmount(harvestMaxAmount.toLocaleString(undefined, { maximumFractionDigits: 6 }))}
+                    className="px-2 py-1 bg-slate-700 border border-slate-600 text-slate-300 text-[6px] hover:bg-slate-600"
+                    style={{ fontFamily: '"Press Start 2P", monospace' }}
+                  >
+                    MAX
+                  </button>
+                </div>
+              </div>
+              <p className="text-slate-500 text-[5px] mb-3" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                Building will remain active. Tokens go to Smart Wallet.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowHarvestModal(false)}
+                  disabled={loading}
+                  className="flex-1 px-3 py-2 bg-slate-700 border-2 border-slate-600 text-slate-300 text-[6px] hover:bg-slate-600 disabled:opacity-50"
+                  style={{ fontFamily: '"Press Start 2P", monospace' }}
+                >
+                  CANCEL
+                </button>
+                <button
+                  onClick={handleHarvestConfirm}
+                  disabled={loading || !harvestAmount || parseFloat(harvestAmount) <= 0}
+                  className="flex-1 px-3 py-2 bg-amber-600 border-2 border-amber-500 text-white text-[6px] hover:bg-amber-500 disabled:opacity-50"
+                  style={{ fontFamily: '"Press Start 2P", monospace' }}
+                >
+                  {loadingHarvest ? '...' : 'CONFIRM HARVEST'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Demolish confirmation modal */}
+        {showDemolishModal && existingAsset && (() => {
+          const supply = position.supplies.find((s: any) => s.asset === existingAsset)
+          const totalAmount = supply?.amount ?? 0
+          const totalUSD = supply?.amountUSD ?? 0
+          return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm">
+              <div className="relative bg-slate-800 border-4 border-red-500 p-4 max-w-sm w-full mx-4">
+                <p className="text-red-400 text-[8px] mb-2" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                  DEMOLISH BUILDING?
+                </p>
+                <p className="text-slate-500 text-[6px] mb-1" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                  Total value (principal + interest)
+                </p>
+                <p className="text-cyan-400 text-[10px] mb-1" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                  {totalAmount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 })} {existingAsset}
+                </p>
+                <p className="text-white text-[10px] mb-3" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                  ~${totalUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+                <div className="bg-amber-900/30 border border-amber-600 p-2 mb-3">
+                  <p className="text-amber-400 text-[6px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                    Building will be removed. Tile will be free. This cannot be undone.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowDemolishModal(false)}
+                    disabled={loading}
+                    className="flex-1 px-3 py-2 bg-slate-700 border-2 border-slate-600 text-slate-300 text-[6px] hover:bg-slate-600 disabled:opacity-50"
+                    style={{ fontFamily: '"Press Start 2P", monospace' }}
+                  >
+                    CANCEL
+                  </button>
+                  <button
+                    onClick={handleDemolishConfirm}
+                    disabled={loading || totalAmount <= 0}
+                    className="flex-1 px-3 py-2 bg-red-600 border-2 border-red-500 text-white text-[6px] hover:bg-red-500 disabled:opacity-50"
+                    style={{ fontFamily: '"Press Start 2P", monospace' }}
+                  >
+                    {loadingWithdraw ? '...' : 'CONFIRM DEMOLISH'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
         {success && (
           <div className="bg-green-900/30 border-2 border-green-600 p-3 mb-4">
             <p
               className="text-green-400 text-[8px] text-center"
               style={{ fontFamily: '"Press Start 2P", monospace' }}
             >
+              {successType === 'supply' && 'SUPPLY SUCCESSFUL!'}
+              {successType === 'borrow' && 'BORROW SUCCESSFUL!'}
+              {successType === 'withdraw' && 'WITHDRAW SUCCESSFUL!'}
+              {successType === 'repay' && 'REPAY SUCCESSFUL!'}
+              {successType === 'harvest' && 'HARVEST SUCCESSFUL!'}
+              {successType === 'demolish' && 'DEMOLISH SUCCESSFUL!'}
               {activeTab === 'supply' ? 'SUPPLY SUCCESSFUL!' : 'BORROW SUCCESSFUL!'}
             </p>
           </div>
@@ -1029,15 +1198,26 @@ export function AavePanel({
                           +{s.apy}% APY
                         </span>
                       </div>
-                      
-                      <button
-                        onClick={() => handleWithdraw(s.asset, s.amount)}
-                        disabled={loading}
-                        className="px-2 py-1 bg-red-900/40 border border-red-700 text-red-400 text-[6px] hover:bg-red-800/60 hover:text-white transition-colors disabled:opacity-50"
-                        style={{ fontFamily: '"Press Start 2P", monospace' }}
-                      >
-                        {loadingWithdraw ? '...' : 'WITHDRAW'}
-                      </button>
+                      <div className="flex gap-1">
+                        {existingAsset && buildingId && (
+                          <button
+                            onClick={() => openHarvestModal(s.asset, s.amount)}
+                            disabled={loading}
+                            className="px-2 py-1 bg-amber-900/40 border border-amber-600 text-amber-400 text-[6px] hover:bg-amber-800/60 hover:text-white transition-colors disabled:opacity-50"
+                            style={{ fontFamily: '"Press Start 2P", monospace' }}
+                          >
+                            {loadingHarvest ? '...' : 'HARVEST'}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleWithdraw(s.asset, s.amount)}
+                          disabled={loading}
+                          className="px-2 py-1 bg-red-900/40 border border-red-700 text-red-400 text-[6px] hover:bg-red-800/60 hover:text-white transition-colors disabled:opacity-50"
+                          style={{ fontFamily: '"Press Start 2P", monospace' }}
+                        >
+                          {loadingWithdraw ? '...' : 'WITHDRAW'}
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1090,6 +1270,38 @@ export function AavePanel({
                       </div>
                     ))}
                 </div>
+              </div>
+            )}
+
+            {/* Demolish building (only when viewing a specific Bank) */}
+            {existingAsset && buildingId && (
+              <div className="mt-4 pt-3 border-t border-slate-700">
+                <p className="text-slate-500 text-[6px] mb-2" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                  DEMOLISH BUILDING
+                </p>
+                {hasOpenBorrows ? (
+                  <div className="bg-red-900/20 border border-red-700 p-2">
+                    <p className="text-red-400 text-[6px]" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                      Repay all borrows before demolishing.
+                    </p>
+                    <button
+                      disabled
+                      className="mt-2 px-3 py-1.5 bg-slate-700 border border-slate-600 text-slate-500 text-[6px] cursor-not-allowed"
+                      style={{ fontFamily: '"Press Start 2P", monospace' }}
+                    >
+                      DEMOLISH
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={openDemolishModal}
+                    disabled={loading}
+                    className="w-full px-3 py-2 bg-red-900/40 border-2 border-red-700 text-red-400 text-[6px] hover:bg-red-800/60 hover:text-white transition-colors disabled:opacity-50"
+                    style={{ fontFamily: '"Press Start 2P", monospace' }}
+                  >
+                    {loadingWithdraw ? '...' : 'DEMOLISH'}
+                  </button>
+                )}
               </div>
             )}
           </div>
