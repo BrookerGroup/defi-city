@@ -48,9 +48,9 @@ export const TILE_SPRITE_MAP: Record<TileType, string> = {
 export function generateMapLayout(): TileType[][] {
   const layout: TileType[][] = []
   
-  // Road positions (0-indexed)
-  const roadRows = new Set([3, 6, 9])
-  const roadCols = new Set([3, 6, 9])
+  // Road positions (0-indexed) - expanded for 26x26 grid
+  const roadRows = new Set([3, 6, 9, 12, 15, 18, 21])
+  const roadCols = new Set([3, 6, 9, 12, 15, 18, 21])
   
   for (let row = 0; row < GRID_SIZE; row++) {
     const rowTiles: TileType[] = []
