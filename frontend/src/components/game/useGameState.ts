@@ -12,7 +12,7 @@ import { GameWorld } from './GameWorld'
 import { IsometricGrid } from './IsometricGrid'
 import { BuildingRenderer } from './BuildingRenderer'
 import { TileInteraction } from './TileInteraction'
-import { Decorations } from './Decorations'
+
 import type { Building } from '@/hooks/useCityBuildings'
 
 interface UseGameStateOptions {
@@ -32,7 +32,7 @@ export function useGameState({
   const gridRef = useRef<IsometricGrid | null>(null)
   const buildingRendererRef = useRef<BuildingRenderer | null>(null)
   const interactionRef = useRef<TileInteraction | null>(null)
-  const decorationsRef = useRef<Decorations | null>(null)
+
   const [loading, setLoading] = useState(true)
   const [hoveredTile, setHoveredTile] = useState<{ col: number; row: number } | null>(null)
 
@@ -58,11 +58,7 @@ export function useGameState({
       const world = new GameWorld(app)
       worldRef.current = world
 
-      // Create decorations (water border)
-      const decorations = new Decorations()
-      decorations.build()
-      world.container.addChild(decorations.container)
-      decorationsRef.current = decorations
+
 
       // Create isometric grid
       const grid = new IsometricGrid()
@@ -141,7 +137,7 @@ export function useGameState({
       gridRef.current?.destroy()
       buildingRendererRef.current?.destroy()
       interactionRef.current?.destroy()
-      decorationsRef.current?.destroy()
+
     }
   }, [])
 

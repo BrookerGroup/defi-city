@@ -25,9 +25,23 @@ export class Decorations {
   }
 
   private addWaterBorder() {
-    // Add water tiles around the grid perimeter (one tile outside)
+    // Add water tiles around the grid perimeter (multiple layers for complete border)
     const waterKey = 'water-4' // Pure water tile
 
+    // Create a thicker, more complete border by adding multiple rows
+    // Outer layer
+    for (let i = -2; i <= this.gridSize + 1; i++) {
+      // Top edge (row -2)
+      this.placeWaterTile(i, -2, waterKey)
+      // Bottom edge
+      this.placeWaterTile(i, this.gridSize + 1, waterKey)
+      // Left edge
+      this.placeWaterTile(-2, i, waterKey)
+      // Right edge
+      this.placeWaterTile(this.gridSize + 1, i, waterKey)
+    }
+    
+    // Inner layer (row -1)
     for (let i = -1; i <= this.gridSize; i++) {
       // Top edge
       this.placeWaterTile(i, -1, waterKey)
@@ -38,12 +52,6 @@ export class Decorations {
       // Right edge
       this.placeWaterTile(this.gridSize, i, waterKey)
     }
-
-    // Corner tiles
-    this.placeWaterTile(-1, -1, waterKey)
-    this.placeWaterTile(this.gridSize, -1, waterKey)
-    this.placeWaterTile(-1, this.gridSize, waterKey)
-    this.placeWaterTile(this.gridSize, this.gridSize, waterKey)
   }
 
   private placeWaterTile(col: number, row: number, key: string) {
@@ -52,13 +60,21 @@ export class Decorations {
 
     const { x, y } = isoToScreen(col, row)
     const sprite = new Sprite(texture)
-    sprite.width = TILE_WIDTH
-    sprite.height = TILE_HEIGHT
-    sprite.anchor.set(0.5, 0)
+    
+    // Scale sprite to match tile width (same as IsometricGrid.ts)
+    const targetWidth = TILE_WIDTH
+    const scale = targetWidth / texture.width
+    sprite.scale.set(scale, scale)
+    
+    // Anchor at bottom-center for proper isometric placement
+    sprite.anchor.set(0.5, 1)
+    
+    // Position at the bottom of the tile diamond
     sprite.x = x
-    sprite.y = y
+    sprite.y = y + TILE_HEIGHT
+    
     sprite.zIndex = -1 // Behind grid tiles
-    sprite.alpha = 0.7
+    sprite.alpha = 0.8
 
     this.container.addChild(sprite)
   }
