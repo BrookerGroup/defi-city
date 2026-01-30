@@ -137,6 +137,17 @@ export default function AppPage() {
 
   const handleSelectTile = useCallback(
     (x: number, y: number) => {
+      // Import map layout to check tile type
+      const { getMapLayout, isBuildableTile } = require('@/lib/mapLayout');
+      const layout = getMapLayout();
+      const tileType = layout[y - 1]?.[x - 1]; // Convert 1-based to 0-based
+      
+      // Skip if tile is not buildable (e.g., road tiles)
+      if (!tileType || !isBuildableTile(tileType)) {
+        console.log(`[App] Cannot build on ${tileType} tile at (${x}, ${y})`);
+        return;
+      }
+
       // Skip Town Hall tile
       const clickedBuilding = buildings.find((b) => b.x === x && b.y === y);
       if (clickedBuilding?.type === "townhall") return;

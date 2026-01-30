@@ -1,9 +1,10 @@
 /**
  * Isometric math utilities
- * Standard 2:1 isometric projection (128x64 tile size)
+ * Standard isometric projection
+ * Asset tiles are 96x64 pixels
  */
 
-export const TILE_WIDTH = 128
+export const TILE_WIDTH = 96
 export const TILE_HEIGHT = 64
 
 /**

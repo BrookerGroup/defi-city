@@ -10,6 +10,7 @@
 import { Container, Graphics, Sprite } from 'pixi.js'
 import { screenToIso, getTileDiamond, isoToScreen, TILE_WIDTH, TILE_HEIGHT } from '@/lib/isometric'
 import { GRID_SIZE } from '@/lib/constants'
+import { getMapLayout, isBuildableTile } from '@/lib/mapLayout'
 import type { Building } from '@/hooks/useCityBuildings'
 import type { BuildingRenderer, BuildingSprite } from './BuildingRenderer'
 
@@ -111,6 +112,11 @@ export class TileInteraction {
     // Must be within grid bounds
     if (col < 0 || col >= this.gridSize || row < 0 || row >= this.gridSize) return false
 
+    // Can't drop on road tiles - only on buildable (grass) tiles
+    const layout = getMapLayout()
+    const tileType = layout[row]?.[col]
+    if (!tileType || !isBuildableTile(tileType)) return false
+
     return true
   }
 
@@ -161,11 +167,22 @@ export class TileInteraction {
       return
     }
 
-    // Hover highlight
+    // Hover highlight - only show on buildable tiles
     if (tile && (!this.hoveredTile || tile.col !== this.hoveredTile.col || tile.row !== this.hoveredTile.row)) {
-      this.hoveredTile = tile
-      this.drawHoverHighlight(tile.col, tile.row)
-      this.callbacks.onHoverTile?.(tile.col, tile.row)
+      // Check if tile is buildable (not a road)
+      const layout = getMapLayout()
+      const tileType = layout[tile.row]?.[tile.col]
+      
+      if (tileType && isBuildableTile(tileType)) {
+        this.hoveredTile = tile
+        this.drawHoverHighlight(tile.col, tile.row)
+        this.callbacks.onHoverTile?.(tile.col, tile.row)
+      } else {
+        // Clear hover on non-buildable tiles
+        this.hoveredTile = null
+        this.hoverGraphics.clear()
+        this.callbacks.onClearHover?.()
+      }
     } else if (!tile && this.hoveredTile) {
       this.hoveredTile = null
       this.hoverGraphics.clear()
