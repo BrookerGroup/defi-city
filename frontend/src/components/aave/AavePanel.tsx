@@ -648,6 +648,8 @@ export function AavePanel({
             {assets.map((asset) => {
               // For Supply: lock to existingAsset if editing existing building
               const lockOnSupply = activeTab === 'supply' && !!existingAsset && asset !== existingAsset
+              // For Supply: disable if asset already used in another tile (same behavior as Borrow)
+              const lockOnSupplyUsed = activeTab === 'supply' && !existingAsset && usedAssets.includes(asset)
 
               // For Borrow: same logic as Supply
               // - If existingAsset is set (clicked on a borrow building) → lock to that asset only
@@ -657,7 +659,7 @@ export function AavePanel({
               const lockOnBorrowUsed = activeTab === 'borrow' && !existingAsset && assetHasBorrow
 
               const borrowDisabled = activeTab === 'borrow' && (reserveData[asset]?.borrowingEnabled === false)
-              const isLocked = lockOnSupply || lockOnBorrowExisting || lockOnBorrowUsed || borrowDisabled
+              const isLocked = lockOnSupply || lockOnSupplyUsed || lockOnBorrowExisting || lockOnBorrowUsed || borrowDisabled
 
               const hasExistingBuilding = activeTab === 'supply' && usedAssets.includes(asset) && !existingAsset
               const hasExistingBorrow = activeTab === 'borrow' && assetHasBorrow && !existingAsset
@@ -678,7 +680,7 @@ export function AavePanel({
                 >
                   {asset}
                   {hasExistingBuilding && (
-                    <span className="block text-[5px] text-cyan-400 mt-0.5">+MORE</span>
+                    <span className="block text-[5px] text-green-400 mt-0.5">SUPPLIED</span>
                   )}
                   {hasExistingBorrow && (
                     <span className="block text-[5px] text-orange-400 mt-0.5">BORROWED</span>
