@@ -178,7 +178,7 @@ export function AavePanel({
             asset: supplyAsset,
             amount: supplyAmount,
             amountUSD,
-            apy: aaveMarketData[supplyAsset]?.supplyAPY || AAVE_MARKET_DATA.assets[supplyAsset].supplyAPY,
+            apy: aaveMarketData[supplyAsset]?.supplyAPY || AAVE_MARKET_DATA.assets[supplyAsset]?.supplyAPY || 0,
           })
         }
       }
@@ -198,7 +198,7 @@ export function AavePanel({
             asset: borrowAsset,
             amount: borrowAmount,
             amountUSD,
-            apy: aaveMarketData[borrowAsset]?.borrowAPY || AAVE_MARKET_DATA.assets[borrowAsset].borrowAPY,
+            apy: aaveMarketData[borrowAsset]?.borrowAPY || AAVE_MARKET_DATA.assets[borrowAsset]?.borrowAPY || 0,
           })
         }
       }
@@ -391,7 +391,7 @@ export function AavePanel({
         }, 2000)
 
         // Update local position optimistically (keep this for immediate feedback)
-        const assetInfo = AAVE_MARKET_DATA.assets[selectedAsset]
+        const assetInfo = AAVE_MARKET_DATA.assets[selectedAsset] || {}
         const amountUSD = parsedAmount * ASSET_PRICES[selectedAsset]
         setPosition((prev: any) => {
           const existingIndex = prev.supplies.findIndex((s: any) => s.asset === selectedAsset)
@@ -480,6 +480,16 @@ export function AavePanel({
     if (activeTab === 'borrow') {
       const maxBorrow = getMaxBorrow(selectedAsset)
       setAmount(maxBorrow > 0 ? maxBorrow.toFixed(6) : '0')
+    } else if (activeTab === 'supply') {
+      // For Supply: min(vault balance, remaining supply cap)
+      const vaultBalance = parseFloat(vaultBalances?.[selectedAsset] || '0')
+      const reserve = reserveData[selectedAsset]
+      const remainingCap = reserve 
+        ? Math.max(0, reserve.supplyCap - reserve.totalSupplied)
+        : Infinity
+      
+      const maxSupply = Math.min(vaultBalance, remainingCap)
+      setAmount(maxSupply > 0 ? maxSupply.toFixed(6) : '0')
     }
   }
 
@@ -813,7 +823,7 @@ export function AavePanel({
             >
               AMOUNT
             </p>
-            {activeTab === 'borrow' && (
+            {(activeTab === 'borrow' || activeTab === 'supply') && (
               <button
                 onClick={handleMax}
                 className="text-purple-400 text-[8px] hover:text-purple-300"

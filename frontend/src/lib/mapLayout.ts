@@ -52,10 +52,21 @@ export function generateMapLayout(): TileType[][] {
   const roadRows = new Set([3, 6, 9, 12, 15, 18, 21])
   const roadCols = new Set([3, 6, 9, 12, 15, 18, 21])
   
+  // Center tile (Town Hall location) - should be grass, not road
+  // Town Hall uses Math.ceil(GRID_SIZE / 2) = 13 (1-based), so 0-indexed is 12
+  const centerRow = Math.ceil(GRID_SIZE / 2) - 1 // 12 for 26x26 grid (0-indexed)
+  const centerCol = Math.ceil(GRID_SIZE / 2) - 1 // 12 for 26x26 grid (0-indexed)
+  
   for (let row = 0; row < GRID_SIZE; row++) {
     const rowTiles: TileType[] = []
     
     for (let col = 0; col < GRID_SIZE; col++) {
+      // Special case: Town Hall center tile is always grass
+      if (row === centerRow && col === centerCol) {
+        rowTiles.push('grass')
+        continue
+      }
+      
       const isRoadRow = roadRows.has(row)
       const isRoadCol = roadCols.has(col)
       

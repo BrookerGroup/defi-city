@@ -221,6 +221,13 @@ export class TileInteraction {
 
   /** Select a tile and show highlight */
   selectTile(col: number, row: number) {
+    // Don't select non-buildable tiles (roads, etc.)
+    const layout = getMapLayout()
+    const tileType = layout[row]?.[col]
+    if (!tileType || !isBuildableTile(tileType)) {
+      return
+    }
+
     this.selectedTile = { col, row }
     this.drawSelectHighlight(col, row)
     this.callbacks.onSelectTile?.(col + 1, row + 1) // 1-based
