@@ -1,0 +1,1292 @@
+# DefiCity - User Stories (Self-Custodial Architecture)
+
+**Project:** DefiCity Implementation
+**Version:** 2.0 (Self-Custodial)
+**Last Updated:** 2026-02-02
+
+---
+
+## Architecture Overview: Self-Custodial Design
+
+**Key Principle:** Users maintain full custody of their assets at all times. DefiCity game contracts ONLY perform bookkeeping and accounting - they NEVER hold user funds.
+
+**Asset Flow:**
+
+```
+User EOA Wallet (MetaMask, etc.)
+    ↓ (owns)
+User's SmartWallet (ERC-4337 Account Abstraction)
+    ↓ (holds all tokens)
+    ↓ (executes via session keys)
+DeFi Protocols (Aave, Aerodrome, Megapot)
+
+DefiCityCore (bookkeeping only - NO token custody)
+    ↓ (tracks)
+Buildings, stats, game state (accounting records)
+```
+
+**What This Means:**
+
+- Your assets are always in YOUR SmartWallet, not in game contracts
+- You retain full control and ownership of all funds
+- Game contracts only track what you're doing (like a ledger)
+- Session keys authorize your SmartWallet to execute game actions
+- You can always withdraw directly from your SmartWallet
+- Game cannot access your funds without your authorization
+
+---
+
+## Table of Contents — Overall Progress: 28% (106/381)
+
+1. [Epic 1: User Onboarding & Account Management](#epic-1-user-onboarding--account-management) — 24%
+2. [Epic 2: Multi-Asset Portfolio Management](#epic-2-multi-asset-portfolio-management) — 46%
+3. [Epic 3: Town Hall Building (Smart Wallet)](#epic-3-town-hall-building-smart-wallet) — 38%
+4. [Epic 4: Bank Building (Aave Integration)](#epic-4-bank-building-aave-integration) — 70%
+5. [Epic 5: Shop Building (Aerodrome LP)](#epic-5-shop-building-aerodrome-lp) — 0%
+6. [Epic 6: Government Lottery Office (Megapot Integration)](#epic-6-government-lottery-office-megapot-integration) — 0%
+7. [Epic 7: Account Abstraction & Gasless Gameplay](#epic-7-account-abstraction--gasless-gameplay) — 0%
+8. [Epic 8: City Map & Visualization](#epic-8-city-map--visualization) — 41%
+9. [Epic 9: Analytics & Insights](#epic-9-analytics--insights) — 0%
+10. [Story Mapping & Prioritization](#story-mapping--prioritization)
+
+---
+
+## Epic 1: User Onboarding & Account Management — 24% (7/29)
+
+### US-001: New User Signup (Without Wallet) — 4/8
+
+**As a** new DeFi user
+**I want** to sign up with my email or social account
+**So that** I can start exploring DefiCity and create my city
+
+**Acceptance Criteria:**
+
+- [ ] User can sign up with email (passwordless login) <!-- Privy configured with wallet-only login -->
+- [ ] User can sign up with social accounts (Google, Twitter, Discord) <!-- Not enabled in Privy config -->
+- [ ] Signup creates user profile only (NO wallet yet) <!-- Privy creates profile on wallet connect -->
+- [x] User sees welcome screen: "Place your Town Hall to create your wallet" <!-- TownHallModal -->
+- [x] No manual private key management required <!-- Privy handles keys -->
+- [x] Signup flow takes less than 1 minute
+- [x] SmartWallet will be created when user places Town Hall building <!-- useCreateSmartAccount -->
+- [ ] User can explore game and tutorial without wallet <!-- Auth required to access /app -->
+
+**Priority:** P0 (Critical)
+**Estimated:** 3 story points (reduced - simpler flow)
+**Dependencies:** None
+
+**Note:** SmartWallet creation deferred to US-009 (Place Town Hall)
+**Implementation Note:** Currently uses wallet-only login via Privy (email/social not enabled yet)
+
+---
+
+### US-002: Returning User Login — 3/7
+
+**As a** returning DefiCity user
+**I want** to login quickly with my email or social account
+**So that** I can access my city and buildings without re-entering credentials
+
+**Acceptance Criteria:**
+
+- [ ] User can login with email (passwordless) <!-- Only wallet login configured -->
+- [ ] User can login with social accounts <!-- Not enabled -->
+- [ ] Login uses passkey authentication (biometrics/PIN) <!-- Not configured -->
+- [x] Previous session is restored (city state, buildings) <!-- Privy auto-restores session -->
+- [x] Smart wallet reconnects automatically <!-- Privy + useSmartWallet -->
+- [x] Login takes less than 10 seconds
+- [ ] "Remember me" option available <!-- Auto by Privy, no explicit UI toggle -->
+
+**Priority:** P0 (Critical)
+**Estimated:** 3 story points
+**Dependencies:** US-001
+
+---
+
+### US-003: Guardian Recovery Setup — 0/7
+
+**As a** DefiCity user
+**I want** to set up guardian accounts for wallet recovery
+**So that** I can recover my account if I lose access to my primary authentication method
+
+**Acceptance Criteria:**
+
+- [ ] User can add 1-3 guardian addresses <!-- Not implemented -->
+- [ ] Guardians can be email addresses or wallet addresses
+- [ ] Recovery requires 2 of 3 guardians to approve
+- [ ] User receives confirmation when guardians are set
+- [ ] Guardians receive notification of their role
+- [ ] Recovery process is clearly documented
+- [ ] User can update guardians later
+
+**Priority:** P1 (High)
+**Estimated:** 5 story points
+**Dependencies:** US-001
+
+---
+
+### US-004: Onboarding Tutorial — 0/7
+
+**As a** first-time DefiCity user
+**I want** to see a quick interactive tutorial
+**So that** I understand how to build my DeFi portfolio and use the platform
+
+**Acceptance Criteria:**
+
+- [ ] Tutorial shows 4-5 key steps (deposit, place building, harvest, withdraw) <!-- Not implemented -->
+- [ ] Interactive tutorial highlights UI elements
+- [ ] User can skip tutorial
+- [ ] User can replay tutorial later from settings
+- [ ] Tutorial takes less than 2 minutes
+- [ ] Clear call-to-action after tutorial completion
+- [ ] Mobile-friendly tutorial
+
+**Priority:** P1 (High)
+**Estimated:** 3 story points
+**Dependencies:** US-001
+
+---
+
+## Epic 2: Multi-Asset Portfolio Management — 46% (22/48)
+
+### US-005: Deposit Multi-Asset Funds — 10/15
+
+**As a** DefiCity user with a SmartWallet
+**I want** to transfer USDC, USDT, ETH, or WBTC to my SmartWallet
+**So that** I can use these assets to build DeFi positions in my city
+
+**Acceptance Criteria:**
+
+- [x] User must have Town Hall (SmartWallet) placed first <!-- VaultPanel hidden without SmartWallet -->
+- [x] If no Town Hall, show: "Place Town Hall first to create your wallet" <!-- TownHallModal shown -->
+- [x] User can select asset type (USDC, USDT, ETH, WBTC) <!-- + LINK supported -->
+- [x] User can enter deposit amount <!-- VaultPanel amount input -->
+- [x] UI shows current balance in SmartWallet for selected asset <!-- VaultPanel balances -->
+- [ ] UI shows SmartWallet address with copy button <!-- Address shown but no copy button -->
+- [ ] UI shows minimum deposit (if any) <!-- No minimum enforced -->
+- [x] User confirms transaction in MetaMask/wallet <!-- writeContractAsync / sendTransactionAsync -->
+- [x] Transaction transfers tokens FROM user's EOA TO user's SmartWallet <!-- useVaultDeposit -->
+- [ ] DefiCityCore updates accounting records (tracks balance for game UI)
+- [x] Transaction shows loading state <!-- "DEPOSITING..." button state -->
+- [x] Balance updates after successful deposit <!-- refetchBalances -->
+- [ ] Success notification displays with transaction hash <!-- Hash returned but not displayed -->
+- [x] User pays gas fee for deposit (not gasless)
+- [x] Assets remain in user's SmartWallet (NOT transferred to game contracts)
+
+**Priority:** P0 (Critical)
+**Estimated:** 5 story points
+**Dependencies:** US-009 (Town Hall must be placed first)
+
+---
+
+### US-006: View Multi-Asset Portfolio — 4/10
+
+**As a** DefiCity user
+**I want** to see my portfolio breakdown by asset
+**So that** I understand how my funds are distributed across different cryptocurrencies
+
+**Acceptance Criteria:**
+
+- [ ] Dashboard shows balances for all 4 assets (USDC, USDT, ETH, WBTC) <!-- No dedicated dashboard, only VaultPanel -->
+- [x] Balances are read from user's SmartWallet (on-chain) <!-- useVaultDeposit reads balances -->
+- [ ] Shows total portfolio value in USD <!-- No USD conversion -->
+- [x] Shows available balance (idle in SmartWallet) per asset <!-- VaultPanel shows raw balances -->
+- [ ] Shows invested amount per asset (in DeFi protocols via buildings) <!-- Not implemented -->
+- [ ] Shows total earned (all-time) per asset <!-- Not implemented -->
+- [ ] Shows percentage distribution (pie chart or bar chart) <!-- Not implemented -->
+- [ ] Real-time price updates <!-- No price feeds integrated in portfolio view -->
+- [x] Balances update after deposits/withdrawals <!-- refetchBalances -->
+- [x] All balances reflect actual SmartWallet holdings (self-custodial)
+
+**Priority:** P0 (Critical)
+**Estimated:** 5 story points
+**Dependencies:** US-005
+
+---
+
+### US-007: Withdraw Multi-Asset Funds — 8/13
+
+**As a** DefiCity user
+**I want** to withdraw my available balance from my SmartWallet to my EOA wallet
+**So that** I can move funds to my main wallet or external exchanges
+
+**Acceptance Criteria:**
+
+- [x] User can select asset type to withdraw <!-- VaultPanel token selector -->
+- [x] User can enter withdrawal amount <!-- VaultPanel amount input -->
+- [x] UI shows available balance in SmartWallet (not invested in buildings) <!-- SmartWallet balances -->
+- [ ] UI prevents withdrawal of invested funds (must demolish buildings first)
+- [x] User confirms transaction <!-- writeContractAsync -->
+- [x] Transaction transfers tokens FROM user's SmartWallet TO user's EOA <!-- useVaultWithdraw -->
+- [ ] DefiCityCore updates accounting records
+- [x] Transaction shows loading state <!-- "WITHDRAWING..." button state -->
+- [x] Balance updates after successful withdrawal <!-- refetchBalances -->
+- [ ] Success notification displays <!-- No toast/notification -->
+- [x] User pays gas fee for withdrawal (not gasless)
+- [x] Cannot withdraw more than available balance <!-- Insufficient balance validation -->
+- [ ] User can also withdraw directly from SmartWallet without using game UI (true self-custody)
+
+**Priority:** P0 (Critical)
+**Estimated:** 3 story points
+**Dependencies:** US-006
+
+---
+
+### US-008: View Transaction History — 0/10
+
+**As a** DefiCity user
+**I want** to see a history of all my transactions
+**So that** I can track deposits, withdrawals, placements, harvests, and demolitions
+
+**Acceptance Criteria:**
+
+- [ ] Transaction history shows all transactions <!-- Not implemented -->
+- [ ] Shows transaction type (deposit, withdraw, place, harvest, demolish)
+- [ ] Shows asset type
+- [ ] Shows amount
+- [ ] Shows timestamp
+- [ ] Shows transaction hash (clickable → BaseScan)
+- [ ] Shows transaction status (success, pending, failed)
+- [ ] Filterable by transaction type
+- [ ] Filterable by asset type
+- [ ] Paginated for performance
+
+**Priority:** P1 (High)
+**Estimated:** 3 story points
+**Dependencies:** US-005
+
+---
+
+## Epic 3: Town Hall Building (Smart Wallet) — 38% (8/21)
+
+### US-009: Place Town Hall Building (Creates SmartWallet) — 6/12
+
+**As a** new DefiCity user
+**I want** to place a Town Hall building as my first action
+**So that** my SmartWallet is created and I can start managing my DeFi portfolio
+
+**Acceptance Criteria:**
+
+- [x] User clicks "Place Town Hall" as first building <!-- TownHallModal CTA -->
+- [ ] System prompts: "This will create your SmartWallet (gasless)" <!-- Says "GAS FEE REQUIRED" instead -->
+- [ ] Modal explains:
+  - "Town Hall = Your SmartWallet" <!-- Basic explanation only -->
+  - "You own this wallet forever"
+  - "All your assets will be stored here (self-custodial)"
+  - "One-time creation, cannot be demolished"
+- [x] User confirms placement <!-- "CREATE TOWN HALL" button -->
+- [ ] SmartWallet deployed via ERC-4337 (gasless via Paymaster) <!-- Regular tx, user pays gas -->
+- [x] User's EOA set as SmartWallet owner <!-- WalletFactory passes msg.sender -->
+- [x] SmartWallet registered in DefiCityCore <!-- core.registerWallet() -->
+- [x] Town Hall building appears on map <!-- building-townhall sprite -->
+- [ ] UI shows: "Your SmartWallet: 0xABC...DEF" with copy button <!-- Not shown after creation -->
+- [ ] Tutorial continues: "Now deposit funds to your SmartWallet" <!-- No tutorial -->
+- [x] Town Hall cannot be demolished (permanent) <!-- Click on townhall blocked -->
+- [ ] Entire flow is gasless <!-- User pays gas -->
+
+**Priority:** P0 (Critical - Required before any other buildings)
+**Estimated:** 8 story points (includes wallet deployment)
+**Dependencies:** US-001
+
+**Technical Flow:**
+
+1. Frontend calls SmartWalletFactory.deployWallet(userEOA)
+2. Factory deploys DefiCitySmartWallet (ERC-4337)
+3. SmartWallet calls Core.registerWallet()
+4. Core records Town Hall building
+5. Frontend displays wallet address
+
+---
+
+### US-010: View Town Hall Info — 2/9
+
+**As a** DefiCity user
+**I want** to click my Town Hall and see my SmartWallet information
+**So that** I can view my SmartWallet address and total portfolio value
+
+**Acceptance Criteria:**
+
+- [ ] Click Town Hall → Info panel opens <!-- Click on townhall blocked, no info panel -->
+- [ ] Shows SmartWallet address
+- [ ] Shows copy button for address
+- [ ] Shows total portfolio value (all assets in SmartWallet)
+- [ ] Shows "This is YOUR SmartWallet - You own all assets" description
+- [ ] Shows "Assets are self-custodial (not held by game)" notice
+- [ ] Shows link to view SmartWallet on BaseScan
+- [x] No actions available (cannot harvest/demolish) <!-- townhall click blocked -->
+- [x] Visual representation distinctive (castle/HQ style) <!-- building-townhall sprite, amber tint -->
+
+**Priority:** P2 (Nice to have)
+**Estimated:** 2 story points
+**Dependencies:** US-009
+
+---
+
+## Epic 4: Bank Building (Aave Integration) — 70% (58/83)
+
+### US-011: Place Bank Building (Supply Mode) — 8/12
+
+**As a** DefiCity user
+**I want** to place a Bank building and supply assets to Aave
+**So that** I can earn interest on my crypto holdings
+
+**Acceptance Criteria:**
+
+- [x] User can select Bank from building menu <!-- AavePanel with Supply tab -->
+- [x] User can select asset (USDC, USDT, ETH, WBTC) <!-- + LINK -->
+- [ ] User can select "Supply Only" mode <!-- No explicit mode selector, tabs instead -->
+- [ ] User enters deposit amount (minimum $100) <!-- Amount input exists but no $100 minimum -->
+- [x] UI shows current Aave supply APY <!-- AAVE_MARKET_DATA in AavePanel -->
+- [ ] UI shows 0.05% building placement fee <!-- Fee in contract but not shown in UI -->
+- [ ] User confirms transaction (gasless via session key) <!-- Not gasless, uses regular signer -->
+- [x] SmartWallet executes: transfer tokens from SmartWallet to Aave V3 <!-- useAaveSupply -->
+- [x] SmartWallet receives aTokens (held in user's SmartWallet)
+- [x] DefiCityCore records building placement (bookkeeping only) <!-- recordBuildingPlacement -->
+- [x] Building appears on map <!-- BuildingRenderer with level/asset tint -->
+- [x] Assets remain in user's control (via SmartWallet → Aave, not via game contracts)
+
+**Priority:** P0 (Critical)
+**Estimated:** 8 story points
+**Dependencies:** US-005
+
+---
+
+### US-012: Place Bank Building (Supply + Borrow Mode) — 12/17
+
+**As an** advanced DefiCity user
+**I want** to place a Bank building, supply collateral, and borrow assets
+**So that** I can leverage my positions for greater capital efficiency
+
+**Acceptance Criteria:**
+
+- [ ] User can select "Supply + Borrow" mode <!-- Separate tabs, not combined mode -->
+- [ ] User selects collateral asset (e.g., ETH) <!-- Implicit from existing supply -->
+- [ ] User enters collateral amount <!-- Uses existing supply as collateral -->
+- [x] User selects borrow asset (e.g., USDC) <!-- AavePanel Borrow tab -->
+- [x] UI calculates max borrow amount based on collateral <!-- getMaxBorrow() -->
+- [x] User enters borrow amount (below max) <!-- Amount input with validation -->
+- [x] UI shows health factor (must be > 1.5) <!-- Color-coded, but blocks at <1.0 not 1.5 -->
+- [x] UI shows liquidation warning if health factor < 1.5 <!-- Color changes yellow at 1.5 -->
+- [x] UI shows supply APY and borrow APY <!-- AavePanel reserve data -->
+- [ ] UI shows net APY (supply APY - borrow APY) <!-- Not calculated -->
+- [ ] User confirms transaction (gasless via session key) <!-- Not gasless -->
+- [x] SmartWallet executes: supply collateral to Aave and borrow assets <!-- useAaveBorrow -->
+- [x] SmartWallet receives aTokens for collateral (held in SmartWallet)
+- [x] Borrowed assets transferred to SmartWallet
+- [x] DefiCityCore records building placement (bookkeeping only) <!-- recordBuildingPlacement -->
+- [x] Building appears on map <!-- Red-tinted borrow building -->
+- [x] All assets remain under user's SmartWallet control
+
+**Priority:** P1 (High)
+**Estimated:** 13 story points
+**Dependencies:** US-011
+
+---
+
+### US-013: View Bank Building Info (Supply Mode) — 6/9
+
+**As a** DefiCity user with a Bank building
+**I want** to view my Bank building details
+**So that** I can see my supplied amount, earned interest, and APY
+
+**Acceptance Criteria:**
+
+- [x] Click Bank → Info panel opens <!-- AavePanel opens on building click -->
+- [x] Shows asset type (USDC, USDT, ETH, WBTC) <!-- Asset label in position list -->
+- [ ] Shows "Supply Only" mode indicator <!-- No mode indicator -->
+- [x] Shows supplied amount <!-- Position list shows X.XXXX ASSET -->
+- [x] Shows current value (with accrued interest) <!-- Shows USD value -->
+- [x] Shows supply APY <!-- +X.XX% APY label -->
+- [ ] Shows pending rewards <!-- No separate rewards tracking -->
+- [ ] Shows total earned since placement <!-- Not tracked -->
+- [x] Actions: Deposit More, Harvest, Demolish <!-- All three available -->
+
+**Priority:** P0 (Critical)
+**Estimated:** 5 story points
+**Dependencies:** US-011
+
+---
+
+### US-014: View Bank Building Info (Borrow Mode) — 8/11
+
+**As a** DefiCity user with a Bank building in borrow mode
+**I want** to view my collateral, borrowed amount, and health factor
+**So that** I can monitor my position and avoid liquidation
+
+**Acceptance Criteria:**
+
+- [x] Click Bank → Info panel opens <!-- AavePanel -->
+- [x] Shows collateral asset and amount <!-- Position overview: Total Supplied -->
+- [x] Shows borrowed asset and amount <!-- Borrow positions list -->
+- [x] Shows health factor (color-coded: green >2, yellow 1.5-2, red <1.5) <!-- 4-tier color coding -->
+- [x] Shows liquidation threshold <!-- Reserve data "LIQ" percentage -->
+- [x] Shows supply APY and borrow APY <!-- Reserve data section -->
+- [ ] Shows net APY <!-- Not calculated -->
+- [ ] Shows pending supply rewards <!-- No separate tracking -->
+- [ ] Shows total interest paid on borrow <!-- Not tracked -->
+- [x] Warning displayed if health factor < 1.5 <!-- Yellow color at 1.5, orange at 1.0 -->
+- [x] Actions: Deposit More (collateral), Repay, Harvest, Demolish (only if fully repaid) <!-- All available -->
+
+**Priority:** P1 (High)
+**Estimated:** 8 story points
+**Dependencies:** US-012
+
+---
+
+### US-015: Harvest Bank Rewards — 7/11
+
+**As a** DefiCity user with a Bank building
+**I want** to harvest my earned interest
+**So that** I can realize my gains and add to my available balance in SmartWallet
+
+**Acceptance Criteria:**
+
+- [x] Click "Harvest" button in Bank info panel <!-- Harvest button per position -->
+- [ ] Shows pending rewards amount <!-- Uses current balance, not separate rewards -->
+- [x] Shows confirmation modal <!-- Harvest modal with amount input -->
+- [ ] Transaction is gasless (via session key) <!-- Not gasless -->
+- [x] SmartWallet executes: withdraw interest from Aave (aToken → token) <!-- useAaveHarvest -->
+- [x] Harvested tokens remain in user's SmartWallet
+- [ ] DefiCityCore updates accounting records
+- [x] Available balance in SmartWallet increases
+- [x] Building remains active <!-- Partial harvest keeps building -->
+- [ ] Success notification displays
+- [x] Balance updates in real-time <!-- refreshPosition() after success -->
+
+**Priority:** P0 (Critical)
+**Estimated:** 3 story points
+**Dependencies:** US-013
+
+---
+
+### US-016: Repay Bank Loan — 7/11
+
+**As a** DefiCity user with a Bank building in borrow mode
+**I want** to repay my borrowed amount
+**So that** I can improve my health factor or close my position
+
+**Acceptance Criteria:**
+
+- [x] Click "Repay" button in Bank info panel <!-- REPAY button in borrow positions -->
+- [x] User enters repay amount (or clicks "Max") <!-- repayAll flag with MaxUint256 -->
+- [ ] UI shows remaining debt after repayment <!-- Not shown -->
+- [ ] UI shows new health factor after repayment <!-- No HF preview for repay -->
+- [ ] Transaction is gasless (via session key) <!-- Not gasless -->
+- [x] SmartWallet executes: repay borrowed amount to Aave from SmartWallet balance <!-- useAaveRepay -->
+- [x] DefiCityCore updates accounting records <!-- recordDemolition on full repay -->
+- [x] Health factor updated <!-- refreshPosition() -->
+- [x] Can demolish building after full repayment <!-- Full repay auto-demolishes -->
+- [ ] Success notification displays
+- [x] Repayment uses tokens from user's SmartWallet
+
+**Priority:** P1 (High)
+**Estimated:** 5 story points
+**Dependencies:** US-014
+
+---
+
+### US-017: Demolish Bank Building — 10/12
+
+**As a** DefiCity user
+**I want** to demolish my Bank building
+**So that** I can withdraw all my funds from Aave and reclaim the tile
+
+**Acceptance Criteria:**
+
+- [x] Click "Demolish" button in Bank info panel <!-- Demolish section in AavePanel -->
+- [x] Shows confirmation modal with total value (principal + interest) <!-- Modal with token + USD -->
+- [x] If borrowing: Must repay fully first (or shows error) <!-- Button disabled, warning shown -->
+- [x] Shows warning about losing building <!-- Warning text in demolish section -->
+- [ ] Transaction is gasless (via session key) <!-- Not gasless -->
+- [x] SmartWallet executes: withdraw all assets from Aave <!-- useAaveWithdraw -->
+- [x] Assets returned to user's SmartWallet
+- [x] DefiCityCore updates accounting records (removes building) <!-- recordDemolition -->
+- [x] Building removed from map <!-- Building IDs passed for demolition -->
+- [x] Available balance in SmartWallet increases
+- [ ] Success notification displays
+- [x] Tile becomes available for new building
+
+**Priority:** P0 (Critical)
+**Estimated:** 5 story points
+**Dependencies:** US-015
+
+---
+
+## Epic 5: Shop Building (Aerodrome LP) — 0% (0/49)
+
+### US-018: Place Shop Building (Provide Liquidity) — 0/16
+
+**As a** DefiCity user
+**I want** to place a Shop building and provide liquidity to Aerodrome
+**So that** I can earn trading fees and AERO rewards
+
+**Acceptance Criteria:**
+
+- [ ] User can select Shop from building menu <!-- Contract ShopAdapter exists, frontend NOT implemented -->
+- [ ] User can select liquidity pair (USDC/ETH, USDT/USDC, ETH/WBTC)
+- [ ] User can deposit single asset (auto-swap to 50/50)
+- [ ] User can deposit dual assets (manual amounts)
+- [ ] User enters deposit amount (minimum $500)
+- [ ] UI shows trading fee APY
+- [ ] UI shows AERO rewards APY
+- [ ] UI shows total APY
+- [ ] UI shows estimated impermanent loss (IL)
+- [ ] UI shows 0.05% building placement fee
+- [ ] User confirms transaction (gasless via session key)
+- [ ] SmartWallet executes: transfer tokens from SmartWallet to Aerodrome pool
+- [ ] SmartWallet receives LP tokens/NFT (held in user's SmartWallet)
+- [ ] DefiCityCore records building placement (bookkeeping only)
+- [ ] Building appears on map
+- [ ] Assets remain in user's control (via SmartWallet → Aerodrome)
+
+**Priority:** P0 (Critical)
+**Estimated:** 13 story points
+**Dependencies:** US-005
+
+---
+
+### US-019: View Shop Building Info — 0/11
+
+**As a** DefiCity user with a Shop building
+**I want** to view my LP position details
+**So that** I can monitor my liquidity, fees earned, and impermanent loss
+
+**Acceptance Criteria:**
+
+- [ ] Click Shop → Info panel opens
+- [ ] Shows liquidity pair (e.g., USDC/ETH)
+- [ ] Shows LP position value
+- [ ] Shows asset breakdown (how much of each token)
+- [ ] Shows trading fees earned
+- [ ] Shows AERO rewards earned
+- [ ] Shows current APY (fees + AERO rewards)
+- [ ] Shows current IL percentage
+- [ ] Shows total value change since placement
+- [ ] IL indicator color-coded (green <2%, yellow 2-5%, red >5%)
+- [ ] Actions: Deposit More, Harvest, Demolish
+
+**Priority:** P0 (Critical)
+**Estimated:** 8 story points
+**Dependencies:** US-018
+
+---
+
+### US-020: Harvest Shop Rewards (Fees + AERO) — 0/12
+
+**As a** DefiCity user with a Shop building
+**I want** to harvest my trading fees and AERO rewards
+**So that** I can realize my gains without removing liquidity
+
+**Acceptance Criteria:**
+
+- [ ] Click "Harvest" button in Shop info panel
+- [ ] Shows pending trading fees (in LP tokens)
+- [ ] Shows pending AERO rewards
+- [ ] Shows total value in USD
+- [ ] Transaction is gasless (via session key)
+- [ ] SmartWallet executes: claim fees and AERO rewards from Aerodrome
+- [ ] Rewards transferred to user's SmartWallet
+- [ ] DefiCityCore updates accounting records
+- [ ] Available balance in SmartWallet increases
+- [ ] LP position remains active
+- [ ] Success notification displays
+- [ ] Balance updates in real-time
+
+**Priority:** P0 (Critical)
+**Estimated:** 5 story points
+**Dependencies:** US-019
+
+---
+
+### US-021: Demolish Shop Building — 0/10
+
+**As a** DefiCity user
+**I want** to demolish my Shop building
+**So that** I can remove liquidity and withdraw my assets
+
+**Acceptance Criteria:**
+
+- [ ] Click "Demolish" button in Shop info panel
+- [ ] Shows confirmation modal with:
+  - Total LP value
+  - Asset breakdown (how much of each token returned)
+  - Current IL percentage
+  - Warning about IL if > 2%
+- [ ] Transaction is gasless (via session key)
+- [ ] SmartWallet executes: remove liquidity from Aerodrome
+- [ ] Both assets returned to user's SmartWallet
+- [ ] DefiCityCore updates accounting records (removes building)
+- [ ] Building removed from map
+- [ ] Available balance in SmartWallet increases
+- [ ] Success notification displays
+- [ ] Tile becomes available
+
+**Priority:** P0 (Critical)
+**Estimated:** 5 story points
+**Dependencies:** US-020
+
+---
+
+## Epic 6: Government Lottery Office (Megapot Integration) — 0% (0/50)
+
+### US-022: Place Government Lottery Office — 0/15
+
+**As a** DefiCity user
+**I want** to place a Government Lottery Office building
+**So that** I can purchase lottery tickets through Megapot integration
+
+**Acceptance Criteria:**
+
+- [ ] User can select Gov. Lottery Office from building menu <!-- Contract LotteryAdapter exists, frontend NOT implemented -->
+- [ ] Only supports USDC deposits (Megapot requirement)
+- [ ] User enters USDC amount (minimum $10)
+- [ ] UI fetches live ticket price from Megapot contract
+- [ ] UI calculates: tickets = amount / ticketPrice
+- [ ] UI shows: "Tickets will be purchased on Megapot.io on your behalf"
+- [ ] UI shows current jackpot ($1M+) from Megapot
+- [ ] UI shows responsible gaming warning
+- [ ] UI shows: "DefiCity earns referral fee"
+- [ ] User confirms transaction (gasless via session key)
+- [ ] SmartWallet executes: transfer USDC to Megapot and purchase tickets
+- [ ] DefiCityCore records building placement (bookkeeping only)
+- [ ] Building appears on map
+- [ ] Megapot.purchaseTickets() called with referrer=DefiCity
+- [ ] User owns tickets on Megapot contract (via SmartWallet)
+
+**Implementation Note:** LotteryAdapter contract exists but frontend integration not yet built.
+
+**Priority:** P1 (High)
+**Estimated:** 8 story points
+**Dependencies:** US-005
+
+---
+
+### US-023: View Government Lottery Office Info — 0/10
+
+**As a** DefiCity user with a Lottery building
+**I want** to view the current jackpot and my ticket information
+**So that** I can check jackpot size and see if I won
+
+**Acceptance Criteria:**
+
+- [ ] Click Lottery building → Info panel opens
+- [ ] Shows $1M+ jackpot amount (live from Megapot.getJackpotAmount())
+- [ ] Shows user's total ticket count (from Megapot.getUsersInfo())
+- [ ] Shows total USDC spent on tickets
+- [ ] Shows countdown to next draw (from Megapot.getTimeRemaining())
+- [ ] Shows last winner info (from Megapot.getLastJackpotResults())
+- [ ] Shows "Powered by Megapot.io" badge
+- [ ] Shows "View on Megapot.io" link
+- [ ] Shows responsible gaming warnings
+- [ ] Actions: Buy More Tickets, Check Winnings, View on Megapot.io
+
+**Priority:** P1 (High)
+**Estimated:** 5 story points
+**Dependencies:** US-022
+
+---
+
+### US-024: Buy More Lottery Tickets — 0/9
+
+**As a** DefiCity user with a Lottery building
+**I want** to buy additional lottery tickets
+**So that** I can increase my chances of winning the jackpot
+
+**Acceptance Criteria:**
+
+- [ ] Click "Buy More Tickets" button
+- [ ] User enters additional USDC amount
+- [ ] UI fetches current ticket price from Megapot
+- [ ] UI calculates additional ticket count
+- [ ] UI shows total tickets after purchase
+- [ ] Transaction is gasless
+- [ ] Megapot.purchaseTickets() called
+- [ ] Ticket count updates in info panel
+- [ ] Success notification displays
+
+**Priority:** P1 (High)
+**Estimated:** 3 story points
+**Dependencies:** US-023
+
+---
+
+### US-025: Check Lottery Winnings — 0/9
+
+**As a** DefiCity user with lottery tickets
+**I want** to check if I have any claimable winnings
+**So that** I know if I won a prize
+
+**Acceptance Criteria:**
+
+- [ ] Click "Check Winnings" button in Lottery info panel
+- [ ] Fetches Megapot.winningsClaimable(user)
+- [ ] If winnings = 0: Shows "No winnings yet"
+- [ ] If winnings > 0: Shows "You Won! $X.XX"
+- [ ] Shows celebratory animation if won
+- [ ] Shows "Claim on Megapot.io" button (external link)
+- [ ] Note displayed: "Claims are processed on Megapot.io"
+- [ ] Link opens Megapot.io claim page
+- [ ] Responsible gaming reminder displayed
+
+**Priority:** P1 (High)
+**Estimated:** 3 story points
+**Dependencies:** US-023
+
+---
+
+### US-026: Demolish Lottery Building — 0/7
+
+**As a** DefiCity user
+**I want** to demolish my Lottery building
+**So that** I can reclaim the tile (note: no funds returned, tickets remain on Megapot)
+
+**Acceptance Criteria:**
+
+- [ ] Click "Demolish" button in Lottery info panel
+- [ ] Shows confirmation modal:
+  - "Tickets remain on Megapot.io"
+  - "You can still claim winnings on Megapot.io"
+  - "No funds will be returned to your wallet"
+- [ ] Transaction is gasless
+- [ ] Building removed from map
+- [ ] Tile becomes available
+- [ ] User's tickets remain on Megapot contract (not affected)
+- [ ] Success notification displays
+
+**Priority:** P2 (Nice to have)
+**Estimated:** 2 story points
+**Dependencies:** US-023
+
+---
+
+## Epic 7: Account Abstraction & Gasless Gameplay — 0% (0/45)
+
+### US-027: Create Session Key for Gasless Gameplay — 0/9
+
+**As a** DefiCity user
+**I want** to create a session key for my SmartWallet
+**So that** I can authorize game actions without approving every transaction
+
+**Acceptance Criteria:**
+
+- [ ] User clicks "Enable Gasless Gameplay" button <!-- No UI for session keys -->
+- [ ] Shows explanation modal:
+  - "Session key authorizes your SmartWallet to execute game actions"
+  - "You retain full custody - game cannot access funds without authorization"
+  - "Valid for 24 hours"
+  - "Limited to 1000 USDC/day in transaction value"
+  - "Only works with approved DefiCity contracts"
+  - "Session key allows SmartWallet to interact with DeFi protocols"
+- [ ] User approves session key creation in SmartWallet (one-time approval)
+- [ ] Session key registered on user's SmartWallet contract <!-- ✅ Contract supports: createSessionKey(), but no frontend UI -->
+- [ ] Session key generated and stored (encrypted in localStorage) <!-- Not implemented -->
+- [ ] UI shows "Gasless Enabled" indicator <!-- Not implemented -->
+- [ ] UI shows expiry time (24h countdown) <!-- Not implemented -->
+- [ ] All gameplay actions now gasless (place, harvest, demolish, buy lottery) <!-- All actions require wallet approval -->
+- [ ] SmartWallet executes actions using session key authorization <!-- ✅ Contract: executeFromGame() ready, frontend not using it -->
+
+**Implementation Note:** SmartWallet contract fully supports session keys (createSessionKey, revokeSessionKey, executeFromGame, rolling 24h spending window, 1h-30d validity). Frontend integration and bundler not yet implemented.
+
+**Priority:** P0 (Critical)
+**Estimated:** 8 story points
+**Dependencies:** US-001
+
+---
+
+### US-028: View Session Key Status — 0/8
+
+**As a** DefiCity user
+**I want** to see my session key status
+**So that** I know if my gameplay is gasless and when it expires
+
+**Acceptance Criteria:**
+
+- [ ] Dashboard shows session key status
+- [ ] Shows "Active" with green indicator when valid
+- [ ] Shows "Expired" with red indicator when expired
+- [ ] Shows time remaining (countdown)
+- [ ] Shows daily spending limit (1000 USDC)
+- [ ] Shows amount spent today
+- [ ] Shows remaining daily allowance
+- [ ] Shows "Refresh" button when < 1 hour remaining
+
+**Priority:** P1 (High)
+**Estimated:** 3 story points
+**Dependencies:** US-027
+
+---
+
+### US-029: Auto-Refresh Session Key — 0/6
+
+**As a** DefiCity user with an expiring session key
+**I want** the system to automatically refresh my session key
+**So that** my gameplay remains gasless without manual intervention
+
+**Acceptance Criteria:**
+
+- [ ] System checks session key expiry every 10 minutes
+- [ ] When < 1 hour remaining: Shows prompt "Refresh session key?"
+- [ ] User clicks "Yes" → New session key created automatically
+- [ ] New 24-hour validity period starts
+- [ ] Seamless transition (no gameplay interruption)
+- [ ] Success notification: "Gasless gameplay extended"
+
+**Priority:** P1 (High)
+**Estimated:** 5 story points
+**Dependencies:** US-028
+
+---
+
+### US-030: Revoke Session Key — 0/8
+
+**As a** DefiCity user
+**I want** to revoke my session key manually
+**So that** I can secure my account if needed (e.g., on public computer)
+
+**Acceptance Criteria:**
+
+- [ ] Dashboard shows "Revoke Session Key" button
+- [ ] Shows confirmation modal: "This will disable gasless gameplay"
+- [ ] User confirms revocation
+- [ ] Session key removed from localStorage
+- [ ] Session key revoked on smart wallet contract
+- [ ] UI shows "Gasless Disabled"
+- [ ] All future transactions require wallet approval
+- [ ] Success notification displays
+
+**Priority:** P1 (High)
+**Estimated:** 3 story points
+**Dependencies:** US-028
+
+---
+
+### US-031: View Gasless Stats — 0/7
+
+**As a** DefiCity user
+**I want** to see how much gas I've saved with gasless gameplay
+**So that** I understand the value of Account Abstraction
+
+**Acceptance Criteria:**
+
+- [ ] Dashboard shows "Gas Saved" section
+- [ ] Shows total gasless transactions count
+- [ ] Shows total gas saved in USD
+- [ ] Shows average gas per transaction
+- [ ] Shows daily gas spending (via paymaster)
+- [ ] Shows remaining daily gas allowance
+- [ ] Comparison: "You saved $X vs. regular transactions"
+
+**Priority:** P2 (Nice to have)
+**Estimated:** 3 story points
+**Dependencies:** US-027
+
+---
+
+### US-032: Fallback to Regular Transactions — 0/7
+
+**As a** DefiCity user
+**I want** the system to fallback to regular wallet transactions if the paymaster is exhausted
+**So that** I can continue using the platform even if gasless gameplay is unavailable
+
+**Acceptance Criteria:**
+
+- [ ] System detects if paymaster has insufficient balance
+- [ ] Shows warning modal: "Gasless gameplay temporarily unavailable"
+- [ ] Offers option: "Continue with regular transaction (you pay gas)"
+- [ ] User can choose to proceed or cancel
+- [ ] If proceeding: Transaction uses regular wallet approval
+- [ ] UI clearly indicates "You will pay gas for this transaction"
+- [ ] Success notification: "Transaction completed (regular)"
+
+**Priority:** P1 (High)
+**Estimated:** 5 story points
+**Dependencies:** US-027
+
+---
+
+## Epic 8: City Map & Visualization — 41% (11/27)
+
+### US-033: View City Map — 4/6
+
+**As a** DefiCity user
+**I want** to see my city map in an isometric view
+**So that** I can visualize my DeFi portfolio as buildings
+
+**Acceptance Criteria:**
+
+- [x] Map displays in isometric grid layout <!-- PixiJS 26x26 isometric grid -->
+- [x] Shows empty tiles (available for building) <!-- Blue highlight on hover for grass tiles -->
+- [ ] Shows placed buildings (visually distinct by type) <!-- Distinct by level/asset color, not by building type -->
+- [ ] Each building has unique sprite:
+  - Town Hall: Castle/headquarters style <!-- ✅ building-townhall sprite, amber tint -->
+  - Bank: Modern building with Aave branding <!-- ❌ Uses level-based sprites, no Aave branding -->
+  - Shop: Market/store with Aerodrome branding <!-- ❌ Not implemented in frontend -->
+  - Lottery: Government building with Megapot branding <!-- ❌ Not implemented in frontend -->
+- [x] Map is responsive (mobile/tablet/desktop) <!-- Canvas auto-resizes to container -->
+- [x] Smooth animations (60fps) <!-- PixiJS ticker system -->
+
+**Priority:** P0 (Critical)
+**Estimated:** 8 story points
+**Dependencies:** US-001
+
+---
+
+### US-034: Zoom and Pan City Map — 5/7
+
+**As a** DefiCity user with multiple buildings
+**I want** to zoom and pan my city map
+**So that** I can navigate and view buildings easily
+
+**Acceptance Criteria:**
+
+- [x] User can zoom in/out (mouse wheel or pinch gesture) <!-- Mouse wheel ✅, Pinch ❌ -->
+- [x] User can pan (click-drag or swipe) <!-- Click-drag ✅, WASD/Arrow keys ✅ -->
+- [x] Zoom range: 50% to 200% <!-- 30% to 200% (MIN_SCALE=0.3, MAX_SCALE=2.0) -->
+- [ ] Panning stays within map bounds <!-- No explicit bounds -->
+- [x] Smooth zoom/pan animations <!-- Focal-point zoom toward cursor -->
+- [x] Reset button to default view <!-- BottomBar RESET button -->
+- [ ] Zoom level persisted across sessions <!-- Resets on reload -->
+
+**Priority:** P1 (High)
+**Estimated:** 5 story points
+**Dependencies:** US-033
+
+---
+
+### US-035: Hover Building Preview — 0/8
+
+**As a** DefiCity user
+**I want** to see a quick preview when hovering over a building
+**So that** I can quickly understand building status without clicking
+
+**Acceptance Criteria:**
+
+- [ ] Hover over building → Tooltip appears <!-- No tooltip, labels always visible instead -->
+- [ ] Shows building type
+- [ ] Shows asset type <!-- ✅ Always-visible label on building -->
+- [ ] Shows current value
+- [ ] Shows pending rewards (if any)
+- [ ] Shows status indicator (active, liquidation warning, etc.)
+- [ ] Tooltip positioned to not cover building
+- [ ] Tooltip disappears on mouse leave
+
+**Priority:** P2 (Nice to have)
+**Estimated:** 3 story points
+**Dependencies:** US-033
+
+---
+
+### US-036: Empty State (No Buildings) — 2/6
+
+**As a** new DefiCity user with no buildings
+**I want** to see a helpful empty state
+**So that** I understand what to do next
+
+**Acceptance Criteria:**
+
+- [ ] Shows empty map with "Start building your DeFi city!" <!-- TownHallModal serves as initial flow instead -->
+- [ ] Shows call-to-action: "Click any tile to place your first building"
+- [ ] Shows illustration/animation
+- [x] Highlights available tiles <!-- Blue hover on buildable grass tiles -->
+- [ ] Optional: Shows example city
+- [x] Disappears after first building placed <!-- TownHallModal hides after Town Hall created -->
+
+**Priority:** P2 (Nice to have)
+**Estimated:** 2 story points
+**Dependencies:** US-033
+
+---
+
+## Epic 9: Analytics & Insights — 0% (0/29)
+
+### US-037: View Total Portfolio Value Over Time — 0/8
+
+**As a** DefiCity user
+**I want** to see my total portfolio value over time
+**So that** I can track my DeFi portfolio performance
+
+**Acceptance Criteria:**
+
+- [ ] Dashboard shows portfolio value chart
+- [ ] Chart displays value over time (daily data points)
+- [ ] Shows time range selector (7D, 30D, 90D, 1Y, All)
+- [ ] Shows total portfolio value (all assets + buildings)
+- [ ] Shows percentage change
+- [ ] Shows absolute change in USD
+- [ ] Color-coded (green for gains, red for losses)
+- [ ] Interactive chart (hover to see value at specific time)
+
+**Priority:** P2 (Nice to have)
+**Estimated:** 8 story points
+**Dependencies:** US-006
+
+---
+
+### US-038: View Asset Distribution Breakdown — 0/7
+
+**As a** DefiCity user
+**I want** to see how my portfolio is distributed across different assets
+**So that** I can understand my asset allocation
+
+**Acceptance Criteria:**
+
+- [ ] Dashboard shows asset distribution pie chart
+- [ ] Shows percentage for each asset (USDC, USDT, ETH, WBTC)
+- [ ] Shows USD value for each asset
+- [ ] Interactive chart (hover to see details)
+- [ ] Color-coded by asset
+- [ ] Shows legend
+- [ ] Includes both available + invested amounts
+
+**Priority:** P2 (Nice to have)
+**Estimated:** 5 story points
+**Dependencies:** US-006
+
+---
+
+### US-039: View Yield Earned by Building Type — 0/8
+
+**As a** DefiCity user
+**I want** to see how much yield I've earned from each building type
+**So that** I can optimize my strategy
+
+**Acceptance Criteria:**
+
+- [ ] Dashboard shows yield breakdown by building type
+- [ ] Shows total earned from Bank buildings
+- [ ] Shows total earned from Shop buildings
+- [ ] Shows total spent on Lottery (if any)
+- [ ] Shows percentage contribution to total yield
+- [ ] Shows average APY by building type
+- [ ] Bar chart or table format
+- [ ] Filterable by time period (7D, 30D, All)
+
+**Priority:** P2 (Nice to have)
+**Estimated:** 5 story points
+**Dependencies:** US-015, US-020
+
+---
+
+### US-040: View Building Performance Comparison — 0/6
+
+**As a** DefiCity user with multiple buildings
+**I want** to compare performance across my buildings
+**So that** I can identify my best and worst performers
+
+**Acceptance Criteria:**
+
+- [ ] Dashboard shows building performance table
+- [ ] Lists all buildings with:
+  - Building type
+  - Asset type
+  - Initial investment
+  - Current value
+  - Total earned
+  - ROI percentage
+  - APY
+- [ ] Sortable by any column
+- [ ] Filterable by building type
+- [ ] Highlight best performer (green)
+- [ ] Highlight worst performer (red)
+
+**Priority:** P2 (Nice to have)
+**Estimated:** 8 story points
+**Dependencies:** US-015, US-020
+
+---
+
+## Story Mapping & Prioritization
+
+### MVP (Minimum Viable Product) Stories - Phase 1 & 2
+
+**Must Have (P0):**
+
+1. US-001: New User Signup
+2. US-002: Returning User Login
+3. US-005: Deposit Multi-Asset Funds
+4. US-006: View Multi-Asset Portfolio
+5. US-007: Withdraw Multi-Asset Funds
+6. US-011: Place Bank Building (Supply Mode)
+7. US-013: View Bank Building Info (Supply Mode)
+8. US-015: Harvest Bank Rewards
+9. US-017: Demolish Bank Building
+10. US-018: Place Shop Building
+11. US-019: View Shop Building Info
+12. US-020: Harvest Shop Rewards
+13. US-021: Demolish Shop Building
+14. US-027: Create Session Key
+15. US-033: View City Map
+
+**Total MVP Points: ~100 story points**
+
+---
+
+### Post-MVP Stories - Phase 3
+
+**Should Have (P1):**
+
+1. US-003: Guardian Recovery Setup
+2. US-004: Onboarding Tutorial
+3. US-008: View Transaction History
+4. US-009: Place Town Hall Building
+5. US-012: Place Bank Building (Borrow Mode)
+6. US-014: View Bank Building Info (Borrow Mode)
+7. US-016: Repay Bank Loan
+8. US-022: Place Government Lottery Office
+9. US-023: View Lottery Info
+10. US-024: Buy More Lottery Tickets
+11. US-025: Check Lottery Winnings
+12. US-028: View Session Key Status
+13. US-029: Auto-Refresh Session Key
+14. US-030: Revoke Session Key
+15. US-032: Fallback to Regular Transactions
+16. US-034: Zoom and Pan City Map
+
+**Total Phase 3 Points: ~80 story points**
+
+---
+
+### Future Enhancements - Phase 4+
+
+**Nice to Have (P2):**
+
+1. US-010: View Town Hall Info
+2. US-026: Demolish Lottery Building
+3. US-031: View Gasless Stats
+4. US-035: Hover Building Preview
+5. US-036: Empty State (No Buildings)
+6. US-037: View Total Portfolio Value Over Time
+7. US-038: View Asset Distribution Breakdown
+8. US-039: View Yield Earned by Building Type
+9. US-040: View Building Performance Comparison
+
+**Total Future Points: ~45 story points**
+
+---
+
+## Story Dependencies Map
+
+```
+US-001 (Signup)
+  ├─> US-002 (Login)
+  ├─> US-003 (Guardian Recovery)
+  ├─> US-004 (Onboarding Tutorial)
+  ├─> US-005 (Deposit)
+  │     ├─> US-006 (View Portfolio)
+  │     │     ├─> US-007 (Withdraw)
+  │     │     ├─> US-008 (Transaction History)
+  │     │     ├─> US-037 (Portfolio Over Time)
+  │     │     └─> US-038 (Asset Distribution)
+  │     ├─> US-011 (Bank Supply)
+  │     │     ├─> US-012 (Bank Borrow)
+  │     │     │     ├─> US-014 (Bank Borrow Info)
+  │     │     │     └─> US-016 (Repay Loan)
+  │     │     ├─> US-013 (Bank Supply Info)
+  │     │     ├─> US-015 (Harvest Bank)
+  │     │     │     └─> US-039 (Yield Breakdown)
+  │     │     └─> US-017 (Demolish Bank)
+  │     ├─> US-018 (Shop LP)
+  │     │     ├─> US-019 (Shop Info)
+  │     │     ├─> US-020 (Harvest Shop)
+  │     │     │     └─> US-039 (Yield Breakdown)
+  │     │     └─> US-021 (Demolish Shop)
+  │     └─> US-022 (Lottery Place)
+  │           ├─> US-023 (Lottery Info)
+  │           ├─> US-024 (Buy More Tickets)
+  │           ├─> US-025 (Check Winnings)
+  │           └─> US-026 (Demolish Lottery)
+  ├─> US-009 (Town Hall Place)
+  │     └─> US-010 (Town Hall Info)
+  ├─> US-027 (Session Key)
+  │     ├─> US-028 (Session Key Status)
+  │     ├─> US-029 (Auto-Refresh Key)
+  │     ├─> US-030 (Revoke Key)
+  │     ├─> US-031 (Gasless Stats)
+  │     └─> US-032 (Fallback)
+  └─> US-033 (City Map)
+        ├─> US-034 (Zoom/Pan)
+        ├─> US-035 (Hover Preview)
+        └─> US-036 (Empty State)
+
+US-015 + US-020
+  └─> US-040 (Building Performance Comparison)
+```
+
+---
+
+## Estimation Guidelines
+
+- **1 point:** Very simple, < 1 day (e.g., UI change, simple view)
+- **2 points:** Simple, 1 day (e.g., basic CRUD, simple form)
+- **3 points:** Moderate, 1-2 days (e.g., feature with validation)
+- **5 points:** Complex, 2-3 days (e.g., multi-step flow, integration)
+- **8 points:** Very complex, 3-5 days (e.g., complex integration, multiple contracts)
+- **13 points:** Epic-level, 5-8 days (e.g., new building type with full flow)
+
+---
+
+## Definition of Done
+
+For a user story to be considered "Done":
+
+1. **Development:**
+   - [ ] All acceptance criteria met
+   - [ ] Code reviewed and approved
+   - [ ] Unit tests written and passing (>80% coverage)
+   - [ ] Integration tests passing
+
+2. **Testing:**
+   - [ ] Manually tested on testnet
+   - [ ] Cross-browser tested (Chrome, Firefox, Safari)
+   - [ ] Mobile-responsive tested
+   - [ ] No critical or high-priority bugs
+
+3. **Documentation:**
+   - [ ] Code commented (complex logic)
+   - [ ] API endpoints documented
+   - [ ] User-facing changes documented
+
+4. **Deployment:**
+   - [ ] Deployed to testnet
+   - [ ] Smoke tests passing
+   - [ ] Ready for mainnet deployment
+
+---
+
+## Notes
+
+### Architecture
+
+- **Self-Custodial Design:** Users maintain full custody of all assets in their SmartWallet at all times
+- **SmartWallet:** ERC-4337 Account Abstraction wallet owned and controlled by the user
+- **DefiCityCore:** Only performs bookkeeping and accounting - NEVER holds user funds
+- **Asset Flow:** User EOA → User's SmartWallet → DeFi Protocols (Aave/Aerodrome/Megapot)
+- **Game Contracts:** Only track game state, buildings, and stats - pure accounting layer
+- **Session Keys:** Authorize SmartWallet to execute game actions without repeated approvals
+
+### Assets & Protocols
+
+- **Multi-Asset Support:** All building types except Lottery support USDC, USDT, ETH, WBTC
+- **Lottery USDC-Only:** Megapot integration only accepts USDC deposits
+- **SmartWallet Holds All Tokens:** Whether idle or invested in DeFi protocols
+- **Direct Access:** Users can always interact with their SmartWallet directly (bypass game UI)
+
+### Transactions
+
+- **Gasless Gameplay:** All gameplay actions (place, harvest, demolish, buy lottery) are gasless via session keys
+- **Regular Transactions:** Deposits and withdrawals are NOT gasless (user pays gas)
+- **SmartWallet Execution:** All DeFi interactions executed by user's SmartWallet, not game contracts
+- **No Unlock Requirements:** All 4 building types available from start (no progression system)
+
+### Fees
+
+- **Building Fee:** 0.05% fee on building placement (collected by DefiCity)
+- **Megapot Referral:** DefiCity earns referral fees when users buy lottery tickets
+
+---
+
+**Total User Stories:** 40
+**Total Story Points:** ~225 points
+**Estimated Timeline:** 16 weeks (4 months) with 2 full-stack developers
+
+---
+
+**End of User Stories Document**
