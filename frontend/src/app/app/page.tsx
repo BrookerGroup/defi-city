@@ -17,6 +17,7 @@ import { useGameState } from "@/components/game/useGameState";
 import { GameHUD } from "@/components/game/ui/GameHUD";
 import { BuildPanel } from "@/components/game/ui/BuildPanel";
 import { VaultPanel } from "@/components/game/ui/VaultPanel";
+import { TransactionHistoryPanel } from "@/components/game/ui/TransactionHistoryPanel";
 import { BottomBar } from "@/components/game/ui/BottomBar";
 import { TownHallModal } from "@/components/game/ui/TownHallModal";
 
@@ -110,6 +111,7 @@ export default function AppPage() {
   } | null>(null);
   const [showBuildPanel, setShowBuildPanel] = useState(false);
   const [showVaultPanel, setShowVaultPanel] = useState(false);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
 
   // Compute used assets and selected building
   const usedAssets = useMemo(
@@ -331,7 +333,15 @@ export default function AppPage() {
           smartWalletLinkBalance={smartWalletLinkBalance}
           hasSmartWallet={hasSmartWallet}
           showVault={showVaultPanel}
-          onToggleVault={() => setShowVaultPanel((v) => !v)}
+          onToggleVault={() => {
+            setShowVaultPanel((v) => !v);
+            if (!showVaultPanel) setShowHistoryPanel(false);
+          }}
+          showHistory={showHistoryPanel}
+          onToggleHistory={() => {
+            setShowHistoryPanel((v) => !v);
+            if (!showHistoryPanel) setShowVaultPanel(false);
+          }}
           onLogout={logout}
         />
 
@@ -375,6 +385,14 @@ export default function AppPage() {
             isDepositing={isDepositing || isConfirmingDeposit}
             isWithdrawing={isWithdrawingFromVault || isConfirmingWithdraw}
             onClose={() => setShowVaultPanel(false)}
+          />
+
+          {/* Right: Transaction History Panel */}
+          <TransactionHistoryPanel
+            visible={showHistoryPanel && hasSmartWallet}
+            userAddress={address}
+            smartWalletAddress={smartWallet}
+            onClose={() => setShowHistoryPanel(false)}
           />
         </div>
 

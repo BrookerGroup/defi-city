@@ -12,4 +12,5 @@ export * from './useAaveBorrow'
 export * from './useAaveRepay'
 export * from './useMoveBuilding'
 export * from './useAaveReserveData'
+export * from './useTransactionHistory'
 

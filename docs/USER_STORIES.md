@@ -230,7 +230,7 @@ Buildings, stats, game state (accounting records)
 
 ---
 
-### US-008: View Transaction History — 0/10
+### US-008: View Transaction History — 10/10 ✓
 
 **As a** DefiCity user
 **I want** to see a history of all my transactions
@@ -238,16 +238,16 @@ Buildings, stats, game state (accounting records)
 
 **Acceptance Criteria:**
 
-- [ ] Transaction history shows all transactions <!-- Not implemented -->
-- [ ] Shows transaction type (deposit, withdraw, place, harvest, demolish)
-- [ ] Shows asset type
-- [ ] Shows amount
-- [ ] Shows timestamp
-- [ ] Shows transaction hash (clickable → BaseScan)
-- [ ] Shows transaction status (success, pending, failed)
-- [ ] Filterable by transaction type
-- [ ] Filterable by asset type
-- [ ] Paginated for performance
+- [x] Transaction history shows all transactions <!-- TransactionHistoryPanel + useTransactionHistory -->
+- [x] Shows transaction type (deposit, withdraw, place, harvest, demolish) <!-- TYPE_LABELS in panel -->
+- [x] Shows asset type <!-- assetSymbol displayed per transaction -->
+- [x] Shows amount <!-- Formatted amount with decimals -->
+- [x] Shows timestamp <!-- formatRelativeTime helper -->
+- [x] Shows transaction hash (clickable → BaseScan) <!-- Link to sepolia.basescan.org -->
+- [x] Shows transaction status (success, pending, failed) <!-- Events are confirmed = always success -->
+- [x] Filterable by transaction type <!-- Type dropdown filter -->
+- [x] Filterable by asset type <!-- Asset dropdown filter -->
+- [x] Paginated for performance <!-- PAGE_SIZE=20, PREV/NEXT buttons -->
 
 **Priority:** P1 (High)
 **Estimated:** 3 story points

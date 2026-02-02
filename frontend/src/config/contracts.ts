@@ -60,6 +60,10 @@ export const ABIS = {
     'function recordBuildingPlacement(address user, string calldata buildingType, address asset, uint256 amount, uint256 x, uint256 y, bytes calldata metadata) external returns (uint256)',
     // Events
     'event BuildingPlaced(uint256 indexed buildingId, address indexed user, address indexed smartWallet, string buildingType, address asset, uint256 amount, uint256 x, uint256 y)',
+    'event BuildingDemolished(uint256 indexed buildingId, address indexed user, uint256 returnedAmount)',
+    'event Harvested(uint256 indexed buildingId, address indexed user, uint256 yieldAmount)',
+    'event DepositRecorded(address indexed user, address indexed asset, uint256 amount)',
+    'event WithdrawalRecorded(address indexed user, address indexed asset, uint256 amount)',
   ],
 
   SMART_WALLET: [

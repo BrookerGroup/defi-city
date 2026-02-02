@@ -22,6 +22,8 @@ interface GameHUDProps {
   hasSmartWallet: boolean
   showVault: boolean
   onToggleVault: () => void
+  showHistory: boolean
+  onToggleHistory: () => void
   onLogout: () => void
 }
 
@@ -42,6 +44,8 @@ export function GameHUD({
   hasSmartWallet,
   showVault,
   onToggleVault,
+  showHistory,
+  onToggleHistory,
   onLogout,
 }: GameHUDProps) {
   const shortAddress = useMemo(() => {
@@ -99,6 +103,20 @@ export function GameHUD({
           }`}
         >
           VAULT
+        </button>
+      )}
+
+      {/* History Toggle */}
+      {hasSmartWallet && (
+        <button
+          onClick={onToggleHistory}
+          className={`px-2 py-1 text-[7px] border-2 flex-shrink-0 transition-colors ${
+            showHistory
+              ? 'bg-green-600 border-green-400 text-white'
+              : 'bg-slate-800 border-slate-600 text-slate-400 hover:border-green-400'
+          }`}
+        >
+          HISTORY
         </button>
       )}
 
