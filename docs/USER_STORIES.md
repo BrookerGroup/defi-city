@@ -296,7 +296,7 @@ Buildings, stats, game state (accounting records)
 
 ---
 
-### US-010: View Town Hall Info — 2/9
+### US-010: View Town Hall Info — 9/9 ✓
 
 **As a** DefiCity user
 **I want** to click my Town Hall and see my SmartWallet information
@@ -304,13 +304,13 @@ Buildings, stats, game state (accounting records)
 
 **Acceptance Criteria:**
 
-- [ ] Click Town Hall → Info panel opens <!-- Click on townhall blocked, no info panel -->
-- [ ] Shows SmartWallet address
-- [ ] Shows copy button for address
-- [ ] Shows total portfolio value (all assets in SmartWallet)
-- [ ] Shows "This is YOUR SmartWallet - You own all assets" description
-- [ ] Shows "Assets are self-custodial (not held by game)" notice
-- [ ] Shows link to view SmartWallet on BaseScan
+- [x] Click Town Hall → Info panel opens <!-- TownHallInfoPanel slides in from left -->
+- [x] Shows SmartWallet address <!-- truncated display with full address on copy -->
+- [x] Shows copy button for address <!-- copies to clipboard with "COPIED!" feedback -->
+- [x] Shows total portfolio value (all assets in SmartWallet) <!-- vault balances + Aave net position -->
+- [x] Shows "This is YOUR SmartWallet - You own all assets" description
+- [x] Shows "Assets are self-custodial (not held by game)" notice
+- [x] Shows link to view SmartWallet on BaseScan <!-- links to sepolia.basescan.org -->
 - [x] No actions available (cannot harvest/demolish) <!-- townhall click blocked -->
 - [x] Visual representation distinctive (castle/HQ style) <!-- building-townhall sprite, amber tint -->
 

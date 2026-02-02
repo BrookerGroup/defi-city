@@ -20,6 +20,7 @@ import { VaultPanel } from "@/components/game/ui/VaultPanel";
 import { TransactionHistoryPanel } from "@/components/game/ui/TransactionHistoryPanel";
 import { BottomBar } from "@/components/game/ui/BottomBar";
 import { TownHallModal } from "@/components/game/ui/TownHallModal";
+import { TownHallInfoPanel } from "@/components/game/ui/TownHallInfoPanel";
 
 export default function AppPage() {
   const { ready, authenticated, login, logout } = usePrivy();
@@ -112,6 +113,7 @@ export default function AppPage() {
   const [showBuildPanel, setShowBuildPanel] = useState(false);
   const [showVaultPanel, setShowVaultPanel] = useState(false);
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+  const [showTownHallPanel, setShowTownHallPanel] = useState(false);
 
   // Compute used assets and selected building
   const usedAssets = useMemo(
@@ -150,11 +152,17 @@ export default function AppPage() {
         return;
       }
 
-      // Skip Town Hall tile
+      // Open Town Hall info panel when clicking Town Hall
       const clickedBuilding = buildings.find((b) => b.x === x && b.y === y);
-      if (clickedBuilding?.type === "townhall") return;
+      if (clickedBuilding?.type === "townhall") {
+        setShowTownHallPanel(true);
+        setShowBuildPanel(false);
+        setSelectedCoords(null);
+        return;
+      }
       setSelectedCoords({ x, y });
       setShowBuildPanel(true);
+      setShowTownHallPanel(false);
     },
     [buildings],
   );
@@ -335,18 +343,36 @@ export default function AppPage() {
           showVault={showVaultPanel}
           onToggleVault={() => {
             setShowVaultPanel((v) => !v);
-            if (!showVaultPanel) setShowHistoryPanel(false);
+            if (!showVaultPanel) {
+              setShowHistoryPanel(false);
+              setShowTownHallPanel(false);
+            }
           }}
           showHistory={showHistoryPanel}
           onToggleHistory={() => {
             setShowHistoryPanel((v) => !v);
-            if (!showHistoryPanel) setShowVaultPanel(false);
+            if (!showHistoryPanel) {
+              setShowVaultPanel(false);
+              setShowTownHallPanel(false);
+            }
           }}
           onLogout={logout}
         />
 
         {/* Middle: Side panels */}
         <div className="flex-1 relative">
+          {/* Left: Town Hall Info Panel */}
+          <TownHallInfoPanel
+            visible={showTownHallPanel && hasSmartWallet}
+            smartWallet={smartWallet ?? null}
+            smartWalletEthBalance={smartWalletEthBalance}
+            smartWalletUsdcBalance={smartWalletUsdcBalance}
+            smartWalletUsdtBalance={smartWalletUsdtBalance}
+            smartWalletWbtcBalance={smartWalletWbtcBalance}
+            smartWalletLinkBalance={smartWalletLinkBalance}
+            onClose={() => setShowTownHallPanel(false)}
+          />
+
           {/* Left: Build Panel */}
           <BuildPanel
             visible={showBuildPanel && hasSmartWallet}
