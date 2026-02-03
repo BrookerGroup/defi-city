@@ -118,6 +118,86 @@ export function TownHallInfoPanel({
           <p className="text-amber-300 text-[14px]" style={pixelFont}>
             ${totalPortfolioUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
+          
+          {/* Percentage Distribution Bar */}
+          {totalPortfolioUSD > 0 && (
+            <div className="mt-3">
+              <p className="text-amber-400/70 text-[5px] mb-1" style={pixelFont}>
+                DISTRIBUTION
+              </p>
+              <div className="flex h-3 w-full overflow-hidden rounded-sm">
+                {(() => {
+                  const colors: Record<string, string> = {
+                    ETH: 'bg-purple-500',
+                    USDC: 'bg-blue-500',
+                    USDT: 'bg-green-500',
+                    WBTC: 'bg-orange-500',
+                    LINK: 'bg-indigo-500',
+                  }
+                  const segments: { label: string; value: number; color: string }[] = []
+                  const aggregated: Record<string, number> = {}
+                  
+                  // 1. Aggregate Vault assets
+                  for (const a of vaultAssets) {
+                    const bal = parseFloat(a.balance) || 0
+                    const usd = bal * a.price
+                    if (usd > 0) aggregated[a.symbol] = (aggregated[a.symbol] || 0) + usd
+                  }
+                  
+                  // 2. Aggregate Aave supplies
+                  if (position?.supplies) {
+                    for (const s of position.supplies) {
+                      aggregated[s.asset] = (aggregated[s.asset] || 0) + (s.amountUSD || 0)
+                    }
+                  }
+
+                  // 3. Subtract Aave borrows (to show net distribution)
+                  if (position?.borrows) {
+                    for (const b of position.borrows) {
+                      aggregated[b.asset] = (aggregated[b.asset] || 0) - (b.amountUSD || 0)
+                    }
+                  }
+                  
+                  // Create segments from aggregated data
+                  for (const [symbol, usd] of Object.entries(aggregated)) {
+                    if (usd > 0.01) {
+                      segments.push({ 
+                        label: symbol, 
+                        value: usd, 
+                        color: colors[symbol] || 'bg-slate-500' 
+                      })
+                    }
+                  }
+                  
+                  return segments.map((seg, i) => {
+                    const pct = (seg.value / totalPortfolioUSD) * 100
+                    return (
+                      <div
+                        key={i}
+                        className={`${seg.color} h-full transition-all duration-500`}
+                        style={{ width: `${pct}%` }}
+                        title={`${seg.label}: $${seg.value.toFixed(2)} (${pct.toFixed(1)}%)`}
+                      />
+                    )
+                  })
+                })()}
+              </div>
+              <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1.5">
+                {[
+                  { label: 'ETH', color: 'bg-purple-500' },
+                  { label: 'USDC', color: 'bg-blue-500' },
+                  { label: 'USDT', color: 'bg-green-500' },
+                  { label: 'WBTC', color: 'bg-orange-500' },
+                  { label: 'LINK', color: 'bg-indigo-500' },
+                ].map(({ label, color }) => (
+                  <div key={label} className="flex items-center gap-1">
+                    <div className={`w-2 h-2 ${color}`} />
+                    <span className="text-slate-500 text-[5px]" style={pixelFont}>{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Vault Balances Breakdown */}

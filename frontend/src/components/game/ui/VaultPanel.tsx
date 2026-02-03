@@ -302,6 +302,41 @@ export function VaultPanel({
             </button>
           </>
         )}
+
+        {/* Notices & Self-Custody Info */}
+        <div className="pt-4 mt-4 border-t border-slate-700 space-y-4">
+          <div className="bg-slate-800/40 p-3 border border-slate-700/50">
+            <p className="text-amber-400/80 text-[6px] leading-relaxed mb-2" style={pixelFont}>
+              ℹ️ WITHDRAWAL NOTICE
+            </p>
+            <p className="text-slate-400 text-[6px] leading-relaxed" style={pixelFont}>
+              You can only withdraw funds that are currently IDLE in your Smart Wallet. 
+            </p>
+            <p className="text-slate-500 text-[5px] mt-1 leading-relaxed" style={pixelFont}>
+              If your funds are invested in buildings (Aave), you must DEMOLISH those buildings first to make the funds available for withdrawal.
+            </p>
+          </div>
+
+          <div className="bg-blue-900/20 p-3 border border-blue-800/30">
+            <p className="text-blue-400/80 text-[6px] leading-relaxed mb-2" style={pixelFont}>
+              🔐 TRUE SELF-CUSTODY
+            </p>
+            <p className="text-slate-400 text-[6px] leading-relaxed mb-3" style={pixelFont}>
+              Your assets belong to YOU. You can withdraw your funds directly from your Smart Wallet anytime, even without using this game UI.
+            </p>
+            {smartWallet && (
+              <a
+                href={`https://sepolia.basescan.org/address/${smartWallet}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block text-blue-400 text-[6px] underline hover:text-blue-300"
+                style={pixelFont}
+              >
+                VIEW ON BASESCAN ↗
+              </a>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

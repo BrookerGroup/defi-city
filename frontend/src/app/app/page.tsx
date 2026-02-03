@@ -2,6 +2,7 @@
 
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { toast } from "react-hot-toast";
 import {
   useSmartWallet,
   useCreateSmartAccount,
@@ -207,7 +208,10 @@ export default function AppPage() {
       if (!amount || parseFloat(amount) <= 0) return;
       const result = await vaultDeposit(token, amount);
       if (result.success) {
+        toast.success(`${amount} ${token} deposited to vault!`);
         refreshBuildings();
+      } else {
+        toast.error(`Deposit failed: ${result.error || 'Unknown error'}`);
       }
     },
     [vaultDeposit, refreshBuildings],
@@ -218,7 +222,10 @@ export default function AppPage() {
       if (!amount || parseFloat(amount) <= 0) return;
       const result = await vaultWithdraw(token, amount);
       if (result.success) {
+        toast.success(`${amount} ${token} withdrawn to wallet!`);
         refreshBuildings();
+      } else {
+        toast.error(`Withdrawal failed: ${result.error || 'Unknown error'}`);
       }
     },
     [vaultWithdraw, refreshBuildings],
