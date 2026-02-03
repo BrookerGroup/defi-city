@@ -2,7 +2,7 @@
 
 /**
  * BuildPanel - Left side panel that wraps AavePanel
- * Slides in from the left when a tile is selected.
+ * Shows when clicking on an existing building.
  */
 
 import { AavePanel } from '@/components/aave'
@@ -18,6 +18,7 @@ interface BuildPanelProps {
   usedAssets: string[]
   allBuildings: Building[]
   vaultBalances: Record<string, string>
+  isBorrowDrag?: boolean
   onSuccess: () => void
   onClose: () => void
 }
@@ -34,6 +35,7 @@ export function BuildPanel({
   usedAssets,
   allBuildings,
   vaultBalances,
+  isBorrowDrag,
   onSuccess,
   onClose,
 }: BuildPanelProps) {
@@ -81,7 +83,7 @@ export function BuildPanel({
           existingAsset={selectedBuilding?.asset}
           buildingId={selectedBuilding?.id}
           allBuildings={allBuildings}
-          isBorrowBuilding={selectedBuilding?.type === 'borrow' || selectedBuilding?.isBorrow}
+          isBorrowBuilding={selectedBuilding?.type === 'borrow' || selectedBuilding?.isBorrow || isBorrowDrag}
           selectedBuilding={selectedBuilding}
           vaultBalances={vaultBalances}
         />
@@ -89,3 +91,4 @@ export function BuildPanel({
     </div>
   )
 }
+

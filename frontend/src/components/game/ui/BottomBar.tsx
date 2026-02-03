@@ -2,7 +2,7 @@
 
 /**
  * BottomBar - Status bar at the bottom of the game
- * Shows: Selected coordinates | Building count | Camera controls
+ * Shows: Selected coordinates | SUPPLY/BORROW buttons | Camera controls
  */
 
 interface BottomBarProps {
@@ -11,6 +11,7 @@ interface BottomBarProps {
   onResetCamera: () => void
   onZoomIn: () => void
   onZoomOut: () => void
+  onDragBuildStart: (type: 'supply' | 'borrow') => void
   isMoving?: boolean
   isLoading?: boolean
 }
@@ -23,6 +24,7 @@ export function BottomBar({
   onResetCamera,
   onZoomIn,
   onZoomOut,
+  onDragBuildStart,
   isMoving,
   isLoading,
 }: BottomBarProps) {
@@ -43,13 +45,46 @@ export function BottomBar({
           </span>
         ) : (
           <span className="text-slate-500">
-            CLICK TILE TO BUILD | DRAG BUILDING TO MOVE
+            DRAG TO BUILD | CLICK BUILDING TO MANAGE
           </span>
         )}
       </div>
 
-      {/* Center: Stats */}
-      <div className="flex items-center gap-4">
+      {/* Center: Drag-to-build buttons + Stats */}
+      <div className="flex items-center gap-3">
+        <button
+          onPointerDown={(e) => {
+            e.preventDefault()
+            onDragBuildStart('supply')
+          }}
+          className="px-3 py-1 bg-emerald-700 border-2 border-emerald-400 text-emerald-200 flex items-center gap-1.5 hover:bg-emerald-600 transition-colors cursor-grab active:cursor-grabbing select-none"
+        >
+          <span className="text-[8px]">+</span> SUPPLY
+        </button>
+        <button
+          onPointerDown={(e) => {
+            e.preventDefault()
+            onDragBuildStart('borrow')
+          }}
+          className="px-3 py-1 bg-orange-700 border-2 border-orange-400 text-orange-200 flex items-center gap-1.5 hover:bg-orange-600 transition-colors cursor-grab active:cursor-grabbing select-none"
+        >
+          <span className="text-[8px]">+</span> BORROW
+        </button>
+        <button
+          disabled
+          className="px-3 py-1 bg-slate-700 border-2 border-slate-500 text-slate-400 flex items-center gap-1.5 opacity-50 cursor-not-allowed select-none"
+          title="Coming Soon"
+        >
+          <span className="text-[8px]">+</span> LIQUIDITY
+        </button>
+        <button
+          disabled
+          className="px-3 py-1 bg-slate-700 border-2 border-slate-500 text-slate-400 flex items-center gap-1.5 opacity-50 cursor-not-allowed select-none"
+          title="Coming Soon"
+        >
+          <span className="text-[8px]">+</span> MEGAPOT
+        </button>
+        <span className="text-slate-600 mx-1">|</span>
         <span className="text-slate-500">
           BUILDINGS: <span className="text-amber-400">{buildingCount}</span>
         </span>

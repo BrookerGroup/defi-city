@@ -1,30 +1,12 @@
 /**
  * BuildingRenderer - Renders building sprites on the isometric grid
- * Maps building type + level to sprite key with color tinting per asset.
- * Labels: level badge, APY text, asset name (Press Start 2P font)
+ * Simple flat colored tiles with color differentiation per asset.
+ * Labels: asset name, APY text (Press Start 2P font)
  */
 
-import { Container, Sprite, Text, TextStyle, ColorMatrixFilter } from 'pixi.js'
+import { Container, Graphics, Text, TextStyle } from 'pixi.js'
 import { isoToScreen, TILE_WIDTH, TILE_HEIGHT } from '@/lib/isometric'
-import { getTexture, getBuildingSpriteKey } from '@/lib/spritesheet'
 import type { Building } from '@/hooks/useCityBuildings'
-
-// Asset → tint color (applied to building sprite)
-const ASSET_TINTS: Record<string, number> = {
-  USDC: 0x4a9eff,  // blue
-  USDT: 0x26a17b,  // green
-  ETH:  0x818cf8,  // indigo
-  WBTC: 0xf7931a,  // orange
-  LINK: 0x2a5ada,  // chainlink blue
-  CORE: 0xf59e0b,  // amber (town hall)
-}
-
-const BORROW_TINT = 0xff4444 // red for borrow buildings
-
-// Building size relative to tile
-const BUILDING_SCALE = 0.85
-const BUILDING_WIDTH = TILE_WIDTH * BUILDING_SCALE
-const BUILDING_HEIGHT = TILE_WIDTH * BUILDING_SCALE // buildings are roughly square
 
 const labelStyle = new TextStyle({
   fontFamily: '"Press Start 2P", monospace',
@@ -55,7 +37,7 @@ const apyStyle = new TextStyle({
 export interface BuildingSprite {
   container: Container
   building: Building
-  sprite: Sprite
+  sprite: Graphics // Changed from Sprite to Graphics
 }
 
 export class BuildingRenderer {
@@ -103,101 +85,120 @@ export class BuildingRenderer {
     const col = building.x - 1
     const row = building.y - 1
 
-    const spriteKey = getBuildingSpriteKey(building.type, building.level)
-    const texture = getTexture(spriteKey)
-
     const bContainer = new Container()
 
     // Position at isometric location
     const { x, y } = isoToScreen(col, row)
     bContainer.x = x
-    // Anchor building at bottom-center of tile
     bContainer.y = y
 
     // Depth sort: buildings need to be above tiles, and sorted by row
     bContainer.zIndex = (col + row) * 10 + 5
 
-    if (texture) {
-      const sprite = new Sprite(texture)
-      sprite.anchor.set(0.5, 1) // bottom-center
-      sprite.width = BUILDING_WIDTH
-      sprite.height = BUILDING_HEIGHT
-
-      // Position sprite: center it on tile, bottom aligned
-      sprite.x = 0
-      sprite.y = TILE_HEIGHT
-
-      // Apply tinting
-      if (building.isBorrow) {
-        // Red tint for borrow buildings using ColorMatrix
-        const colorMatrix = new ColorMatrixFilter()
-        colorMatrix.tint(BORROW_TINT, true)
-        sprite.filters = [colorMatrix]
-      } else {
-        const tint = ASSET_TINTS[building.asset] || ASSET_TINTS.CORE
-        sprite.tint = tint
+    // Get color based on building type
+    let color: number
+    if (building.type === 'townhall') {
+      color = 0xfbbf24  // amber/gold
+    } else if (building.isBorrow) {
+      color = 0xef4444  // red
+    } else {
+      const assetColors: Record<string, number> = {
+        USDC: 0x4a9eff,  // blue
+        USDT: 0x26a17b,  // teal
+        ETH:  0x818cf8,  // purple
+        WBTC: 0xf7931a,  // orange
+        LINK: 0x375bd2,  // dark blue
       }
+      color = assetColors[building.asset] || 0x4a9eff
+    }
 
-      bContainer.addChild(sprite)
+    // Draw flat colored tile
+    const tile = this.drawFlatTile(color, building.type === 'townhall')
+    bContainer.addChild(tile)
 
+    // Add labels
+    if (building.type !== 'townhall') {
       // Asset label
-      if (building.type !== 'townhall') {
-        const assetLabel = new Text({
-          text: building.asset,
-          style: labelStyle,
-        })
-        assetLabel.anchor.set(0.5, 1)
-        assetLabel.x = 0
-        assetLabel.y = TILE_HEIGHT - BUILDING_HEIGHT - 2
-        bContainer.addChild(assetLabel)
+      const assetLabel = new Text({
+        text: building.asset,
+        style: labelStyle,
+      })
+      assetLabel.anchor.set(0.5, 1)
+      assetLabel.x = 0
+      assetLabel.y = -4  // Just above tile
+      bContainer.addChild(assetLabel)
 
-        // APY badge
-        if (building.apy !== undefined) {
-          const apyText = new Text({
-            text: this.formatAPY(building.apy, building.isBorrow),
-            style: {
-              ...apyStyle,
-              fill: building.isBorrow ? 0xfb923c : 0x4ade80,
-            },
-          })
-          apyText.anchor.set(0.5, 1)
-          apyText.x = 0
-          apyText.y = TILE_HEIGHT - BUILDING_HEIGHT - 12
-          bContainer.addChild(apyText)
-        }
-
-        // Level badge
-        const lvlText = new Text({
-          text: `Lv${building.level}`,
+      // APY badge
+      if (building.apy !== undefined) {
+        const apyText = new Text({
+          text: this.formatAPY(building.apy, building.isBorrow),
           style: {
-            ...labelStyle,
-            fontSize: 6,
-            fill: 0xfbbf24,
+            ...apyStyle,
+            fill: building.isBorrow ? 0xfb923c : 0x4ade80,
           },
         })
-        lvlText.anchor.set(0.5, 0)
-        lvlText.x = BUILDING_WIDTH / 2.5
-        lvlText.y = TILE_HEIGHT - BUILDING_HEIGHT + 2
-        bContainer.addChild(lvlText)
-      } else {
-        // Town Hall label
-        const label = new Text({
-          text: 'TOWN HALL',
-          style: { ...labelStyle, fill: 0xfbbf24, fontSize: 7 },
-        })
-        label.anchor.set(0.5, 1)
-        label.x = 0
-        label.y = TILE_HEIGHT - BUILDING_HEIGHT - 2
-        bContainer.addChild(label)
+        apyText.anchor.set(0.5, 1)
+        apyText.x = 0
+        apyText.y = -14  // Above asset label
+        bContainer.addChild(apyText)
       }
-
-      this.container.addChild(bContainer)
-      this.buildingSprites.set(building.id, {
-        container: bContainer,
-        building,
-        sprite,
+    } else {
+      // Town Hall label
+      const label = new Text({
+        text: 'TOWN HALL',
+        style: { ...labelStyle, fill: 0xfbbf24, fontSize: 7 },
       })
+      label.anchor.set(0.5, 1)
+      label.x = 0
+      label.y = -4  // Just above tile
+      bContainer.addChild(label)
     }
+
+    this.container.addChild(bContainer)
+    this.buildingSprites.set(building.id, {
+      container: bContainer,
+      building,
+      sprite: tile,
+    })
+  }
+
+  /**
+   * Draw a simple flat colored diamond (same shape as tile)
+   */
+  private drawFlatTile(color: number, isTownHall = false): Graphics {
+    const g = new Graphics()
+    
+    const halfW = TILE_WIDTH / 2
+    const halfH = TILE_HEIGHT / 2
+    const centerY = TILE_HEIGHT / 2  // Center of tile
+    
+    // Draw diamond shape (same as tile)
+    g.poly([
+      0, centerY - halfH,      // top
+      halfW, centerY,          // right
+      0, centerY + halfH,      // bottom
+      -halfW, centerY,         // left
+    ])
+    g.fill({ color: color })
+    g.stroke({ color: 0x000000, width: 2, alpha: 0.5 })
+
+    // Add a subtle inner glow/highlight
+    if (!isTownHall) {
+      g.poly([
+        0, centerY - halfH + 4,
+        halfW - 4, centerY,
+        0, centerY + halfH - 4,
+        -halfW + 4, centerY,
+      ])
+      g.stroke({ color: 0xffffff, width: 1, alpha: 0.3 })
+    } else {
+      // Town Hall: add a simple star/icon in center
+      const starSize = 8
+      g.star(0, centerY, 5, starSize, starSize / 2)
+      g.fill({ color: 0xffffff, alpha: 0.6 })
+    }
+
+    return g
   }
 
   private updateBuildingPosition(bs: BuildingSprite, building: Building) {

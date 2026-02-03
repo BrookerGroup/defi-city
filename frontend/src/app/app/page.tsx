@@ -1,7 +1,7 @@
 "use client";
 
 import { usePrivy, useWallets } from "@privy-io/react-auth";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import {
   useSmartWallet,
   useCreateSmartAccount,
@@ -16,6 +16,7 @@ import { GameCanvas } from "@/components/game/GameCanvas";
 import { useGameState } from "@/components/game/useGameState";
 import { GameHUD } from "@/components/game/ui/GameHUD";
 import { BuildPanel } from "@/components/game/ui/BuildPanel";
+import { BuildingDialog } from "@/components/game/ui/BuildingDialog";
 import { VaultPanel } from "@/components/game/ui/VaultPanel";
 import { TransactionHistoryPanel } from "@/components/game/ui/TransactionHistoryPanel";
 import { BottomBar } from "@/components/game/ui/BottomBar";
@@ -116,7 +117,15 @@ export default function AppPage() {
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [showTownHallPanel, setShowTownHallPanel] = useState(false);
 
-  // Compute used assets and selected building
+  // Drag-to-build state
+  const [dragBuildType, setDragBuildType] = useState<'supply' | 'borrow' | null>(null);
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  const dragBuildTypeRef = useRef<'supply' | 'borrow' | null>(null);
+  // Dialog state (set on drop, cleared on dialog close)
+  const [showBuildDialog, setShowBuildDialog] = useState(false);
+  const [dialogBuildType, setDialogBuildType] = useState<'supply' | 'borrow' | null>(null);
+
+  // Compute used assets
   const usedAssets = useMemo(
     () => buildings.filter((b) => b.type !== "townhall").map((b) => b.asset),
     [buildings],
@@ -150,9 +159,14 @@ export default function AppPage() {
         setSelectedCoords(null);
         return;
       }
-      setSelectedCoords({ x, y });
-      setShowBuildPanel(true);
-      setShowTownHallPanel(false);
+      // Existing building → open manage panel
+      if (clickedBuilding) {
+        setSelectedCoords({ x, y });
+        setShowBuildPanel(true);
+        setShowTownHallPanel(false);
+        return;
+      }
+      // Empty tile click → do nothing (build only via drag)
     },
     [buildings],
   );
@@ -217,12 +231,58 @@ export default function AppPage() {
     resetCamera,
     zoomIn,
     zoomOut,
+    screenToGrid,
+    showDragHover,
+    clearDragHover,
   } = useGameState({
     buildings,
     selectedCoords,
     onSelectTile: handleSelectTile,
     onMoveBuilding: handleMoveBuilding,
   });
+
+  // Drag-to-build: start drag from BottomBar button
+  const handleDragBuildStart = useCallback(
+    (type: 'supply' | 'borrow') => {
+      setDragBuildType(type);
+      dragBuildTypeRef.current = type;
+
+      const onPointerMove = (e: PointerEvent) => {
+        setDragPos({ x: e.clientX, y: e.clientY });
+        showDragHover(e.clientX, e.clientY);
+      };
+
+      const onPointerUp = (e: PointerEvent) => {
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+
+        const currentType = dragBuildTypeRef.current;
+        const gridCoords = screenToGrid(e.clientX, e.clientY);
+        if (gridCoords) {
+          // Check tile is empty (no existing building)
+          const occupied = buildings.find(
+            (b) => b.x === gridCoords.x && b.y === gridCoords.y,
+          );
+          if (!occupied) {
+            // Show dialog instead of side panel
+            setDialogBuildType(currentType);
+            setSelectedCoords(gridCoords);
+            setShowBuildDialog(true);
+            setShowTownHallPanel(false);
+          }
+        }
+
+        clearDragHover();
+        setDragBuildType(null);
+        setDragPos(null);
+        dragBuildTypeRef.current = null;
+      };
+
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+    },
+    [buildings, screenToGrid, showDragHover, clearDragHover],
+  );
 
   // Loading state
   if (!ready) {
@@ -372,9 +432,9 @@ export default function AppPage() {
             onClose={() => setShowTownHallPanel(false)}
           />
 
-          {/* Left: Build Panel */}
+          {/* Left: Build Panel - for existing buildings only */}
           <BuildPanel
-            visible={showBuildPanel && hasSmartWallet}
+            visible={showBuildPanel && hasSmartWallet && !!selectedBuilding}
             selectedCoords={selectedCoords}
             selectedBuilding={selectedBuilding}
             smartWallet={smartWallet ?? null}
@@ -383,7 +443,10 @@ export default function AppPage() {
             usedAssets={usedAssets}
             allBuildings={allBuildings}
             vaultBalances={vaultBalances}
-            onSuccess={handleBuildSuccess}
+            isBorrowDrag={false}
+            onSuccess={() => {
+              handleBuildSuccess();
+            }}
             onClose={() => {
               setShowBuildPanel(false);
               setSelectedCoords(null);
@@ -428,10 +491,59 @@ export default function AppPage() {
           onResetCamera={resetCamera}
           onZoomIn={zoomIn}
           onZoomOut={zoomOut}
+          onDragBuildStart={handleDragBuildStart}
           isMoving={isMovingBuilding}
           isLoading={buildingsLoading}
         />
       </div>
+
+      {/* Drag ghost that follows cursor */}
+      {dragBuildType && dragPos && (
+        <div
+          className="fixed z-50 pointer-events-none"
+          style={{
+            left: dragPos.x,
+            top: dragPos.y,
+            transform: 'translate(-50%, -50%)',
+            fontFamily: '"Press Start 2P", monospace',
+          }}
+        >
+          <div
+            className={`px-3 py-1.5 text-[8px] border-2 rounded ${
+              dragBuildType === 'supply'
+                ? 'bg-emerald-700/90 border-emerald-400 text-emerald-200'
+                : 'bg-orange-700/90 border-orange-400 text-orange-200'
+            }`}
+          >
+            {dragBuildType === 'supply' ? 'SUPPLY' : 'BORROW'}
+          </div>
+        </div>
+      )}
+
+      {/* Building Dialog - shown when dropping SUPPLY/BORROW on map */}
+      <BuildingDialog
+        visible={showBuildDialog && hasSmartWallet}
+        selectedCoords={selectedCoords}
+        selectedBuilding={null}
+        smartWallet={smartWallet ?? null}
+        hasSmartWallet={hasSmartWallet}
+        userAddress={address}
+        usedAssets={usedAssets}
+        allBuildings={allBuildings}
+        vaultBalances={vaultBalances}
+        isBorrowDrag={dialogBuildType === 'borrow'}
+        onSuccess={() => {
+          handleBuildSuccess();
+          setShowBuildDialog(false);
+          setDialogBuildType(null);
+          setSelectedCoords(null);
+        }}
+        onClose={() => {
+          setShowBuildDialog(false);
+          setDialogBuildType(null);
+          setSelectedCoords(null);
+        }}
+      />
 
       {/* Town Hall Modal - Full screen, above everything */}
       <TownHallModal

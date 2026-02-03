@@ -7,7 +7,8 @@
 
 import { useRef, useCallback, useEffect, useState } from 'react'
 import { Application } from 'pixi.js'
-import { loadAllTextures } from '@/lib/spritesheet'
+import { screenToIso } from '@/lib/isometric'
+import { GRID_SIZE } from '@/lib/constants'
 import { GameWorld } from './GameWorld'
 import { IsometricGrid } from './IsometricGrid'
 import { BuildingRenderer } from './BuildingRenderer'
@@ -47,12 +48,6 @@ export function useGameState({
     setLoading(true)
 
     try {
-      // Determine base path for assets
-      const isProd = typeof window !== 'undefined' && window.location.pathname.startsWith('/defi-city')
-      const basePath = isProd ? '/defi-city/' : '/'
-
-      // Load all sprite textures
-      await loadAllTextures(basePath)
 
       // Create world (camera system)
       const world = new GameWorld(app)
@@ -131,6 +126,34 @@ export function useGameState({
     }
   }, [])
 
+  /** Convert screen pixel coords to 1-based grid coords, or null if out of bounds */
+  const screenToGrid = useCallback((screenX: number, screenY: number): { x: number; y: number } | null => {
+    if (!worldRef.current) return null
+    const world = worldRef.current.screenToWorld(screenX, screenY)
+    const iso = screenToIso(world.x, world.y)
+    const col = Math.floor(iso.col)
+    const row = Math.floor(iso.row)
+    if (col < 0 || col >= GRID_SIZE || row < 0 || row >= GRID_SIZE) return null
+    return { x: col + 1, y: row + 1 } // 1-based
+  }, [])
+
+  /** Show hover highlight at the tile under the given screen coords (for external drag) */
+  const showDragHover = useCallback((screenX: number, screenY: number) => {
+    if (!worldRef.current || !interactionRef.current) return
+    const world = worldRef.current.screenToWorld(screenX, screenY)
+    const iso = screenToIso(world.x, world.y)
+    const col = Math.floor(iso.col)
+    const row = Math.floor(iso.row)
+    if (col >= 0 && col < GRID_SIZE && row >= 0 && row < GRID_SIZE) {
+      interactionRef.current.showExternalHover(col, row)
+    }
+  }, [])
+
+  /** Clear externally-driven hover highlight */
+  const clearDragHover = useCallback(() => {
+    interactionRef.current?.clearExternalHover()
+  }, [])
+
   // Cleanup
   useEffect(() => {
     return () => {
@@ -149,5 +172,8 @@ export function useGameState({
     resetCamera,
     zoomIn,
     zoomOut,
+    screenToGrid,
+    showDragHover,
+    clearDragHover,
   }
 }

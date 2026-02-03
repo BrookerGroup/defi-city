@@ -162,16 +162,8 @@ export class TileInteraction {
       return true
     }
 
-    // Hover highlight
-    if (tile && (!this.hoveredTile || tile.col !== this.hoveredTile.col || tile.row !== this.hoveredTile.row)) {
-      this.hoveredTile = tile
-      this.drawHoverHighlight(tile.col, tile.row)
-      this.callbacks.onHoverTile?.(tile.col, tile.row)
-    } else if (!tile && this.hoveredTile) {
-      this.hoveredTile = null
-      this.hoverGraphics.clear()
-      this.callbacks.onClearHover?.()
-    }
+    // No hover highlight during normal movement - only show during drag
+    // (External drag from BottomBar uses showExternalHover instead)
 
     // Not consumed — building has drag candidate but threshold not reached yet
     return !!this.dragBuilding
@@ -233,12 +225,9 @@ export class TileInteraction {
     this.hoverGraphics.stroke({ color: 0x60a5fa, width: 2, alpha: 0.6 })
   }
 
-  private drawSelectHighlight(col: number, row: number) {
+  private drawSelectHighlight(_col: number, _row: number) {
+    // No longer draw selection highlight on click
     this.selectGraphics.clear()
-    const points = getTileDiamond(col, row)
-    this.selectGraphics.poly(points.flat())
-    this.selectGraphics.fill({ color: 0x3b82f6, alpha: 0.4 })
-    this.selectGraphics.stroke({ color: 0x93c5fd, width: 2, alpha: 0.8 })
   }
 
   private startDrag() {
@@ -275,6 +264,18 @@ export class TileInteraction {
     this.dragBuilding = null
     this.dragGhostContainer.visible = false
     this.dragGhostContainer.removeChildren()
+    this.hoverGraphics.clear()
+  }
+
+  /** Show hover highlight at a specific grid tile (0-based), driven externally (e.g. drag from UI) */
+  showExternalHover(col: number, row: number) {
+    this.hoveredTile = { col, row }
+    this.drawHoverHighlight(col, row)
+  }
+
+  /** Clear externally-driven hover highlight */
+  clearExternalHover() {
+    this.hoveredTile = null
     this.hoverGraphics.clear()
   }
 

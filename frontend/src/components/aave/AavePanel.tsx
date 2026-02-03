@@ -119,16 +119,21 @@ export function AavePanel({
     }
   }, [realPosition])
 
-  // Sync selectedAsset ONLY when existingAsset changes (not usedAssets)
-  // This prevents resetting user's manual selection
+  // Sync selectedAsset when existingAsset changes or auto-select first available
   useEffect(() => {
     if (existingAsset) {
       console.log(`[AavePanel] Syncing selectedAsset to existingAsset: ${existingAsset}`)
       setSelectedAsset(existingAsset)
+    } else {
+      // For new supply/borrow: pick first available asset not already used
+      const allAssets = ['USDC', 'USDT', 'ETH', 'WBTC', 'LINK']
+      const availableAsset = allAssets.find(a => !usedAssets.includes(a))
+      if (availableAsset) {
+        console.log(`[AavePanel] Auto-selecting first available asset: ${availableAsset}`)
+        setSelectedAsset(availableAsset)
+      }
     }
-    // NOTE: We no longer reset to default when existingAsset is undefined
-    // The initial state handles the default (line 79)
-  }, [existingAsset])
+  }, [existingAsset, usedAssets])
 
   const assets: string[] = ['USDC', 'USDT', 'ETH', 'WBTC', 'LINK']
   const marketData = AAVE_MARKET_DATA
