@@ -58,7 +58,8 @@ export function useGameState({
       const world = new GameWorld(app)
       worldRef.current = world
 
-
+      // Set green background
+      app.renderer.background.color = 0x4a7c2e
 
       // Create isometric grid
       const grid = new IsometricGrid()
