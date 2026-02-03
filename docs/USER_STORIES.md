@@ -36,10 +36,10 @@ Buildings, stats, game state (accounting records)
 
 ---
 
-## Table of Contents — Overall Progress: 28% (106/381)
+## Table of Contents — Overall Progress: 28% (107/381)
 
 1. [Epic 1: User Onboarding & Account Management](#epic-1-user-onboarding--account-management) — 24%
-2. [Epic 2: Multi-Asset Portfolio Management](#epic-2-multi-asset-portfolio-management) — 46%
+2. [Epic 2: Multi-Asset Portfolio Management](#epic-2-multi-asset-portfolio-management) — 48%
 3. [Epic 3: Town Hall Building (Smart Wallet)](#epic-3-town-hall-building-smart-wallet) — 38%
 4. [Epic 4: Bank Building (Aave Integration)](#epic-4-bank-building-aave-integration) — 70%
 5. [Epic 5: Shop Building (Aerodrome LP)](#epic-5-shop-building-aerodrome-lp) — 0%
@@ -145,9 +145,9 @@ Buildings, stats, game state (accounting records)
 
 ---
 
-## Epic 2: Multi-Asset Portfolio Management — 46% (22/48)
+## Epic 2: Multi-Asset Portfolio Management — 48% (23/48)
 
-### US-005: Deposit Multi-Asset Funds — 10/15
+### US-005: Deposit Multi-Asset Funds — 11/15
 
 **As a** DefiCity user with a SmartWallet
 **I want** to transfer USDC, USDT, ETH, or WBTC to my SmartWallet
@@ -160,11 +160,11 @@ Buildings, stats, game state (accounting records)
 - [x] User can select asset type (USDC, USDT, ETH, WBTC) <!-- + LINK supported -->
 - [x] User can enter deposit amount <!-- VaultPanel amount input -->
 - [x] UI shows current balance in SmartWallet for selected asset <!-- VaultPanel balances -->
-- [ ] UI shows SmartWallet address with copy button <!-- Address shown but no copy button -->
+- [x] UI shows SmartWallet address with copy button <!-- VaultPanel withdraw tab shows address + COPY button -->
 - [ ] UI shows minimum deposit (if any) <!-- No minimum enforced -->
 - [x] User confirms transaction in MetaMask/wallet <!-- writeContractAsync / sendTransactionAsync -->
 - [x] Transaction transfers tokens FROM user's EOA TO user's SmartWallet <!-- useVaultDeposit -->
-- [ ] DefiCityCore updates accounting records (tracks balance for game UI)
+- [ ] DefiCityCore updates accounting records (tracks balance for game UI) <!-- Not needed for vault, only for Aave -->
 - [x] Transaction shows loading state <!-- "DEPOSITING..." button state -->
 - [x] Balance updates after successful deposit <!-- refetchBalances -->
 - [ ] Success notification displays with transaction hash <!-- Hash returned but not displayed -->

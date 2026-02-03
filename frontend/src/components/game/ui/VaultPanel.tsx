@@ -220,10 +220,23 @@ export function VaultPanel({
               <p className="text-slate-500 text-[6px] mb-1" style={pixelFont}>
                 VAULT (SMART WALLET)
               </p>
-              <p className="text-amber-400 text-[6px] mb-2 truncate" style={pixelFont}>
-                {smartWallet}
-              </p>
-              <div className="flex flex-wrap gap-1 text-[6px]" style={pixelFont}>
+              <div className="flex items-center gap-2">
+                <p className="text-amber-400 text-[6px] truncate flex-1" style={pixelFont}>
+                  {smartWallet}
+                </p>
+                <button
+                  onClick={async () => {
+                    if (smartWallet) {
+                      await navigator.clipboard.writeText(smartWallet)
+                    }
+                  }}
+                  className="px-2 py-1 bg-amber-700/50 border border-amber-600 text-amber-300 text-[6px] hover:bg-amber-700/80 shrink-0"
+                  style={pixelFont}
+                >
+                  COPY
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1 text-[6px] mt-2" style={pixelFont}>
                 {TOKENS.map(t => (
                   <span key={t} className="text-purple-400">
                     {t}:{parseFloat(vaultBalances[t]).toFixed(t === 'ETH' ? 4 : t === 'WBTC' ? 6 : 2)}
