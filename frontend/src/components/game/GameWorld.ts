@@ -19,9 +19,9 @@ export class GameWorld {
   private lastPointer = { x: 0, y: 0 }
   private keys = new Set<string>()
 
-  // Callbacks
-  public onPointerDownOnWorld?: (worldX: number, worldY: number, e: PointerEvent) => void
-  public onPointerMoveOnWorld?: (worldX: number, worldY: number, e: PointerEvent) => void
+  // Callbacks (return true to block camera pan, e.g. during building drag)
+  public onPointerDownOnWorld?: (worldX: number, worldY: number, e: PointerEvent) => boolean | void
+  public onPointerMoveOnWorld?: (worldX: number, worldY: number, e: PointerEvent) => boolean | void
   public onPointerUpOnWorld?: (worldX: number, worldY: number, e: PointerEvent) => void
 
   constructor(app: Application) {
@@ -76,25 +76,29 @@ export class GameWorld {
     const worldPos = this.screenToWorld(e.offsetX, e.offsetY)
 
     // Forward to interaction handler first
+    let consumed = false
     if (this.onPointerDownOnWorld) {
-      this.onPointerDownOnWorld(worldPos.x, worldPos.y, e)
+      consumed = !!this.onPointerDownOnWorld(worldPos.x, worldPos.y, e)
     }
 
-    // Start pan drag
-    this.isDragging = true
-    this.lastPointer = { x: e.clientX, y: e.clientY }
+    // Start pan drag only if interaction didn't consume (e.g. building click)
+    if (!consumed) {
+      this.isDragging = true
+      this.lastPointer = { x: e.clientX, y: e.clientY }
+    }
   }
 
   private handlePointerMove = (e: PointerEvent) => {
     const worldPos = this.screenToWorld(e.offsetX, e.offsetY)
 
     // Forward to interaction handler
+    let consumed = false
     if (this.onPointerMoveOnWorld) {
-      this.onPointerMoveOnWorld(worldPos.x, worldPos.y, e)
+      consumed = !!this.onPointerMoveOnWorld(worldPos.x, worldPos.y, e)
     }
 
-    // Pan camera
-    if (this.isDragging && e.buttons === 1) {
+    // Pan camera only if not consumed by building drag
+    if (this.isDragging && e.buttons === 1 && !consumed) {
       const dx = e.clientX - this.lastPointer.x
       const dy = e.clientY - this.lastPointer.y
       this.container.x += dx

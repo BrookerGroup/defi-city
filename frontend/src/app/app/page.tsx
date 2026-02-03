@@ -104,6 +104,7 @@ export default function AppPage() {
     allBuildings,
     loading: buildingsLoading,
     refresh: refreshBuildings,
+    optimisticMove,
   } = useCityBuildings(address, smartWallet);
 
   const [selectedCoords, setSelectedCoords] = useState<{
@@ -141,17 +142,6 @@ export default function AppPage() {
 
   const handleSelectTile = useCallback(
     (x: number, y: number) => {
-      // Import map layout to check tile type
-      const { getMapLayout, isBuildableTile } = require('@/lib/mapLayout');
-      const layout = getMapLayout();
-      const tileType = layout[y - 1]?.[x - 1]; // Convert 1-based to 0-based
-      
-      // Skip if tile is not buildable (e.g., road tiles)
-      if (!tileType || !isBuildableTile(tileType)) {
-        console.log(`[App] Cannot build on ${tileType} tile at (${x}, ${y})`);
-        return;
-      }
-
       // Open Town Hall info panel when clicking Town Hall
       const clickedBuilding = buildings.find((b) => b.x === x && b.y === y);
       if (clickedBuilding?.type === "townhall") {
@@ -169,14 +159,23 @@ export default function AppPage() {
 
   const handleMoveBuilding = useCallback(
     async (building: Building, newX: number, newY: number) => {
-      if (!smartWallet) return;
-      const result = await moveBuilding(smartWallet, building, newX, newY);
+      if (!smartWallet || !address) return;
+
+      // Optimistic update — move building in UI immediately
+      const prevX = building.x;
+      const prevY = building.y;
+      optimisticMove(building.id, newX, newY);
+
+      const result = await moveBuilding(address, smartWallet, building, newX, newY);
       if (result.success) {
         refreshBuildings();
         setTimeout(() => refreshBuildings(), 3000);
+      } else {
+        // Revert on failure
+        optimisticMove(building.id, prevX, prevY);
       }
     },
-    [smartWallet, moveBuilding, refreshBuildings],
+    [address, smartWallet, moveBuilding, refreshBuildings, optimisticMove],
   );
 
   const handleBuildSuccess = useCallback(() => {

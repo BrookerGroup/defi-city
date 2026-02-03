@@ -10,7 +10,6 @@
 import { Container, Graphics, Sprite } from 'pixi.js'
 import { screenToIso, getTileDiamond, isoToScreen, TILE_WIDTH, TILE_HEIGHT } from '@/lib/isometric'
 import { GRID_SIZE } from '@/lib/constants'
-import { getMapLayout, isBuildableTile } from '@/lib/mapLayout'
 import type { Building } from '@/hooks/useCityBuildings'
 import type { BuildingRenderer, BuildingSprite } from './BuildingRenderer'
 
@@ -112,16 +111,11 @@ export class TileInteraction {
     // Must be within grid bounds
     if (col < 0 || col >= this.gridSize || row < 0 || row >= this.gridSize) return false
 
-    // Can't drop on road tiles - only on buildable (grass) tiles
-    const layout = getMapLayout()
-    const tileType = layout[row]?.[col]
-    if (!tileType || !isBuildableTile(tileType)) return false
-
     return true
   }
 
-  /** Handle pointer down from GameWorld */
-  onPointerDown(worldX: number, worldY: number, e: PointerEvent) {
+  /** Handle pointer down from GameWorld. Returns true if a building was clicked (blocks camera pan). */
+  onPointerDown(worldX: number, worldY: number, e: PointerEvent): boolean {
     this.pointerDownPos = { x: e.clientX, y: e.clientY }
     this.pointerDownWorldPos = { x: worldX, y: worldY }
     this.hasDragged = false
@@ -134,16 +128,17 @@ export class TileInteraction {
         const bs = this.buildingRenderer.getBuildingById(building.id)
         if (bs) {
           this.dragBuilding = bs
-          return // Wait for drag threshold
+          return true // Block camera pan — waiting for drag threshold
         }
       }
     }
 
     this.dragBuilding = null
+    return false
   }
 
-  /** Handle pointer move from GameWorld */
-  onPointerMove(worldX: number, worldY: number, _e: PointerEvent) {
+  /** Handle pointer move from GameWorld. Returns true if building drag is active (blocks camera pan). */
+  onPointerMove(worldX: number, worldY: number, _e: PointerEvent): boolean {
     const tile = this.worldToTile(worldX, worldY)
 
     // Check drag threshold
@@ -164,30 +159,22 @@ export class TileInteraction {
 
       // Update drop target highlight
       this.updateDragHighlight(tile)
-      return
+      return true
     }
 
-    // Hover highlight - only show on buildable tiles
+    // Hover highlight
     if (tile && (!this.hoveredTile || tile.col !== this.hoveredTile.col || tile.row !== this.hoveredTile.row)) {
-      // Check if tile is buildable (not a road)
-      const layout = getMapLayout()
-      const tileType = layout[tile.row]?.[tile.col]
-      
-      if (tileType && isBuildableTile(tileType)) {
-        this.hoveredTile = tile
-        this.drawHoverHighlight(tile.col, tile.row)
-        this.callbacks.onHoverTile?.(tile.col, tile.row)
-      } else {
-        // Clear hover on non-buildable tiles
-        this.hoveredTile = null
-        this.hoverGraphics.clear()
-        this.callbacks.onClearHover?.()
-      }
+      this.hoveredTile = tile
+      this.drawHoverHighlight(tile.col, tile.row)
+      this.callbacks.onHoverTile?.(tile.col, tile.row)
     } else if (!tile && this.hoveredTile) {
       this.hoveredTile = null
       this.hoverGraphics.clear()
       this.callbacks.onClearHover?.()
     }
+
+    // Not consumed — building has drag candidate but threshold not reached yet
+    return !!this.dragBuilding
   }
 
   /** Handle pointer up from GameWorld */
@@ -221,13 +208,6 @@ export class TileInteraction {
 
   /** Select a tile and show highlight */
   selectTile(col: number, row: number) {
-    // Don't select non-buildable tiles (roads, etc.)
-    const layout = getMapLayout()
-    const tileType = layout[row]?.[col]
-    if (!tileType || !isBuildableTile(tileType)) {
-      return
-    }
-
     this.selectedTile = { col, row }
     this.drawSelectHighlight(col, row)
     this.callbacks.onSelectTile?.(col + 1, row + 1) // 1-based

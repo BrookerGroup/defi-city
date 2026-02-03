@@ -230,11 +230,20 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
     fetchBuildings()
   }, [fetchBuildings])
 
+  /** Optimistically update a building's position in local state (before chain confirms) */
+  const optimisticMove = useCallback((buildingId: number, newX: number, newY: number) => {
+    const update = (b: Building) =>
+      b.id === buildingId ? { ...b, x: newX, y: newY } : b
+    setBuildings(prev => prev.map(update))
+    setAllBuildings(prev => prev.map(update))
+  }, [])
+
   return {
     buildings,
     allBuildings,
     loading,
     error,
-    refresh: fetchBuildings
+    refresh: fetchBuildings,
+    optimisticMove,
   }
 }

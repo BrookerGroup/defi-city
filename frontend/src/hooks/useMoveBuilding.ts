@@ -38,6 +38,7 @@ export function useMoveBuilding() {
 
   const moveBuilding = useCallback(
     async (
+      userAddress: string,
       smartWalletAddress: string,
       building: Building,
       newX: number,
@@ -53,7 +54,6 @@ export function useMoveBuilding() {
         console.log(`[Move] Moving building ${building.id} (${building.type}/${building.asset}) from (${building.x},${building.y}) to (${newX},${newY}) [virtual: ${isVirtualBorrow}]`)
 
         const { signer, addresses } = await getContracts()
-        const signerAddress = await signer.getAddress()
 
         const targets: string[] = []
         const values: bigint[] = []
@@ -74,7 +74,7 @@ export function useMoveBuilding() {
         // 1. Demolish old building (ONLY if it exists on-chain)
         if (!isVirtualBorrow) {
           const demolitionData = coreInterface.encodeFunctionData('recordDemolition', [
-            signerAddress,
+            userAddress,
             building.id,
             0, // returnedAmount = 0 (no withdrawal, just relocating)
           ])
@@ -88,7 +88,7 @@ export function useMoveBuilding() {
 
         // 2. Place building at new position (this creates/updates the on-chain record)
         const placementData = coreInterface.encodeFunctionData('recordBuildingPlacement', [
-          signerAddress,
+          userAddress,
           building.type,
           assetAddress,
           0, // amount = 0 (funds remain in Aave, no new deposit)
