@@ -7,7 +7,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { ethers } from 'ethers'
 import { useWallets } from '@privy-io/react-auth'
-import { CONTRACTS, ABIS } from '@/config/contracts'
+import { ADDRESSES, ABIS } from '@/config/contracts'
 import { ASSET_PRICES } from '@/config/aave'
 import { GRID_SIZE } from '@/lib/constants'
 
@@ -31,12 +31,12 @@ export interface Building {
 
 // Asset addresses and decimals
 const ASSET_ADDRESSES: Record<string, string> = {
-  USDC: CONTRACTS.baseSepolia.USDC,
-  USDT: CONTRACTS.baseSepolia.USDT,
-  ETH: CONTRACTS.baseSepolia.ETH,
-  WBTC: CONTRACTS.baseSepolia.WBTC,
-  LINK: CONTRACTS.baseSepolia.LINK,
-  MPUSDC: CONTRACTS.baseSepolia.MPUSDC,
+  USDC: ADDRESSES.USDC,
+  USDT: ADDRESSES.USDT,
+  ETH: ADDRESSES.ETH,
+  WBTC: ADDRESSES.WBTC,
+  LINK: ADDRESSES.LINK,
+  MPUSDC: ADDRESSES.MPUSDC,
 }
 
 const ASSET_DECIMALS: Record<string, number> = {
@@ -75,7 +75,11 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
       const wallet = wallets.find((w) => w.walletClientType === 'privy') || wallets[0]
       
       // Ensure we are on the correct chain before fetching
-      if (wallet.chainId !== 'eip155:84532' && wallet.chainId !== '84532') {
+      const validChains = ['eip155:84532', '84532']
+      if (process.env.NEXT_PUBLIC_USE_LOCALHOST === 'true') {
+        validChains.push('eip155:31337', '31337')
+      }
+      if (!validChains.includes(wallet.chainId)) {
         console.warn(`[City] Wallet is on wrong chain (${wallet.chainId}). Skipping fetch.`)
         setLoading(false)
         return
@@ -85,7 +89,7 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
       const provider = new ethers.BrowserProvider(ethereumProvider)
       
       const network = 'baseSepolia'
-      const addresses = CONTRACTS[network]
+      const addresses = ADDRESSES
       
       const core = new ethers.Contract(addresses.DEFICITY_CORE, ABIS.DEFICITY_CORE, provider)
       const dataProvider = new ethers.Contract(addresses.AAVE_DATA_PROVIDER, ABIS.AAVE_DATA_PROVIDER, provider)

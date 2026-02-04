@@ -6,7 +6,7 @@
 import { useState, useCallback } from 'react'
 import { ethers } from 'ethers'
 import { useWallets } from '@privy-io/react-auth'
-import { CONTRACTS, ABIS } from '@/config/contracts'
+import { ADDRESSES, ABIS } from '@/config/contracts'
 
 const FEE_TIERS = [500, 3000, 10000] as const // 0.05%, 0.3%, 1%
 const MIN_TICK = -887272
@@ -62,7 +62,7 @@ export function useUniswapLP(smartWallet: string | null) {
     const w = wallets.find((x) => x.walletClientType === 'privy') || wallets[0]
     const provider = new ethers.BrowserProvider(await w.getEthereumProvider())
     const signer = await provider.getSigner()
-    const addrs = CONTRACTS.baseSepolia
+    const addrs = ADDRESSES
     return { signer, addrs, provider }
   }, [wallets, smartWallet])
 
@@ -139,7 +139,7 @@ export function useUniswapLP(smartWallet: string | null) {
         const deadline = Math.floor(Date.now() / 1000) + 600
 
         const erc20 = new ethers.Interface(['function approve(address,uint256) returns (bool)'])
-        const nftIface = new ethers.Interface(ABIS.NONFUNGIBLE_POSITION_MANAGER as string[])
+        const nftIface = new ethers.Interface([...ABIS.NONFUNGIBLE_POSITION_MANAGER])
 
         const approve0 = erc20.encodeFunctionData('approve', [posManager, amount0Desired])
         const approve1 = erc20.encodeFunctionData('approve', [posManager, amount1Desired])

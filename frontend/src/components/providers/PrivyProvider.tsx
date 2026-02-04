@@ -1,7 +1,7 @@
 'use client'
 
 import { PrivyProvider as PrivyProviderBase } from '@privy-io/react-auth'
-import { baseSepolia } from 'viem/chains'
+import { baseSepolia, hardhat } from 'viem/chains'
 import { PRIVY_APP_ID } from '@/lib/constants'
 import { useSyncExternalStore } from 'react'
 
@@ -56,8 +56,8 @@ export function PrivyProvider({ children }: { children: React.ReactNode }) {
           showWalletLoginFirst: true, // Show wallet first
         },
         loginMethods: ['wallet'], // Only wallet login
-        defaultChain: baseSepolia,
-        supportedChains: [baseSepolia],
+        defaultChain: process.env.NEXT_PUBLIC_USE_LOCALHOST === 'true' ? hardhat : baseSepolia,
+        supportedChains: process.env.NEXT_PUBLIC_USE_LOCALHOST === 'true' ? [hardhat, baseSepolia] : [baseSepolia],
         embeddedWallets: {
           ethereum: {
             createOnLogin: 'off', // Disable embedded wallets
