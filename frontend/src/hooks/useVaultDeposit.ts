@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { useWriteContract, useSendTransaction } from 'wagmi'
 import { createPublicClient, http, parseEther, parseUnits, formatEther, formatUnits } from 'viem'
 import { baseSepolia } from 'viem/chains'
-import { USDC_ADDRESS, ERC20ABI } from '@/lib/contracts'
+import { USDC_ADDRESS, ETH_ADDRESS, ERC20ABI } from '@/lib/contracts'
 import { CONTRACTS } from '@/config/contracts'
 
 const USDT_ADDRESS = CONTRACTS.baseSepolia.USDT as `0x${string}`
@@ -41,6 +41,7 @@ export function useVaultDeposit(
   const [wbtcBalance, setWbtcBalance] = useState('0')
   const [linkBalance, setLinkBalance] = useState('0')
   const [smartWalletEthBalance, setSmartWalletEthBalance] = useState('0')
+  const [smartWalletWethBalance, setSmartWalletWethBalance] = useState('0')
   const [smartWalletUsdcBalance, setSmartWalletUsdcBalance] = useState('0')
   const [smartWalletUsdtBalance, setSmartWalletUsdtBalance] = useState('0')
   const [smartWalletWbtcBalance, setSmartWalletWbtcBalance] = useState('0')
@@ -146,6 +147,18 @@ export function useVaultDeposit(
         const swEthFormatted = formatEther(swEth)
         setSmartWalletEthBalance(swEthFormatted)
         console.log('[Balances] Smart Wallet ETH:', swEthFormatted)
+
+        try {
+          const swWeth = await publicClient.readContract({
+            address: ETH_ADDRESS,
+            abi: ERC20ABI,
+            functionName: 'balanceOf',
+            args: [smartWalletAddress],
+          }) as bigint
+          setSmartWalletWethBalance(formatEther(swWeth))
+        } catch {
+          setSmartWalletWethBalance('0')
+        }
 
         try {
           const swUsdc = await publicClient.readContract({
@@ -514,6 +527,7 @@ export function useVaultDeposit(
 
     // Smart Wallet Balances
     smartWalletEthBalance,
+    smartWalletWethBalance,
     smartWalletUsdcBalance,
     smartWalletUsdtBalance,
     smartWalletWbtcBalance,

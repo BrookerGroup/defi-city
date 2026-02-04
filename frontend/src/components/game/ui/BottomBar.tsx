@@ -11,7 +11,7 @@ interface BottomBarProps {
   onResetCamera: () => void
   onZoomIn: () => void
   onZoomOut: () => void
-  onDragBuildStart: (type: 'supply' | 'borrow' | 'lottery') => void
+  onDragBuildStart: (type: 'supply' | 'borrow' | 'lp' | 'lottery') => void
   isMoving?: boolean
   isLoading?: boolean
 }
@@ -71,11 +71,13 @@ export function BottomBar({
           <span className="text-[8px]">+</span> BORROW
         </button>
         <button
-          disabled
-          className="px-3 py-1 bg-slate-700 border-2 border-slate-500 text-slate-400 flex items-center gap-1.5 opacity-50 cursor-not-allowed select-none"
-          title="Coming Soon"
+          onPointerDown={(e) => {
+            e.preventDefault()
+            onDragBuildStart('lp')
+          }}
+          className="px-3 py-1 bg-cyan-700 border-2 border-cyan-400 text-cyan-200 flex items-center gap-1.5 hover:bg-cyan-600 transition-colors cursor-grab active:cursor-grabbing select-none"
         >
-          <span className="text-[8px]">+</span> LIQUIDITY
+          <span className="text-[8px]">+</span> LP
         </button>
         <button
           onPointerDown={(e) => {

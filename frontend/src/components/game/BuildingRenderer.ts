@@ -102,6 +102,8 @@ export class BuildingRenderer {
       color = 0xfbbf24  // amber/gold
     } else if (isLottery) {
       color = 0xfbbf24  // amber for lottery
+    } else if (building.type === 'lp') {
+      color = 0x06b6d4  // cyan for LP
     } else if (building.isBorrow) {
       color = 0xef4444  // red
     } else {
@@ -130,18 +132,35 @@ export class BuildingRenderer {
       label.x = 0
       label.y = -4
       bContainer.addChild(label)
-    } else if (building.type !== 'townhall') {
-      // Asset label
+    } else if (building.type === 'townhall') {
+      const label = new Text({
+        text: 'TOWN HALL',
+        style: { ...labelStyle, fill: 0xfbbf24, fontSize: 7 },
+      })
+      label.anchor.set(0.5, 1)
+      label.x = 0
+      label.y = -4
+      bContainer.addChild(label)
+    } else if (building.type === 'lp') {
+      const assetLabel = new Text({
+        text: 'LP',
+        style: { ...labelStyle, fill: 0x06b6d4 },
+      })
+      assetLabel.anchor.set(0.5, 1)
+      assetLabel.x = 0
+      assetLabel.y = -4
+      bContainer.addChild(assetLabel)
+    } else {
+      // Bank/borrow
       const assetLabel = new Text({
         text: building.asset,
         style: labelStyle,
       })
       assetLabel.anchor.set(0.5, 1)
       assetLabel.x = 0
-      assetLabel.y = -4  // Just above tile
+      assetLabel.y = -4
       bContainer.addChild(assetLabel)
 
-      // APY badge
       if (building.apy !== undefined) {
         const apyText = new Text({
           text: this.formatAPY(building.apy, building.isBorrow),
@@ -152,19 +171,9 @@ export class BuildingRenderer {
         })
         apyText.anchor.set(0.5, 1)
         apyText.x = 0
-        apyText.y = -14  // Above asset label
+        apyText.y = -14
         bContainer.addChild(apyText)
       }
-    } else {
-      // Town Hall label
-      const label = new Text({
-        text: 'TOWN HALL',
-        style: { ...labelStyle, fill: 0xfbbf24, fontSize: 7 },
-      })
-      label.anchor.set(0.5, 1)
-      label.x = 0
-      label.y = -4  // Just above tile
-      bContainer.addChild(label)
     }
 
     this.container.addChild(bContainer)

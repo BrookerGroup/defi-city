@@ -1,0 +1,6 @@
+{
+  "network": "baseSepolia",
+  "swapAdapter": "0xf692caBc47D0E05DeDEeF8e39Ef762E7a4940f35",
+  "swapRouter02": "0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4",
+  "quoterV2": "0xC5290058841028F1614F3A6F0F5816cAd0df5E27"
+}

@@ -23,6 +23,13 @@ export const CONTRACTS = {
     // Megapot Lottery (Base Sepolia)
     MEGAPOT: '0x6f03c7BCaDAdBf5E6F5900DA3d56AdD8FbDac5De',
     MPUSDC: '0xA4253E7C13525287C56550b8708100f93E60509f',
+    // Uniswap V3 (Base Sepolia)
+    SWAP_ROUTER_02: '0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4',
+    QUOTER_V2: '0xC5290058841028F1614F3A6F0F5816cAd0df5E27',
+    SWAP_ADAPTER: '0xf692caBc47D0E05DeDEeF8e39Ef762E7a4940f35',
+    // Uniswap V3 LP (Base Sepolia)
+    UNISWAP_V3_FACTORY: '0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24',
+    NONFUNGIBLE_POSITION_MANAGER: '0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2',
   },
   localhost: {
     WALLET_FACTORY: '',
@@ -83,8 +90,9 @@ export const ABIS = {
   ],
 
   BUILDING_REGISTRY: [
-    'function preparePlace(address user, address userSmartWallet, string calldata buildingType, uint256 x, uint256 y, bytes calldata params) external view returns (address[] memory targets, uint256[] memory values, bytes[] memory datas)',
+    'function preparePlace(string calldata buildingType, address user, address userSmartWallet, bytes calldata params) external view returns (address[] memory targets, uint256[] memory values, bytes[] memory datas)',
     'function prepareHarvest(string calldata buildingType, address user, address userSmartWallet, uint256 buildingId, bytes calldata params) external view returns (address[] memory targets, uint256[] memory values, bytes[] memory datas)',
+    'function prepareDemolish(string calldata buildingType, address user, address userSmartWallet, uint256 buildingId, bytes calldata params) external view returns (address[] memory targets, uint256[] memory values, bytes[] memory datas)',
     'function adapters(string calldata buildingType) external view returns (address)',
     'function isRegistered(string calldata buildingType) external view returns (bool)',
   ],
@@ -92,6 +100,14 @@ export const ABIS = {
   BANK_ADAPTER: [
     'function preparePlace(address user, address userSmartWallet, bytes calldata params) external view returns (address[] memory targets, uint256[] memory values, bytes[] memory datas)',
     'function BUILDING_TYPE() external pure returns (string memory)',
+  ],
+  LP_BUILDING_ADAPTER: [
+    'function preparePlace(address user, address userSmartWallet, bytes calldata params) external view returns (address[] memory targets, uint256[] memory values, bytes[] memory datas)',
+    'function prepareHarvest(address user, address userSmartWallet, uint256 buildingId, bytes calldata params) external view returns (address[] memory targets, uint256[] memory values, bytes[] memory datas)',
+    'function prepareDemolish(address user, address userSmartWallet, uint256 buildingId, bytes calldata params) external view returns (address[] memory targets, uint256[] memory values, bytes[] memory datas)',
+    'function prepareIncreaseLiquidity(address user, address userSmartWallet, uint256 buildingId, bytes calldata params) external view returns (address[] memory targets, uint256[] memory values, bytes[] memory datas)',
+    'function prepareDecreaseLiquidity(address user, address userSmartWallet, uint256 buildingId, bytes calldata params) external view returns (address[] memory targets, uint256[] memory values, bytes[] memory datas)',
+    'function getBuildingType() external view returns (string memory)',
   ],
 
   ERC20: [
@@ -125,6 +141,32 @@ export const ABIS = {
     'function getAssetPrice(address asset) external view returns (uint256)',
     'function BASE_CURRENCY_UNIT() external view returns (uint256)',
     'function getAssetsPrices(address[] calldata assets) external view returns (uint256[])',
+  ],
+  SWAP_ADAPTER: [
+    'function prepareSwap(tuple(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOutMinimum, uint24 fee, address recipient, uint256 deadline) params) external view returns (address[] targets, uint256[] values, bytes[] datas)',
+  ],
+  QUOTER_V2: [
+    'function quoteExactInputSingle(tuple(address tokenIn, address tokenOut, uint256 amountIn, uint24 fee, uint160 sqrtPriceLimitX96) params) external returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)',
+  ],
+  SWAP_ROUTER_02: [
+    'function exactInputSingle(tuple(address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96) params) external payable returns (uint256 amountOut)',
+  ],
+  UNISWAP_V3_FACTORY: [
+    'function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)',
+  ],
+  UNISWAP_V3_POOL: [
+    'function token0() external view returns (address)',
+    'function token1() external view returns (address)',
+    'function fee() external view returns (uint24)',
+    'function tickSpacing() external view returns (int24)',
+    'function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)',
+    'function liquidity() external view returns (uint128)',
+  ],
+  NONFUNGIBLE_POSITION_MANAGER: [
+    'function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline) params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)',
+    'function positions(uint256 tokenId) external view returns (uint96 nonce, address operator, address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint128 liquidity, uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128, uint128 tokensOwed0, uint128 tokensOwed1)',
+    'function balanceOf(address owner) external view returns (uint256)',
+    'function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256)',
   ],
   AAVE_POOL_ADDRESSES_PROVIDER: [
     'function getPriceOracle() external view returns (address)',

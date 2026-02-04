@@ -17,4 +17,7 @@ export * from './useLotteryData'
 export * from './useLotteryPosition'
 export * from './useLotteryBuyTickets'
 export * from './useLotteryClaimWinnings'
+export * from './useUniswapSwap'
+export * from './useUniswapLP'
+export * from './useUniswapLPBuild'
 
