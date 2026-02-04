@@ -59,6 +59,14 @@ const ERROR_MAP: { pattern: RegExp; info: ErrorInfo }[] = [
       suggestion: 'Add more ETH to your wallet first.',
     },
   },
+  {
+    pattern: /Round has ended|purchasing is currently disabled|Wait for next round/i,
+    info: {
+      title: 'ROUND ENDED',
+      message: 'This round has ended. Please wait for the next round to start.',
+      suggestion: 'The timer will reset when a new round begins.',
+    },
+  },
 ]
 
 const DEFAULT_ERROR: ErrorInfo = {

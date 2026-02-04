@@ -62,6 +62,8 @@ export function LotteryPanel({
     ? totalCost > position.mpusdcBalance
     : false
 
+  const isRoundEnded = (lotteryData?.timeRemaining ?? 0) <= 0
+
   const handleBuyTickets = useCallback(async () => {
     if (!ticketCount || parseInt(ticketCount) <= 0) {
       setError('Enter number of tickets')
@@ -77,6 +79,11 @@ export function LotteryPanel({
     }
     if (!lotteryData.allowPurchasing) {
       setError('Ticket purchasing is currently disabled')
+      return
+    }
+    if (isRoundEnded) {
+      setError('Round has ended. Waiting for next round to start.')
+      refreshData()
       return
     }
     if (hasInsufficientBalance) {
@@ -110,7 +117,7 @@ export function LotteryPanel({
     } else {
       setError(result.error || 'Buy tickets failed')
     }
-  }, [ticketCount, smartWallet, userAddress, hasSmartWallet, lotteryData, hasInsufficientBalance, buyTickets, selectedCoords, isExisting, buildingId, onSuccess, refreshData, refreshPosition])
+  }, [ticketCount, smartWallet, userAddress, hasSmartWallet, lotteryData, hasInsufficientBalance, isRoundEnded, buyTickets, selectedCoords, isExisting, buildingId, onSuccess, refreshData, refreshPosition])
 
   const handleClaimWinnings = useCallback(async () => {
     if (!smartWallet) {
@@ -160,7 +167,11 @@ export function LotteryPanel({
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-amber-400 text-sm" style={pixelFont}>MEGAPOT</h3>
-          {lotteryData?.allowPurchasing ? (
+          {isRoundEnded ? (
+            <span className="px-2 py-0.5 bg-yellow-900 border border-yellow-600 text-yellow-400 text-[6px] animate-pulse" style={pixelFont}>
+              ENDED
+            </span>
+          ) : lotteryData?.allowPurchasing ? (
             <span className="px-2 py-0.5 bg-green-900 border border-green-600 text-green-400 text-[6px]" style={pixelFont}>
               LIVE
             </span>
@@ -303,7 +314,7 @@ export function LotteryPanel({
         {/* Buy Button */}
         <button
           onClick={handleBuyTickets}
-          disabled={loading || !ticketCount || parseInt(ticketCount) <= 0 || hasInsufficientBalance || !lotteryData?.allowPurchasing}
+          disabled={loading || !ticketCount || parseInt(ticketCount) <= 0 || hasInsufficientBalance || !lotteryData?.allowPurchasing || isRoundEnded}
           className="relative group w-full disabled:opacity-50 disabled:cursor-not-allowed mb-4"
         >
           <div className="bg-amber-900 absolute inset-0 translate-x-2 translate-y-2" />
@@ -329,7 +340,7 @@ export function LotteryPanel({
               </>
             ) : (
               <span className="text-xs" style={pixelFont}>
-                {hasInsufficientBalance ? 'NOT ENOUGH MPUSDC' : (isExisting ? 'BUY MORE TICKETS' : 'BUY TICKETS')}
+                {isRoundEnded ? 'ROUND ENDED' : hasInsufficientBalance ? 'NOT ENOUGH MPUSDC' : (isExisting ? 'BUY MORE TICKETS' : 'BUY TICKETS')}
               </span>
             )}
           </div>
