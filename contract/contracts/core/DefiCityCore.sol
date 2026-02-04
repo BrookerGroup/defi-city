@@ -85,6 +85,9 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable, AccessControl {
     /// @notice User → Grid position (x,y) → buildingId
     mapping(address => mapping(uint256 => mapping(uint256 => uint256))) public userGridBuildings;
 
+    /// @notice LP buildingId → Uniswap V3 position tokenId (set after mint)
+    mapping(uint256 => uint256) public lpTokenIdByBuilding;
+
     /// @notice User statistics (for leaderboard/analytics)
     struct UserStats {
         uint256 totalDeposited;   // Lifetime deposits (accounting only)
@@ -159,6 +162,8 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable, AccessControl {
     error InvalidBuildingType();
     error AssetNotSupported();
     error InvalidCoordinates();
+    error LPTokenIdAlreadySet();
+    error NotLPBuilding();
 
     // ============ Modifiers ============
 
@@ -352,6 +357,33 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable, AccessControl {
     }
 
     /**
+     * @notice Set Uniswap V3 position tokenId for an LP building (call once after mint)
+     * @dev Called by user's SmartWallet after placing LP building to link buildingId to NFT tokenId
+     * @param user User's EOA address
+     * @param buildingId Building ID (LP type)
+     * @param tokenId Uniswap V3 NonfungiblePositionManager token ID
+     */
+    function setLPTokenId(
+        address user,
+        uint256 buildingId,
+        uint256 tokenId
+    ) external nonReentrant whenNotPaused {
+        address userWallet = userSmartWallets[user];
+        if (userWallet == address(0)) revert WalletNotRegistered();
+        if (msg.sender != userWallet) revert OnlyUserWallet();
+        if (tokenId == 0) revert InvalidCoordinates();
+
+        Building storage building = buildings[buildingId];
+        if (building.id == 0) revert BuildingNotFound();
+        if (!building.active) revert BuildingNotActive();
+        if (building.owner != user) revert NotBuildingOwner();
+        if (keccak256(bytes(building.buildingType)) != keccak256("lp")) revert NotLPBuilding();
+        if (lpTokenIdByBuilding[buildingId] != 0) revert LPTokenIdAlreadySet();
+
+        lpTokenIdByBuilding[buildingId] = tokenId;
+    }
+
+    /**
      * @notice Records harvest of rewards from a building
      * @dev Called by user's SmartWallet after claiming rewards from DeFi protocols
      * @param user User's EOA address
@@ -403,6 +435,11 @@ contract DefiCityCore is ReentrancyGuard, Pausable, Ownable, AccessControl {
 
         // Clear grid (user's own grid)
         userGridBuildings[user][building.coordinateX][building.coordinateY] = 0;
+
+        // Clear LP tokenId if set
+        if (lpTokenIdByBuilding[buildingId] != 0) {
+            delete lpTokenIdByBuilding[buildingId];
+        }
 
         emit BuildingDemolished(buildingId, user, returnedAmount);
     }
