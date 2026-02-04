@@ -189,7 +189,7 @@ export function useUniswapSwap(smartWallet: string | null) {
           const erc20 = new ethers.Interface([
             'function approve(address,uint256) returns (bool)',
           ])
-          const routerIface = new ethers.Interface(ABIS.SWAP_ROUTER_02 as string[])
+          const routerIface = new ethers.Interface([...ABIS.SWAP_ROUTER_02])
           const approveData = erc20.encodeFunctionData('approve', [
             router,
             amountInRaw,
