@@ -9,9 +9,6 @@ export const ACTIVE_NETWORK: 'localhost' | 'baseSepolia' =
     ? 'localhost'
     : 'baseSepolia';
 
-/** Active contract addresses (use this instead of CONTRACTS.baseSepolia when supporting localhost) */
-export const ADDRESSES = CONTRACTS[ACTIVE_NETWORK];
-
 // Contract addresses - Base Sepolia Testnet
 export const CONTRACTS = {
   baseSepolia: {
@@ -44,8 +41,28 @@ export const CONTRACTS = {
     WALLET_FACTORY: '',
     DEFICITY_CORE: '',
     ENTRY_POINT: '',
+    BUILDING_REGISTRY: '',
+    BANK_ADAPTER: '',
+    AAVE_POOL_ADDRESSES_PROVIDER: '0xE4C23309117Aa30342BFaae6c95c6478e0A4Ad00',
+    AAVE_POOL: '0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27',
+    AAVE_DATA_PROVIDER: '0xBc9f5b7E248451CdD7cA54e717a2BFe1F32b566b',
+    USDC: '0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f',
+    USDT: '0x0a215D8ba66387DCA84B284D18c3B4ec3de6E54a',
+    ETH: '0x4200000000000000000000000000000000000006',
+    WBTC: '0x54114591963CF60EF3aA63bEfD6eC263D98145a4',
+    LINK: '0x810D46F9a9027E28F9B01F75E2bdde839dA61115',
+    MEGAPOT: '0x6f03c7BCaDAdBf5E6F5900DA3d56AdD8FbDac5De',
+    MPUSDC: '0xA4253E7C13525287C56550b8708100f93E60509f',
+    SWAP_ROUTER_02: '0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4',
+    QUOTER_V2: '0xC5290058841028F1614F3A6F0F5816cAd0df5E27',
+    SWAP_ADAPTER: '',
+    UNISWAP_V3_FACTORY: '0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24',
+    NONFUNGIBLE_POSITION_MANAGER: '0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2',
   }
 } as const;
+
+/** Active contract addresses (use this instead of CONTRACTS.baseSepolia when supporting localhost) */
+export const ADDRESSES = CONTRACTS[ACTIVE_NETWORK];
 
 // Minimal ABIs for required functions
 export const ABIS = {

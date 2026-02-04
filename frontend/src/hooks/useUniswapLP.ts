@@ -139,7 +139,7 @@ export function useUniswapLP(smartWallet: string | null) {
         const deadline = Math.floor(Date.now() / 1000) + 600
 
         const erc20 = new ethers.Interface(['function approve(address,uint256) returns (bool)'])
-        const nftIface = new ethers.Interface([...ABIS.NONFUNGIBLE_POSITION_MANAGER])
+        const nftIface = new ethers.Interface(ABIS.NONFUNGIBLE_POSITION_MANAGER as unknown as string[])
 
         const approve0 = erc20.encodeFunctionData('approve', [posManager, amount0Desired])
         const approve1 = erc20.encodeFunctionData('approve', [posManager, amount1Desired])

@@ -1,10 +1,11 @@
 import { http, createConfig } from 'wagmi'
+import type { Chain } from 'wagmi/chains'
 import { baseSepolia, hardhat } from 'wagmi/chains'
 import { injected, walletConnect } from 'wagmi/connectors'
 import { RPC_URL, WALLETCONNECT_PROJECT_ID } from './constants'
 
 const useLocalhost = process.env.NEXT_PUBLIC_USE_LOCALHOST === 'true'
-const chains = useLocalhost ? [hardhat, baseSepolia] : [baseSepolia]
+const chains: readonly [Chain, ...Chain[]] = useLocalhost ? [hardhat, baseSepolia] : [baseSepolia]
 
 export const config = createConfig({
   chains,
