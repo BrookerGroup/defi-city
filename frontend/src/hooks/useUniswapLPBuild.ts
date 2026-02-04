@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { ethers } from 'ethers'
 import { useWallets } from '@privy-io/react-auth'
-import { CONTRACTS, ABIS } from '@/config/contracts'
+import { ADDRESSES, ABIS } from '@/config/contracts'
 import { GRID_SIZE } from '@/lib/constants'
 
 function extractRevertMessage(err: unknown): string {
@@ -89,7 +89,7 @@ export function useUniswapLPBuild() {
     const w = wallets.find((x) => x.walletClientType === 'privy') || wallets[0]
     const provider = new ethers.BrowserProvider(await w.getEthereumProvider())
     const signer = await provider.getSigner()
-    const addrs = CONTRACTS.baseSepolia
+    const addrs = ADDRESSES
     const buildingRegistry = new ethers.Contract(
       addrs.BUILDING_REGISTRY,
       ABIS.BUILDING_REGISTRY,
@@ -134,7 +134,7 @@ export function useUniswapLPBuild() {
           }
 
           const core = new ethers.Contract(
-            CONTRACTS.baseSepolia.DEFICITY_CORE,
+            ADDRESSES.DEFICITY_CORE,
             ['function userGridBuildings(address,uint256,uint256) view returns (uint256)'],
             provider
           )
@@ -192,7 +192,7 @@ export function useUniswapLPBuild() {
         const tx = await sw.executeBatch(targetsArr, valuesArr, datasArr, { gasLimit })
         const receipt = await tx.wait()
         if (receipt?.logs) {
-          const addrs = CONTRACTS.baseSepolia
+          const addrs = ADDRESSES
           const coreIface = new ethers.Interface([
             'event BuildingPlaced(uint256 indexed buildingId, address indexed user, address indexed smartWallet, string buildingType, address asset, uint256 amount, uint256 x, uint256 y)',
           ])

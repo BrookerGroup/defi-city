@@ -6,7 +6,7 @@
 import { useState, useCallback } from 'react'
 import { ethers } from 'ethers'
 import { useWallets } from '@privy-io/react-auth'
-import { CONTRACTS, ABIS } from '@/config/contracts'
+import { ADDRESSES, ABIS } from '@/config/contracts'
 import type { PositionInfo } from '@/hooks/useUniswapLP'
 
 const MAX_U128 = 2n ** 128n - 1n
@@ -36,7 +36,7 @@ export function useUniswapLPManage() {
     const w = wallets.find((x) => x.walletClientType === 'privy') || wallets[0]
     const provider = new ethers.BrowserProvider(await w.getEthereumProvider())
     const signer = await provider.getSigner()
-    const addrs = CONTRACTS.baseSepolia
+    const addrs = ADDRESSES
     const registry = new ethers.Contract(
       addrs.BUILDING_REGISTRY,
       ABIS.BUILDING_REGISTRY,

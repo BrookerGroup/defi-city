@@ -3,6 +3,15 @@
  * Contains contract addresses and ABIs for DefiCity
  */
 
+/** Use localhost when NEXT_PUBLIC_USE_LOCALHOST=true (after full migration) */
+export const ACTIVE_NETWORK: 'localhost' | 'baseSepolia' =
+  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_USE_LOCALHOST === 'true')
+    ? 'localhost'
+    : 'baseSepolia';
+
+/** Active contract addresses (use this instead of CONTRACTS.baseSepolia when supporting localhost) */
+export const ADDRESSES = CONTRACTS[ACTIVE_NETWORK];
+
 // Contract addresses - Base Sepolia Testnet
 export const CONTRACTS = {
   baseSepolia: {

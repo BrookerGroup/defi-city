@@ -2,16 +2,16 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { ethers } from 'ethers'
-import { CONTRACTS } from '@/config/contracts'
+import { ADDRESSES } from '@/config/contracts'
 import { useUniswapLP, nearestUsableTick, sortTokens } from '@/hooks/useUniswapLP'
 import { useUniswapLPBuild } from '@/hooks/useUniswapLPBuild'
 import { useUniswapLPManage } from '@/hooks/useUniswapLPManage'
 import type { Building } from '@/hooks/useCityBuildings'
 
 const TOKENS = [
-  { symbol: 'USDC', address: CONTRACTS.baseSepolia.USDC, decimals: 6 },
-  { symbol: 'WETH', address: CONTRACTS.baseSepolia.ETH, decimals: 18 },
-  { symbol: 'USDT', address: CONTRACTS.baseSepolia.USDT, decimals: 6 },
+  { symbol: 'USDC', address: ADDRESSES.USDC, decimals: 6 },
+  { symbol: 'WETH', address: ADDRESSES.ETH, decimals: 18 },
+  { symbol: 'USDT', address: ADDRESSES.USDT, decimals: 6 },
 ] as const
 
 const pixelFont = { fontFamily: '"Press Start 2P", monospace' } as const
@@ -370,7 +370,7 @@ export function LPBuildingPanel({
   }
 
   const wethBal = parseFloat(vaultBalances['WETH'] ?? '0')
-  const needsWeth = tokenB.toLowerCase() === (CONTRACTS.baseSepolia.ETH || '').toLowerCase() && parseFloat(amountB || '0') > 0 && wethBal < parseFloat(amountB || '0')
+  const needsWeth = tokenB.toLowerCase() === (ADDRESSES.ETH || '').toLowerCase() && parseFloat(amountB || '0') > 0 && wethBal < parseFloat(amountB || '0')
 
   return (
     <div className="space-y-3">

@@ -1,10 +1,13 @@
 import { http, createConfig } from 'wagmi'
-import { baseSepolia } from 'wagmi/chains'
+import { baseSepolia, hardhat } from 'wagmi/chains'
 import { injected, walletConnect } from 'wagmi/connectors'
 import { RPC_URL, WALLETCONNECT_PROJECT_ID } from './constants'
 
+const useLocalhost = process.env.NEXT_PUBLIC_USE_LOCALHOST === 'true'
+const chains = useLocalhost ? [hardhat, baseSepolia] : [baseSepolia]
+
 export const config = createConfig({
-  chains: [baseSepolia],
+  chains,
   connectors: [
     injected({
       target() {
@@ -27,6 +30,7 @@ export const config = createConfig({
   ],
   transports: {
     [baseSepolia.id]: http(RPC_URL),
+    [hardhat.id]: http('http://127.0.0.1:8545'),
   },
   ssr: true,
 })

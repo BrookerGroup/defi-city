@@ -12,12 +12,12 @@ import {
   sortTokens,
   type PoolInfo,
 } from '@/hooks/useUniswapLP'
-import { CONTRACTS } from '@/config/contracts'
+import { ADDRESSES } from '@/config/contracts'
 
 const TOKENS = [
-  { symbol: 'USDC', address: CONTRACTS.baseSepolia.USDC, decimals: 6 },
-  { symbol: 'WETH', address: CONTRACTS.baseSepolia.ETH, decimals: 18 },
-  { symbol: 'USDT', address: CONTRACTS.baseSepolia.USDT, decimals: 6 },
+  { symbol: 'USDC', address: ADDRESSES.USDC, decimals: 6 },
+  { symbol: 'WETH', address: ADDRESSES.ETH, decimals: 18 },
+  { symbol: 'USDT', address: ADDRESSES.USDT, decimals: 6 },
 ] as const
 
 const pixelFont = { fontFamily: '"Press Start 2P", monospace' } as const
