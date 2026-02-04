@@ -97,8 +97,11 @@ export class BuildingRenderer {
 
     // Get color based on building type
     let color: number
+    const isLottery = building.type === 'lottery'
     if (building.type === 'townhall') {
       color = 0xfbbf24  // amber/gold
+    } else if (isLottery) {
+      color = 0xfbbf24  // amber for lottery
     } else if (building.isBorrow) {
       color = 0xef4444  // red
     } else {
@@ -117,7 +120,17 @@ export class BuildingRenderer {
     bContainer.addChild(tile)
 
     // Add labels
-    if (building.type !== 'townhall') {
+    if (isLottery) {
+      // Lottery building label
+      const label = new Text({
+        text: 'MEGAPOT',
+        style: { ...labelStyle, fill: 0xfbbf24, fontSize: 7 },
+      })
+      label.anchor.set(0.5, 1)
+      label.x = 0
+      label.y = -4
+      bContainer.addChild(label)
+    } else if (building.type !== 'townhall') {
       // Asset label
       const assetLabel = new Text({
         text: building.asset,

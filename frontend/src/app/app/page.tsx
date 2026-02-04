@@ -18,6 +18,7 @@ import { useGameState } from "@/components/game/useGameState";
 import { GameHUD } from "@/components/game/ui/GameHUD";
 import { BuildPanel } from "@/components/game/ui/BuildPanel";
 import { BuildingDialog } from "@/components/game/ui/BuildingDialog";
+import { LotteryDialog } from "@/components/game/ui/LotteryDialog";
 import { VaultPanel } from "@/components/game/ui/VaultPanel";
 import { TransactionHistoryPanel } from "@/components/game/ui/TransactionHistoryPanel";
 import { BottomBar } from "@/components/game/ui/BottomBar";
@@ -83,11 +84,13 @@ export default function AppPage() {
     usdtBalance,
     wbtcBalance,
     linkBalance,
+    mpusdcBalance,
     smartWalletEthBalance,
     smartWalletUsdcBalance,
     smartWalletUsdtBalance,
     smartWalletWbtcBalance,
     smartWalletLinkBalance,
+    smartWalletMpusdcBalance,
     refetchBalances,
   } = useVaultDeposit(address, smartWallet);
 
@@ -119,12 +122,13 @@ export default function AppPage() {
   const [showTownHallPanel, setShowTownHallPanel] = useState(false);
 
   // Drag-to-build state
-  const [dragBuildType, setDragBuildType] = useState<'supply' | 'borrow' | null>(null);
+  const [dragBuildType, setDragBuildType] = useState<'supply' | 'borrow' | 'lottery' | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
-  const dragBuildTypeRef = useRef<'supply' | 'borrow' | null>(null);
+  const dragBuildTypeRef = useRef<'supply' | 'borrow' | 'lottery' | null>(null);
   // Dialog state (set on drop, cleared on dialog close)
   const [showBuildDialog, setShowBuildDialog] = useState(false);
-  const [dialogBuildType, setDialogBuildType] = useState<'supply' | 'borrow' | null>(null);
+  const [showLotteryDialog, setShowLotteryDialog] = useState(false);
+  const [dialogBuildType, setDialogBuildType] = useState<'supply' | 'borrow' | 'lottery' | null>(null);
 
   // Compute used assets
   const usedAssets = useMemo(
@@ -250,7 +254,7 @@ export default function AppPage() {
 
   // Drag-to-build: start drag from BottomBar button
   const handleDragBuildStart = useCallback(
-    (type: 'supply' | 'borrow') => {
+    (type: 'supply' | 'borrow' | 'lottery') => {
       setDragBuildType(type);
       dragBuildTypeRef.current = type;
 
@@ -271,11 +275,14 @@ export default function AppPage() {
             (b) => b.x === gridCoords.x && b.y === gridCoords.y,
           );
           if (!occupied) {
-            // Show dialog instead of side panel
             setDialogBuildType(currentType);
             setSelectedCoords(gridCoords);
-            setShowBuildDialog(true);
             setShowTownHallPanel(false);
+            if (currentType === 'lottery') {
+              setShowLotteryDialog(true);
+            } else {
+              setShowBuildDialog(true);
+            }
           }
         }
 
@@ -469,12 +476,14 @@ export default function AppPage() {
             usdtBalance={usdtBalance}
             wbtcBalance={wbtcBalance}
             linkBalance={linkBalance}
+            mpusdcBalance={mpusdcBalance}
             smartWallet={smartWallet ?? null}
             smartWalletEthBalance={smartWalletEthBalance}
             smartWalletUsdcBalance={smartWalletUsdcBalance}
             smartWalletUsdtBalance={smartWalletUsdtBalance}
             smartWalletWbtcBalance={smartWalletWbtcBalance}
             smartWalletLinkBalance={smartWalletLinkBalance}
+            smartWalletMpusdcBalance={smartWalletMpusdcBalance}
             onDeposit={handleVaultDeposit}
             onWithdraw={handleVaultWithdraw}
             isDepositing={isDepositing || isConfirmingDeposit}
@@ -519,10 +528,12 @@ export default function AppPage() {
             className={`px-3 py-1.5 text-[8px] border-2 rounded ${
               dragBuildType === 'supply'
                 ? 'bg-emerald-700/90 border-emerald-400 text-emerald-200'
-                : 'bg-orange-700/90 border-orange-400 text-orange-200'
+                : dragBuildType === 'lottery'
+                  ? 'bg-amber-700/90 border-amber-400 text-amber-200'
+                  : 'bg-orange-700/90 border-orange-400 text-orange-200'
             }`}
           >
-            {dragBuildType === 'supply' ? 'SUPPLY' : 'BORROW'}
+            {dragBuildType === 'supply' ? 'SUPPLY' : dragBuildType === 'lottery' ? 'MEGAPOT' : 'BORROW'}
           </div>
         </div>
       )}
@@ -547,6 +558,26 @@ export default function AppPage() {
         }}
         onClose={() => {
           setShowBuildDialog(false);
+          setDialogBuildType(null);
+          setSelectedCoords(null);
+        }}
+      />
+
+      {/* Lottery Dialog - shown when dropping MEGAPOT on map */}
+      <LotteryDialog
+        visible={showLotteryDialog && hasSmartWallet}
+        selectedCoords={selectedCoords}
+        smartWallet={smartWallet ?? null}
+        hasSmartWallet={hasSmartWallet}
+        userAddress={address}
+        onSuccess={() => {
+          handleBuildSuccess();
+          setShowLotteryDialog(false);
+          setDialogBuildType(null);
+          setSelectedCoords(null);
+        }}
+        onClose={() => {
+          setShowLotteryDialog(false);
           setDialogBuildType(null);
           setSelectedCoords(null);
         }}

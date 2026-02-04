@@ -6,6 +6,7 @@
  */
 
 import { AavePanel } from '@/components/aave'
+import { LotteryPanel } from '@/components/lottery'
 import type { Building } from '@/hooks/useCityBuildings'
 
 interface BuildPanelProps {
@@ -50,10 +51,12 @@ export function BuildPanel({
       {/* Panel Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b-2 border-slate-700 bg-slate-800/60">
         <div>
-          <p className="text-emerald-400 text-[8px]" style={pixelFont}>
-            {selectedBuilding
-              ? `${selectedBuilding.isBorrow ? 'BORROW' : 'SUPPLY'}: ${selectedBuilding.asset}`
-              : 'BUILD NEW'}
+          <p className={`text-[8px] ${selectedBuilding?.type === 'lottery' ? 'text-amber-400' : 'text-emerald-400'}`} style={pixelFont}>
+            {selectedBuilding?.type === 'lottery'
+              ? 'MEGAPOT LOTTERY'
+              : selectedBuilding
+                ? `${selectedBuilding.isBorrow ? 'BORROW' : 'SUPPLY'}: ${selectedBuilding.asset}`
+                : 'BUILD NEW'}
           </p>
           <p className="text-slate-500 text-[6px] mt-0.5" style={pixelFont}>
             TILE ({selectedCoords.x}, {selectedCoords.y})
@@ -68,25 +71,40 @@ export function BuildPanel({
         </button>
       </div>
 
-      {/* Aave Panel Content */}
+      {/* Panel Content - Lottery or Aave */}
       <div className="p-4">
-        <AavePanel
-          smartWallet={smartWallet}
-          hasSmartWallet={hasSmartWallet}
-          userAddress={userAddress}
-          onSuccess={() => {
-            onSuccess()
-            onClose()
-          }}
-          selectedCoords={selectedCoords}
-          usedAssets={usedAssets}
-          existingAsset={selectedBuilding?.asset}
-          buildingId={selectedBuilding?.id}
-          allBuildings={allBuildings}
-          isBorrowBuilding={selectedBuilding?.type === 'borrow' || selectedBuilding?.isBorrow || isBorrowDrag}
-          selectedBuilding={selectedBuilding}
-          vaultBalances={vaultBalances}
-        />
+        {selectedBuilding?.type === 'lottery' ? (
+          <LotteryPanel
+            smartWallet={smartWallet}
+            hasSmartWallet={hasSmartWallet}
+            userAddress={userAddress}
+            onSuccess={() => {
+              onSuccess()
+              onClose()
+            }}
+            selectedCoords={selectedCoords}
+            buildingId={selectedBuilding?.id}
+            isExisting={true}
+          />
+        ) : (
+          <AavePanel
+            smartWallet={smartWallet}
+            hasSmartWallet={hasSmartWallet}
+            userAddress={userAddress}
+            onSuccess={() => {
+              onSuccess()
+              onClose()
+            }}
+            selectedCoords={selectedCoords}
+            usedAssets={usedAssets}
+            existingAsset={selectedBuilding?.asset}
+            buildingId={selectedBuilding?.id}
+            allBuildings={allBuildings}
+            isBorrowBuilding={selectedBuilding?.type === 'borrow' || selectedBuilding?.isBorrow || isBorrowDrag}
+            selectedBuilding={selectedBuilding}
+            vaultBalances={vaultBalances}
+          />
+        )}
       </div>
     </div>
   )

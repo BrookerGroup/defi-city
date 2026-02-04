@@ -35,6 +35,7 @@ const ASSET_ADDRESSES: Record<string, string> = {
   ETH: CONTRACTS.baseSepolia.ETH,
   WBTC: CONTRACTS.baseSepolia.WBTC,
   LINK: CONTRACTS.baseSepolia.LINK,
+  MPUSDC: CONTRACTS.baseSepolia.MPUSDC,
 }
 
 const ASSET_DECIMALS: Record<string, number> = {
@@ -43,6 +44,7 @@ const ASSET_DECIMALS: Record<string, number> = {
   ETH: 18,
   WBTC: 8,
   LINK: 18,
+  MPUSDC: 6,
 }
 
 // Calculate building level based on USD value
@@ -133,15 +135,19 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
           addr.toLowerCase() === b.asset.toLowerCase()
         )?.[0] || 'CORE'
 
-        // Determine if this is an Aave asset building
-        const isAaveAsset = assetSymbol !== 'CORE'
+        // Determine building type
+        const isLotteryBuilding = b.buildingType.toLowerCase() === 'lottery'
+        const isAaveAsset = assetSymbol !== 'CORE' && !isLotteryBuilding
         const isBorrowBuilding = b.buildingType.toLowerCase() === 'borrow'
 
         // Use live Aave amount if applicable.
         // For borrow buildings, use borrow positions; for supply buildings, use supply positions
+        // For lottery buildings, use the recorded amount (tickets are non-recoverable)
         let amount: number
 
-        if (isAaveAsset) {
+        if (isLotteryBuilding) {
+          amount = Number(ethers.formatUnits(b.amount, ASSET_DECIMALS[assetSymbol] || 6))
+        } else if (isAaveAsset) {
           const liveAmountBigInt = isBorrowBuilding
             ? aaveBorrowPositions[assetSymbol]
             : aaveSupplyPositions[assetSymbol]
@@ -156,10 +162,12 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
         const displayX = isTownHall ? centerCoord : Number(b.coordinateX)
         const displayY = isTownHall ? centerCoord : Number(b.coordinateY)
 
-        // Use borrow APY for borrow buildings, supply APY for others
-        const buildingAPY = isBorrowBuilding
-          ? aaveBorrowAPYs[assetSymbol] || 0
-          : aaveSupplyAPYs[assetSymbol] || 0
+        // Use borrow APY for borrow buildings, supply APY for others, 0 for lottery
+        const buildingAPY = isLotteryBuilding
+          ? 0
+          : isBorrowBuilding
+            ? aaveBorrowAPYs[assetSymbol] || 0
+            : aaveSupplyAPYs[assetSymbol] || 0
 
         const needsForceMsg = isTownHall && Number(b.coordinateX) !== centerCoord && Number(b.coordinateX) !== 0
         console.log(`[City] Building ${b.id}: type=${b.buildingType}, active=${b.active}, pos=(${displayX}, ${displayY})${needsForceMsg ? ' (MODIFIED FROM ' + b.coordinateX + ',' + b.coordinateY + ')' : ''}`)
@@ -183,8 +191,10 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
       })
 
       // Filter: must be active AND (if it's an Aave building, amount must be > 0)
+      // Lottery buildings always show (tickets are non-recoverable)
       let activeBuildings = mappedBuildings.filter((b: any) => {
         if (!b.active) return false
+        if (b.type === 'lottery') return true
         if (b.asset !== 'CORE' && b.amount <= 0) return false
         return true
       })
@@ -192,10 +202,11 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
       // Deduplication: Only show the LATEST building (highest ID) for each unique (asset + type) combo
       // This prevents "ghost" buildings from legacy data showing up
       // Note: Same asset can have both supply (bank) and borrow buildings
+      // Lottery buildings each get their own tile — no dedup needed
       const latestByAssetAndType: Record<string, any> = {}
 
       activeBuildings.forEach((b: any) => {
-        if (b.asset === 'CORE') return // Keep CORE (Town Hall)
+        if (b.asset === 'CORE' || b.type === 'lottery') return
         const key = `${b.asset}-${b.isBorrow ? 'borrow' : 'supply'}`
         if (!latestByAssetAndType[key] || b.id > latestByAssetAndType[key].id) {
           latestByAssetAndType[key] = b
@@ -203,7 +214,7 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
       })
 
       const deduplicatedBuildings = activeBuildings.filter((b: any) => {
-        if (b.asset === 'CORE') return true
+        if (b.asset === 'CORE' || b.type === 'lottery') return true
         const key = `${b.asset}-${b.isBorrow ? 'borrow' : 'supply'}`
         return latestByAssetAndType[key] && b.id === latestByAssetAndType[key].id
       })

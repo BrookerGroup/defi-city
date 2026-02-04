@@ -20,6 +20,9 @@ export const CONTRACTS = {
     ETH: '0x4200000000000000000000000000000000000006',
     WBTC: '0x54114591963CF60EF3aA63bEfD6eC263D98145a4',
     LINK: '0x810D46F9a9027E28F9B01F75E2bdde839dA61115',
+    // Megapot Lottery (Base Sepolia)
+    MEGAPOT: '0x6f03c7BCaDAdBf5E6F5900DA3d56AdD8FbDac5De',
+    MPUSDC: '0xA4253E7C13525287C56550b8708100f93E60509f',
   },
   localhost: {
     WALLET_FACTORY: '',
@@ -127,6 +130,26 @@ export const ABIS = {
     'function getPriceOracle() external view returns (address)',
     'function getPool() external view returns (address)',
     'function getPoolDataProvider() external view returns (address)',
+  ],
+
+  MEGAPOT: [
+    'function purchaseTickets(address referrer, uint256 amount, address recipient) external',
+    'function withdrawWinnings() external',
+    'function ticketPrice() external view returns (uint256)',
+    'function lpPoolTotal() external view returns (uint256)',
+    'function lastJackpotEndTime() external view returns (uint256)',
+    'function roundDurationInSeconds() external view returns (uint256)',
+    'function feeBps() external view returns (uint256)',
+    'function allowPurchasing() external view returns (bool)',
+    'function usersInfo(address user) external view returns (uint256 ticketsPurchased, uint256 winningsClaimable)',
+  ],
+
+  MPUSDC: [
+    'function balanceOf(address account) external view returns (uint256)',
+    'function approve(address spender, uint256 amount) external returns (bool)',
+    'function allowance(address owner, address spender) external view returns (uint256)',
+    'function mint(address to, uint256 amount) external',
+    'function decimals() external view returns (uint8)',
   ],
 } as const;
 

@@ -16,12 +16,14 @@ interface VaultPanelProps {
   usdtBalance: string
   wbtcBalance: string
   linkBalance: string
+  mpusdcBalance: string
   smartWallet: string | null
   smartWalletEthBalance: string
   smartWalletUsdcBalance: string
   smartWalletUsdtBalance: string
   smartWalletWbtcBalance: string
   smartWalletLinkBalance: string
+  smartWalletMpusdcBalance: string
   onDeposit: (token: TokenType, amount: string) => Promise<void>
   onWithdraw: (token: TokenType, amount: string) => Promise<void>
   isDepositing: boolean
@@ -30,7 +32,7 @@ interface VaultPanelProps {
 }
 
 const pixelFont = { fontFamily: '"Press Start 2P", monospace' } as const
-const TOKENS: TokenType[] = ['ETH', 'USDC', 'USDT', 'WBTC', 'LINK']
+const TOKENS: TokenType[] = ['ETH', 'USDC', 'USDT', 'WBTC', 'LINK', 'MPUSDC']
 
 export function VaultPanel({
   visible,
@@ -40,12 +42,14 @@ export function VaultPanel({
   usdtBalance,
   wbtcBalance,
   linkBalance,
+  mpusdcBalance,
   smartWallet,
   smartWalletEthBalance,
   smartWalletUsdcBalance,
   smartWalletUsdtBalance,
   smartWalletWbtcBalance,
   smartWalletLinkBalance,
+  smartWalletMpusdcBalance,
   onDeposit,
   onWithdraw,
   isDepositing,
@@ -64,6 +68,7 @@ export function VaultPanel({
     USDT: usdtBalance,
     WBTC: wbtcBalance,
     LINK: linkBalance,
+    MPUSDC: mpusdcBalance,
   }
 
   const vaultBalances: Record<TokenType, string> = {
@@ -72,6 +77,7 @@ export function VaultPanel({
     USDT: smartWalletUsdtBalance,
     WBTC: smartWalletWbtcBalance,
     LINK: smartWalletLinkBalance,
+    MPUSDC: smartWalletMpusdcBalance,
   }
 
   const currentWalletBalance = useMemo(

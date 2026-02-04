@@ -13,4 +13,8 @@ export * from './useAaveRepay'
 export * from './useMoveBuilding'
 export * from './useAaveReserveData'
 export * from './useTransactionHistory'
+export * from './useLotteryData'
+export * from './useLotteryPosition'
+export * from './useLotteryBuyTickets'
+export * from './useLotteryClaimWinnings'
 

@@ -8,8 +8,9 @@ import { CONTRACTS } from '@/config/contracts'
 const USDT_ADDRESS = CONTRACTS.baseSepolia.USDT as `0x${string}`
 const WBTC_ADDRESS = CONTRACTS.baseSepolia.WBTC as `0x${string}`
 const LINK_ADDRESS = CONTRACTS.baseSepolia.LINK as `0x${string}`
+const MPUSDC_ADDRESS = CONTRACTS.baseSepolia.MPUSDC as `0x${string}`
 
-export type TokenType = 'ETH' | 'USDC' | 'USDT' | 'WBTC' | 'LINK'
+export type TokenType = 'ETH' | 'USDC' | 'USDT' | 'WBTC' | 'LINK' | 'MPUSDC'
 
 interface DepositResult {
   success: boolean
@@ -44,6 +45,8 @@ export function useVaultDeposit(
   const [smartWalletUsdtBalance, setSmartWalletUsdtBalance] = useState('0')
   const [smartWalletWbtcBalance, setSmartWalletWbtcBalance] = useState('0')
   const [smartWalletLinkBalance, setSmartWalletLinkBalance] = useState('0')
+  const [mpusdcBalance, setMpusdcBalance] = useState('0')
+  const [smartWalletMpusdcBalance, setSmartWalletMpusdcBalance] = useState('0')
   const [isLoadingBalances, setIsLoadingBalances] = useState(false)
 
   // Fetch balances directly from RPC
@@ -120,6 +123,21 @@ export function useVaultDeposit(
         setLinkBalance('0')
       }
 
+      // Fetch EOA MPUSDC balance
+      try {
+        const eoaMpusdc = await publicClient.readContract({
+          address: MPUSDC_ADDRESS,
+          abi: ERC20ABI,
+          functionName: 'balanceOf',
+          args: [ownerAddress],
+        }) as bigint
+        const eoaMpusdcFormatted = formatUnits(eoaMpusdc, 6)
+        setMpusdcBalance(eoaMpusdcFormatted)
+        console.log('[Balances] EOA MPUSDC:', eoaMpusdcFormatted)
+      } catch {
+        setMpusdcBalance('0')
+      }
+
       // Fetch Smart Wallet balances
       if (smartWalletAddress) {
         console.log('[Balances] Fetching for Smart Wallet:', smartWalletAddress)
@@ -182,6 +200,20 @@ export function useVaultDeposit(
           setSmartWalletLinkBalance(swLinkFormatted)
         } catch {
           setSmartWalletLinkBalance('0')
+        }
+
+        // Smart Wallet MPUSDC
+        try {
+          const swMpusdc = await publicClient.readContract({
+            address: MPUSDC_ADDRESS,
+            abi: ERC20ABI,
+            functionName: 'balanceOf',
+            args: [smartWalletAddress],
+          }) as bigint
+          const swMpusdcFormatted = formatUnits(swMpusdc, 6)
+          setSmartWalletMpusdcBalance(swMpusdcFormatted)
+        } catch {
+          setSmartWalletMpusdcBalance('0')
         }
       }
     } catch (err) {
@@ -427,6 +459,32 @@ export function useVaultDeposit(
           return { success: false, error: error instanceof Error ? error.message : 'Failed to deposit LINK' }
         }
       }
+      if (token === 'MPUSDC') {
+        // MPUSDC deposit (6 decimals)
+        if (!ownerAddress || !smartWalletAddress) {
+          return { success: false, error: 'Wallet not connected' }
+        }
+        setIsDepositing(true)
+        setIsConfirming(true)
+        try {
+          const amountInUnits = parseUnits(amount, 6)
+          const hash = await writeContractAsync({
+            address: MPUSDC_ADDRESS,
+            abi: ERC20ABI,
+            functionName: 'transfer',
+            args: [smartWalletAddress, amountInUnits],
+          })
+          await publicClient.waitForTransactionReceipt({ hash })
+          setIsConfirming(false)
+          setIsDepositing(false)
+          setTimeout(fetchBalances, 2000)
+          return { success: true, hash }
+        } catch (error) {
+          setIsDepositing(false)
+          setIsConfirming(false)
+          return { success: false, error: error instanceof Error ? error.message : 'Failed to deposit MPUSDC' }
+        }
+      }
       return depositUSDC(amount)
     },
     [depositETH, depositUSDC, depositUSDT, ownerAddress, smartWalletAddress, writeContractAsync, fetchBalances]
@@ -452,6 +510,7 @@ export function useVaultDeposit(
     usdtBalance,
     wbtcBalance,
     linkBalance,
+    mpusdcBalance,
 
     // Smart Wallet Balances
     smartWalletEthBalance,
@@ -459,5 +518,6 @@ export function useVaultDeposit(
     smartWalletUsdtBalance,
     smartWalletWbtcBalance,
     smartWalletLinkBalance,
+    smartWalletMpusdcBalance,
   }
 }
