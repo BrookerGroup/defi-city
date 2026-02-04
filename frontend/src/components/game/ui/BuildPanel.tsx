@@ -7,6 +7,8 @@
 
 import { AavePanel } from '@/components/aave'
 import { LotteryPanel } from '@/components/lottery'
+import { LPBuildingPanel } from '@/components/lp'
+import { useEffect, useState } from 'react'
 import type { Building } from '@/hooks/useCityBuildings'
 
 interface BuildPanelProps {
@@ -40,6 +42,16 @@ export function BuildPanel({
   onSuccess,
   onClose,
 }: BuildPanelProps) {
+  const [buildType, setBuildType] = useState<'bank' | 'lp'>('bank')
+
+  useEffect(() => {
+    if (selectedBuilding?.type === 'lp') {
+      setBuildType('lp')
+    } else {
+      setBuildType('bank')
+    }
+  }, [selectedBuilding])
+
   if (!visible || !selectedCoords) return null
 
   return (
@@ -51,12 +63,23 @@ export function BuildPanel({
       {/* Panel Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b-2 border-slate-700 bg-slate-800/60">
         <div>
-          <p className={`text-[8px] ${selectedBuilding?.type === 'lottery' ? 'text-amber-400' : 'text-emerald-400'}`} style={pixelFont}>
+          <p
+            className={`text-[8px] ${
+              selectedBuilding?.type === 'lottery'
+                ? 'text-amber-400'
+                : selectedBuilding?.type === 'lp'
+                ? 'text-cyan-400'
+                : 'text-emerald-400'
+            }`}
+            style={pixelFont}
+          >
             {selectedBuilding?.type === 'lottery'
               ? 'MEGAPOT LOTTERY'
+              : selectedBuilding?.type === 'lp'
+              ? `LP: ${selectedBuilding.asset}`
               : selectedBuilding
-                ? `${selectedBuilding.isBorrow ? 'BORROW' : 'SUPPLY'}: ${selectedBuilding.asset}`
-                : 'BUILD NEW'}
+              ? `${selectedBuilding.isBorrow ? 'BORROW' : 'SUPPLY'}: ${selectedBuilding.asset}`
+              : 'BUILD NEW'}
           </p>
           <p className="text-slate-500 text-[6px] mt-0.5" style={pixelFont}>
             TILE ({selectedCoords.x}, {selectedCoords.y})
@@ -71,7 +94,37 @@ export function BuildPanel({
         </button>
       </div>
 
-      {/* Panel Content - Lottery or Aave */}
+      {/* Build Type Selector */}
+      {!selectedBuilding && (
+        <div className="px-4 pt-4">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setBuildType('bank')}
+              className={`flex-1 py-2 border-2 text-[7px] ${
+                buildType === 'bank'
+                  ? 'bg-blue-600 text-white border-blue-400'
+                  : 'bg-slate-900 text-slate-400 border-slate-700'
+              }`}
+              style={pixelFont}
+            >
+              BANK
+            </button>
+            <button
+              onClick={() => setBuildType('lp')}
+              className={`flex-1 py-2 border-2 text-[7px] ${
+                buildType === 'lp'
+                  ? 'bg-cyan-600 text-white border-cyan-400'
+                  : 'bg-slate-900 text-slate-400 border-slate-700'
+              }`}
+              style={pixelFont}
+            >
+              LP
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Panel Content: Lottery, LP, or Aave (Bank) */}
       <div className="p-4">
         {selectedBuilding?.type === 'lottery' ? (
           <LotteryPanel
@@ -85,6 +138,18 @@ export function BuildPanel({
             selectedCoords={selectedCoords}
             buildingId={selectedBuilding?.id}
             isExisting={true}
+          />
+        ) : selectedBuilding?.type === 'lp' || buildType === 'lp' ? (
+          <LPBuildingPanel
+            smartWallet={smartWallet}
+            userAddress={userAddress}
+            selectedCoords={selectedCoords}
+            selectedBuilding={selectedBuilding?.type === 'lp' ? selectedBuilding : null}
+            vaultBalances={vaultBalances}
+            onSuccess={() => {
+              onSuccess()
+              onClose()
+            }}
           />
         ) : (
           <AavePanel

@@ -1,12 +1,14 @@
 'use client'
 
 /**
- * VaultPanel - Right side panel for vault deposit/withdraw
+ * VaultPanel - Right side panel for vault deposit/withdraw/swap
  * Extracts vault management logic from page.tsx
  */
 
 import { useState, useMemo } from 'react'
 import type { TokenType } from '@/hooks'
+import type { SwapToken } from '@/hooks/useUniswapSwap'
+import { SwapPanel } from '@/components/swap/SwapPanel'
 
 interface VaultPanelProps {
   visible: boolean
@@ -19,6 +21,7 @@ interface VaultPanelProps {
   mpusdcBalance: string
   smartWallet: string | null
   smartWalletEthBalance: string
+  smartWalletWethBalance: string
   smartWalletUsdcBalance: string
   smartWalletUsdtBalance: string
   smartWalletWbtcBalance: string
@@ -29,6 +32,21 @@ interface VaultPanelProps {
   isDepositing: boolean
   isWithdrawing: boolean
   onClose: () => void
+  // Swap (optional - when provided, Swap tab is shown)
+  onSwap?: (
+    tokenIn: SwapToken,
+    tokenOut: SwapToken,
+    amountInRaw: bigint,
+    amountOutMin: bigint,
+    fee?: number
+  ) => Promise<{ success: boolean; txHash?: string; error?: string }>
+  onGetQuote?: (
+    tokenIn: SwapToken,
+    tokenOut: SwapToken,
+    amountInRaw: bigint
+  ) => Promise<{ amountOut: bigint; amountOutMin: bigint; success: boolean }>
+  swapLoading?: boolean
+  swapError?: string | null
 }
 
 const pixelFont = { fontFamily: '"Press Start 2P", monospace' } as const
@@ -45,6 +63,7 @@ export function VaultPanel({
   mpusdcBalance,
   smartWallet,
   smartWalletEthBalance,
+  smartWalletWethBalance,
   smartWalletUsdcBalance,
   smartWalletUsdtBalance,
   smartWalletWbtcBalance,
@@ -55,8 +74,13 @@ export function VaultPanel({
   isDepositing,
   isWithdrawing,
   onClose,
+  onSwap,
+  onGetQuote,
+  swapLoading = false,
+  swapError = null,
 }: VaultPanelProps) {
-  const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw'>('deposit')
+  const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw' | 'swap'>('deposit')
+  const hasSwap = Boolean(onSwap && onGetQuote)
   const [selectedToken, setSelectedToken] = useState<TokenType>('ETH')
   const [withdrawToken, setWithdrawToken] = useState<TokenType>('ETH')
   const [depositAmount, setDepositAmount] = useState('')
@@ -107,7 +131,9 @@ export function VaultPanel({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b-2 border-slate-700 bg-slate-800/60">
         <h3
-          className={`text-[10px] ${activeTab === 'deposit' ? 'text-blue-400' : 'text-purple-400'}`}
+          className={`text-[10px] ${
+            activeTab === 'deposit' ? 'text-blue-400' : activeTab === 'withdraw' ? 'text-purple-400' : 'text-amber-400'
+          }`}
           style={pixelFont}
         >
           VAULT MGMT
@@ -132,6 +158,17 @@ export function VaultPanel({
             >
               WITHDRAW
             </button>
+            {hasSwap && (
+              <button
+                onClick={() => setActiveTab('swap')}
+                className={`px-2 py-1 text-[7px] ${
+                  activeTab === 'swap' ? 'bg-amber-600 text-white' : 'text-slate-500'
+                }`}
+                style={pixelFont}
+              >
+                SWAP
+              </button>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -144,7 +181,31 @@ export function VaultPanel({
       </div>
 
       <div className="p-4 space-y-4">
-        {activeTab === 'deposit' ? (
+        {activeTab === 'swap' && onSwap && onGetQuote ? (
+          <>
+            <p className="text-slate-500 text-[6px] mb-1" style={pixelFont}>
+              SWAP FROM VAULT
+            </p>
+            <p className="text-amber-400 text-[6px] mb-2 truncate" style={pixelFont} title={smartWallet ?? undefined}>
+              {smartWallet ? `${smartWallet.slice(0, 6)}...${smartWallet.slice(-4)}` : '—'}
+            </p>
+            <SwapPanel
+              visible
+              embed
+              vaultBalances={{
+                ETH: smartWalletWethBalance,
+                USDC: smartWalletUsdcBalance,
+                USDT: smartWalletUsdtBalance,
+                WBTC: smartWalletWbtcBalance,
+                LINK: smartWalletLinkBalance,
+              }}
+              onSwap={onSwap}
+              onGetQuote={onGetQuote}
+            loading={swapLoading}
+            error={swapError}
+          />
+          </>
+        ) : activeTab === 'deposit' ? (
           <>
             {/* Wallet balance display */}
             <div className="bg-slate-800/60 border border-slate-700 p-3">

@@ -1,11 +1,12 @@
 'use client'
 
 /**
- * BuildingDialog - Modal dialog that appears when dropping a SUPPLY/BORROW on the map
- * Contains the AavePanel inside a centered modal overlay.
+ * BuildingDialog - Modal dialog that appears when dropping SUPPLY/BORROW/LP on the map
  */
 
+import { useEffect } from 'react'
 import { AavePanel } from '@/components/aave'
+import { LPBuildingPanel } from '@/components/lp'
 import type { Building } from '@/hooks/useCityBuildings'
 
 interface BuildingDialogProps {
@@ -19,6 +20,8 @@ interface BuildingDialogProps {
   allBuildings: Building[]
   vaultBalances: Record<string, string>
   isBorrowDrag?: boolean
+  buildType?: 'supply' | 'borrow' | 'lp'
+  onRefetchBalances?: () => void
   onSuccess: () => void
   onClose: () => void
 }
@@ -36,9 +39,17 @@ export function BuildingDialog({
   allBuildings,
   vaultBalances,
   isBorrowDrag,
+  buildType = 'supply',
+  onRefetchBalances,
   onSuccess,
   onClose,
 }: BuildingDialogProps) {
+  const isLP = buildType === 'lp'
+
+  useEffect(() => {
+    if (visible && isLP && onRefetchBalances) onRefetchBalances()
+  }, [visible, isLP, onRefetchBalances])
+
   if (!visible || !selectedCoords) return null
 
   return (
@@ -55,12 +66,16 @@ export function BuildingDialog({
         <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b-2 border-slate-700 bg-slate-800">
           <div>
             <p 
-              className={`text-[10px] ${isBorrowDrag ? 'text-orange-400' : 'text-emerald-400'}`}
+              className={`text-[10px] ${
+                isLP ? 'text-cyan-400' : isBorrowDrag ? 'text-orange-400' : 'text-emerald-400'
+              }`}
               style={pixelFont}
             >
               {selectedBuilding
-                ? `${selectedBuilding.isBorrow ? 'BORROW' : 'SUPPLY'}: ${selectedBuilding.asset}`
-                : isBorrowDrag ? 'NEW BORROW' : 'NEW SUPPLY'}
+                ? selectedBuilding.type === 'lp'
+                  ? `LP: ${selectedBuilding.asset}`
+                  : `${selectedBuilding.isBorrow ? 'BORROW' : 'SUPPLY'}: ${selectedBuilding.asset}`
+                : isLP ? 'NEW LP' : isBorrowDrag ? 'NEW BORROW' : 'NEW SUPPLY'}
             </p>
             <p className="text-slate-500 text-[7px] mt-0.5" style={pixelFont}>
               TILE ({selectedCoords.x}, {selectedCoords.y})
@@ -77,23 +92,38 @@ export function BuildingDialog({
 
         {/* Content */}
         <div className="p-4">
-          <AavePanel
-            smartWallet={smartWallet}
-            hasSmartWallet={hasSmartWallet}
-            userAddress={userAddress}
-            onSuccess={() => {
-              onSuccess()
-              onClose()
-            }}
-            selectedCoords={selectedCoords}
-            usedAssets={usedAssets}
-            existingAsset={selectedBuilding?.asset}
-            buildingId={selectedBuilding?.id}
-            allBuildings={allBuildings}
-            isBorrowBuilding={selectedBuilding?.type === 'borrow' || selectedBuilding?.isBorrow || isBorrowDrag}
-            selectedBuilding={selectedBuilding}
-            vaultBalances={vaultBalances}
-          />
+          {isLP ? (
+            <LPBuildingPanel
+              smartWallet={smartWallet}
+              userAddress={userAddress}
+              selectedCoords={selectedCoords!}
+              selectedBuilding={null}
+              vaultBalances={vaultBalances}
+              onRefetchBalances={onRefetchBalances}
+              onSuccess={() => {
+                onSuccess()
+                onClose()
+              }}
+            />
+          ) : (
+            <AavePanel
+              smartWallet={smartWallet}
+              hasSmartWallet={hasSmartWallet}
+              userAddress={userAddress}
+              onSuccess={() => {
+                onSuccess()
+                onClose()
+              }}
+              selectedCoords={selectedCoords}
+              usedAssets={usedAssets}
+              existingAsset={selectedBuilding?.asset}
+              buildingId={selectedBuilding?.id}
+              allBuildings={allBuildings}
+              isBorrowBuilding={selectedBuilding?.type === 'borrow' || selectedBuilding?.isBorrow || isBorrowDrag}
+              selectedBuilding={selectedBuilding}
+              vaultBalances={vaultBalances}
+            />
+          )}
         </div>
       </div>
     </div>

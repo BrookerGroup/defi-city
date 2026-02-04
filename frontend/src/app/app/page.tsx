@@ -10,6 +10,7 @@ import {
   useVaultWithdraw,
   useCityBuildings,
   useMoveBuilding,
+  useUniswapSwap,
   TokenType,
 } from "@/hooks";
 import type { Building } from "@/hooks/useCityBuildings";
@@ -86,6 +87,7 @@ export default function AppPage() {
     linkBalance,
     mpusdcBalance,
     smartWalletEthBalance,
+    smartWalletWethBalance,
     smartWalletUsdcBalance,
     smartWalletUsdtBalance,
     smartWalletWbtcBalance,
@@ -99,6 +101,31 @@ export default function AppPage() {
     isWithdrawing: isWithdrawingFromVault,
     isConfirming: isConfirmingWithdraw,
   } = useVaultWithdraw(address, smartWallet, refetchBalances);
+
+  // Swap (Uniswap V3)
+  const {
+    swap,
+    getQuote,
+    loading: swapLoading,
+    error: swapError,
+  } = useUniswapSwap(smartWallet ?? null);
+
+  const handleSwap = useCallback(
+    async (
+      tokenIn: Parameters<typeof swap>[0],
+      tokenOut: Parameters<typeof swap>[1],
+      amountInRaw: bigint,
+      amountOutMin: bigint,
+      fee?: number
+    ) => {
+      const result = await swap(tokenIn, tokenOut, amountInRaw, amountOutMin, fee);
+      if (result.success) {
+        refetchBalances();
+      }
+      return result;
+    },
+    [swap, refetchBalances]
+  );
 
   // Move Building
   const { moveBuilding, loading: isMovingBuilding } = useMoveBuilding();
@@ -122,13 +149,13 @@ export default function AppPage() {
   const [showTownHallPanel, setShowTownHallPanel] = useState(false);
 
   // Drag-to-build state
-  const [dragBuildType, setDragBuildType] = useState<'supply' | 'borrow' | 'lottery' | null>(null);
+  const [dragBuildType, setDragBuildType] = useState<'supply' | 'borrow' | 'lp' | 'lottery' | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
-  const dragBuildTypeRef = useRef<'supply' | 'borrow' | 'lottery' | null>(null);
+  const dragBuildTypeRef = useRef<'supply' | 'borrow' | 'lp' | 'lottery' | null>(null);
   // Dialog state (set on drop, cleared on dialog close)
   const [showBuildDialog, setShowBuildDialog] = useState(false);
   const [showLotteryDialog, setShowLotteryDialog] = useState(false);
-  const [dialogBuildType, setDialogBuildType] = useState<'supply' | 'borrow' | 'lottery' | null>(null);
+  const [dialogBuildType, setDialogBuildType] = useState<'supply' | 'borrow' | 'lp' | 'lottery' | null>(null);
 
   // Compute used assets
   const usedAssets = useMemo(
@@ -157,7 +184,8 @@ export default function AppPage() {
   const handleSelectTile = useCallback(
     (x: number, y: number) => {
       // Open Town Hall info panel when clicking Town Hall
-      const clickedBuilding = buildings.find((b) => b.x === x && b.y === y);
+      // Use allBuildings to ensure LP buildings are selectable too
+      const clickedBuilding = allBuildings.find((b) => b.x === x && b.y === y && b.active);
       if (clickedBuilding?.type === "townhall") {
         setShowTownHallPanel(true);
         setShowBuildPanel(false);
@@ -173,7 +201,7 @@ export default function AppPage() {
       }
       // Empty tile click → do nothing (build only via drag)
     },
-    [buildings],
+    [allBuildings],
   );
 
   const handleMoveBuilding = useCallback(
@@ -254,7 +282,7 @@ export default function AppPage() {
 
   // Drag-to-build: start drag from BottomBar button
   const handleDragBuildStart = useCallback(
-    (type: 'supply' | 'borrow' | 'lottery') => {
+    (type: 'supply' | 'borrow' | 'lp' | 'lottery') => {
       setDragBuildType(type);
       dragBuildTypeRef.current = type;
 
@@ -360,11 +388,12 @@ export default function AppPage() {
     );
   }
 
-  // Vault balances for the build panel
+  // Vault balances for the build panel (WETH = ERC20 wrapped ETH from swap)
   const vaultBalances = {
     USDC: smartWalletUsdcBalance,
     USDT: smartWalletUsdtBalance,
     ETH: smartWalletEthBalance,
+    WETH: smartWalletWethBalance,
     WBTC: smartWalletWbtcBalance,
     LINK: smartWalletLinkBalance,
   };
@@ -479,6 +508,7 @@ export default function AppPage() {
             mpusdcBalance={mpusdcBalance}
             smartWallet={smartWallet ?? null}
             smartWalletEthBalance={smartWalletEthBalance}
+            smartWalletWethBalance={smartWalletWethBalance}
             smartWalletUsdcBalance={smartWalletUsdcBalance}
             smartWalletUsdtBalance={smartWalletUsdtBalance}
             smartWalletWbtcBalance={smartWalletWbtcBalance}
@@ -489,6 +519,10 @@ export default function AppPage() {
             isDepositing={isDepositing || isConfirmingDeposit}
             isWithdrawing={isWithdrawingFromVault || isConfirmingWithdraw}
             onClose={() => setShowVaultPanel(false)}
+            onSwap={handleSwap}
+            onGetQuote={getQuote}
+            swapLoading={swapLoading}
+            swapError={swapError}
           />
 
           {/* Right: Transaction History Panel */}
@@ -528,12 +562,14 @@ export default function AppPage() {
             className={`px-3 py-1.5 text-[8px] border-2 rounded ${
               dragBuildType === 'supply'
                 ? 'bg-emerald-700/90 border-emerald-400 text-emerald-200'
-                : dragBuildType === 'lottery'
-                  ? 'bg-amber-700/90 border-amber-400 text-amber-200'
-                  : 'bg-orange-700/90 border-orange-400 text-orange-200'
+                : dragBuildType === 'borrow'
+                ? 'bg-orange-700/90 border-orange-400 text-orange-200'
+                : dragBuildType === 'lp'
+                ? 'bg-cyan-700/90 border-cyan-400 text-cyan-200'
+                : 'bg-amber-700/90 border-amber-400 text-amber-200'
             }`}
           >
-            {dragBuildType === 'supply' ? 'SUPPLY' : dragBuildType === 'lottery' ? 'MEGAPOT' : 'BORROW'}
+            {dragBuildType === 'supply' ? 'SUPPLY' : dragBuildType === 'borrow' ? 'BORROW' : dragBuildType === 'lp' ? 'LP' : 'MEGAPOT'}
           </div>
         </div>
       )}
@@ -543,6 +579,7 @@ export default function AppPage() {
         visible={showBuildDialog && hasSmartWallet}
         selectedCoords={selectedCoords}
         selectedBuilding={null}
+        buildType={dialogBuildType === 'lp' ? 'lp' : dialogBuildType === 'borrow' ? 'borrow' : 'supply'}
         smartWallet={smartWallet ?? null}
         hasSmartWallet={hasSmartWallet}
         userAddress={address}
@@ -550,6 +587,7 @@ export default function AppPage() {
         allBuildings={allBuildings}
         vaultBalances={vaultBalances}
         isBorrowDrag={dialogBuildType === 'borrow'}
+        onRefetchBalances={refetchBalances}
         onSuccess={() => {
           handleBuildSuccess();
           setShowBuildDialog(false);
