@@ -38,15 +38,27 @@ export function useLotteryHistory(smartWalletAddress: string | null) {
       const addresses = CONTRACTS.baseSepolia
       const megapot = new ethers.Contract(addresses.MEGAPOT, ABIS.MEGAPOT, provider)
 
-      // Query from a reasonable range (last ~50k blocks ≈ few days on Base)
+      // Query in chunks of 10k blocks (RPC limit) — scan last 50k blocks
       const currentBlock = await provider.getBlockNumber()
-      const fromBlock = Math.max(0, currentBlock - 50000)
+      const maxRange = 10000
+      const totalRange = 50000
+      const startBlock = Math.max(0, currentBlock - totalRange)
 
-      const [purchaseEvents, jackpotEvents, withdrawalEvents] = await Promise.all([
-        megapot.queryFilter(megapot.filters.UserTicketPurchase(smartWalletAddress), fromBlock),
-        megapot.queryFilter(megapot.filters.JackpotRun(), fromBlock),
-        megapot.queryFilter(megapot.filters.UserWinWithdrawal(smartWalletAddress), fromBlock),
-      ])
+      const purchaseEvents: ethers.EventLog[] = []
+      const jackpotEvents: ethers.EventLog[] = []
+      const withdrawalEvents: ethers.EventLog[] = []
+
+      for (let from = startBlock; from <= currentBlock; from += maxRange) {
+        const to = Math.min(from + maxRange - 1, currentBlock)
+        const [purchases, jackpots, withdrawals] = await Promise.all([
+          megapot.queryFilter(megapot.filters.UserTicketPurchase(smartWalletAddress), from, to),
+          megapot.queryFilter(megapot.filters.JackpotRun(), from, to),
+          megapot.queryFilter(megapot.filters.UserWinWithdrawal(smartWalletAddress), from, to),
+        ])
+        purchaseEvents.push(...purchases as ethers.EventLog[])
+        jackpotEvents.push(...jackpots as ethers.EventLog[])
+        withdrawalEvents.push(...withdrawals as ethers.EventLog[])
+      }
 
       const entries: LotteryHistoryEntry[] = []
 

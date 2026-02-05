@@ -107,10 +107,11 @@ export function LotteryPanel({
     ? totalCost > position.mpusdcBalance
     : false
 
-  // Latest ticketsBps from most recent purchase event
+  // Win chance from latest purchase event BPS (per-round, accurate)
   const latestTicketsBps = history
     .filter((e) => e.type === 'purchase' && e.ticketsBps != null)
-    .at(-1)?.ticketsBps ?? 0
+    .at(0)?.ticketsBps ?? 0
+  const winChancePercent = latestTicketsBps > 0 ? latestTicketsBps / 100 : 0
 
   const handleBuyTickets = useCallback(async () => {
     if (!ticketCount || parseInt(ticketCount) <= 0) {
@@ -160,12 +161,13 @@ export function LotteryPanel({
       setTimeout(() => {
         refreshData()
         refreshPosition()
+        refreshHistory()
       }, 2000)
       setTimeout(() => { setSuccess(false); setSuccessType(null) }, 5000)
     } else {
       setError(result.error || 'Buy tickets failed')
     }
-  }, [ticketCount, smartWallet, userAddress, hasSmartWallet, lotteryData, hasInsufficientBalance, isRoundEnded, buyTickets, selectedCoords, isExisting, buildingId, onSuccess, refreshData, refreshPosition])
+  }, [ticketCount, smartWallet, userAddress, hasSmartWallet, lotteryData, hasInsufficientBalance, isRoundEnded, buyTickets, selectedCoords, isExisting, buildingId, onSuccess, refreshData, refreshPosition, refreshHistory])
 
   const handleClaimWinnings = useCallback(async () => {
     if (!smartWallet) {
@@ -534,9 +536,9 @@ export function LotteryPanel({
                   </div>
                   <div className="bg-slate-900/50 border border-slate-700 p-2 text-center">
                     <p className="text-slate-500 text-[5px]" style={pixelFont}>WIN CHANCE</p>
-                    <p className={`text-[10px] ${latestTicketsBps > 0 ? 'text-yellow-400' : 'text-slate-500'}`} style={pixelFont}>
-                      {latestTicketsBps > 0
-                        ? `${(latestTicketsBps / 100).toFixed(2)}%`
+                    <p className={`text-[10px] ${winChancePercent > 0 ? 'text-yellow-400' : 'text-slate-500'}`} style={pixelFont}>
+                      {winChancePercent > 0
+                        ? `${winChancePercent.toFixed(2)}%`
                         : '-'
                       }
                     </p>
