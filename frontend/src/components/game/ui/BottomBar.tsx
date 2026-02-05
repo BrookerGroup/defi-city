@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 /**
  * BottomBar - Status bar at the bottom of the game
@@ -6,18 +6,18 @@
  */
 
 interface BottomBarProps {
-  selectedCoords: { x: number; y: number } | null
-  buildingCount: number
-  onResetCamera: () => void
-  onZoomIn: () => void
-  onZoomOut: () => void
-  onDragBuildStart: (type: 'supply' | 'borrow' | 'lp' | 'lottery') => void
-  isMoving?: boolean
-  isLoading?: boolean
-  hasLotteryBuilding?: boolean
+  selectedCoords: { x: number; y: number } | null;
+  buildingCount: number;
+  onResetCamera: () => void;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onDragBuildStart: (type: "supply" | "borrow" | "lp" | "lottery") => void;
+  isMoving?: boolean;
+  isLoading?: boolean;
+  hasLotteryBuilding?: boolean;
 }
 
-const pixelFont = { fontFamily: '"Press Start 2P", monospace' } as const
+const pixelFont = { fontFamily: '"Press Start 2P", monospace' } as const;
 
 export function BottomBar({
   selectedCoords,
@@ -38,7 +38,9 @@ export function BottomBar({
       {/* Left: Status */}
       <div className="flex items-center gap-4">
         {isMoving ? (
-          <span className="text-orange-400 animate-pulse">MOVING BUILDING...</span>
+          <span className="text-orange-400 animate-pulse">
+            MOVING BUILDING...
+          </span>
         ) : isLoading ? (
           <span className="text-amber-400 animate-pulse">SYNCING...</span>
         ) : selectedCoords ? (
@@ -56,8 +58,8 @@ export function BottomBar({
       <div className="flex items-center gap-3">
         <button
           onPointerDown={(e) => {
-            e.preventDefault()
-            onDragBuildStart('supply')
+            e.preventDefault();
+            onDragBuildStart("supply");
           }}
           className="px-3 py-1 bg-emerald-700 border-2 border-emerald-400 text-emerald-200 flex items-center gap-1.5 hover:bg-emerald-600 transition-colors cursor-grab active:cursor-grabbing select-none"
         >
@@ -65,8 +67,8 @@ export function BottomBar({
         </button>
         <button
           onPointerDown={(e) => {
-            e.preventDefault()
-            onDragBuildStart('borrow')
+            e.preventDefault();
+            onDragBuildStart("borrow");
           }}
           className="px-3 py-1 bg-orange-700 border-2 border-orange-400 text-orange-200 flex items-center gap-1.5 hover:bg-orange-600 transition-colors cursor-grab active:cursor-grabbing select-none"
         >
@@ -74,8 +76,8 @@ export function BottomBar({
         </button>
         <button
           onPointerDown={(e) => {
-            e.preventDefault()
-            onDragBuildStart('lp')
+            e.preventDefault();
+            onDragBuildStart("lp");
           }}
           className="px-3 py-1 bg-cyan-700 border-2 border-cyan-400 text-cyan-200 flex items-center gap-1.5 hover:bg-cyan-600 transition-colors cursor-grab active:cursor-grabbing select-none"
         >
@@ -84,17 +86,19 @@ export function BottomBar({
         <button
           disabled={hasLotteryBuilding}
           onPointerDown={(e) => {
-            if (hasLotteryBuilding) return
-            e.preventDefault()
-            onDragBuildStart('lottery')
+            if (hasLotteryBuilding) return;
+            e.preventDefault();
+            onDragBuildStart("lottery");
           }}
-          className={hasLotteryBuilding
-            ? "px-3 py-1 bg-slate-700 border-2 border-slate-500 text-slate-400 flex items-center gap-1.5 opacity-50 cursor-not-allowed select-none"
-            : "px-3 py-1 bg-amber-700 border-2 border-amber-400 text-amber-200 flex items-center gap-1.5 hover:bg-amber-600 transition-colors cursor-grab active:cursor-grabbing select-none"
+          className={
+            hasLotteryBuilding
+              ? "px-3 py-1 bg-slate-700 border-2 border-slate-500 text-slate-400 flex items-center gap-1.5 opacity-50 cursor-not-allowed select-none"
+              : "px-3 py-1 bg-amber-700 border-2 border-amber-400 text-amber-200 flex items-center gap-1.5 hover:bg-amber-600 transition-colors cursor-grab active:cursor-grabbing select-none"
           }
-          title={hasLotteryBuilding ? 'Already built' : undefined}
+          title={hasLotteryBuilding ? "Already built" : undefined}
         >
-          <span className="text-[8px]">{hasLotteryBuilding ? '✓' : '+'}</span> MEGAPOT
+          <span className="text-[8px]">{hasLotteryBuilding ? "✓" : "+"}</span>{" "}
+          LOTTERY
         </button>
         <span className="text-slate-600 mx-1">|</span>
         <span className="text-slate-500">
@@ -124,5 +128,5 @@ export function BottomBar({
         </button>
       </div>
     </div>
-  )
+  );
 }
