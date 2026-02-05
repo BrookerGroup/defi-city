@@ -7,7 +7,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { ethers } from 'ethers'
 import { useWallets } from '@privy-io/react-auth'
-import { CONTRACTS, ABIS } from '@/config/contracts'
+import { ADDRESSES, ABIS } from '@/config/contracts'
 import { ASSET_PRICES } from '@/config/aave'
 import { GRID_SIZE } from '@/lib/constants'
 
@@ -15,7 +15,7 @@ export interface Building {
   id: number
   owner: string
   smartWallet: string
-  type: string  // 'townhall' | 'bank' | 'borrow'
+  type: string  // 'townhall' | 'bank' | 'borrow' | 'lp'
   asset: string
   amount: number
   amountUSD: number
@@ -26,16 +26,17 @@ export interface Building {
   y: number
   active: boolean
   isBorrow?: boolean  // true if this is a borrow position
+  metadata?: string   // raw bytes for LP (token0, token1, fee, ticks)
 }
 
 // Asset addresses and decimals
 const ASSET_ADDRESSES: Record<string, string> = {
-  USDC: CONTRACTS.baseSepolia.USDC,
-  USDT: CONTRACTS.baseSepolia.USDT,
-  ETH: CONTRACTS.baseSepolia.ETH,
-  WBTC: CONTRACTS.baseSepolia.WBTC,
-  LINK: CONTRACTS.baseSepolia.LINK,
-  MPUSDC: CONTRACTS.baseSepolia.MPUSDC,
+  USDC: ADDRESSES.USDC,
+  USDT: ADDRESSES.USDT,
+  ETH: ADDRESSES.ETH,
+  WBTC: ADDRESSES.WBTC,
+  LINK: ADDRESSES.LINK,
+  MPUSDC: ADDRESSES.MPUSDC,
 }
 
 const ASSET_DECIMALS: Record<string, number> = {
@@ -74,7 +75,11 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
       const wallet = wallets.find((w) => w.walletClientType === 'privy') || wallets[0]
       
       // Ensure we are on the correct chain before fetching
-      if (wallet.chainId !== 'eip155:84532' && wallet.chainId !== '84532') {
+      const validChains = ['eip155:84532', '84532']
+      if (process.env.NEXT_PUBLIC_USE_LOCALHOST === 'true') {
+        validChains.push('eip155:31337', '31337')
+      }
+      if (!validChains.includes(wallet.chainId)) {
         console.warn(`[City] Wallet is on wrong chain (${wallet.chainId}). Skipping fetch.`)
         setLoading(false)
         return
@@ -84,7 +89,7 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
       const provider = new ethers.BrowserProvider(ethereumProvider)
       
       const network = 'baseSepolia'
-      const addresses = CONTRACTS[network]
+      const addresses = ADDRESSES
       
       const core = new ethers.Contract(addresses.DEFICITY_CORE, ABIS.DEFICITY_CORE, provider)
       const dataProvider = new ethers.Contract(addresses.AAVE_DATA_PROVIDER, ABIS.AAVE_DATA_PROVIDER, provider)
@@ -135,18 +140,16 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
           addr.toLowerCase() === b.asset.toLowerCase()
         )?.[0] || 'CORE'
 
-        // Determine building type
         const isLotteryBuilding = b.buildingType.toLowerCase() === 'lottery'
-        const isAaveAsset = assetSymbol !== 'CORE' && !isLotteryBuilding
+        const isLPBuilding = b.buildingType.toLowerCase() === 'lp'
         const isBorrowBuilding = b.buildingType.toLowerCase() === 'borrow'
+        const isAaveAsset = assetSymbol !== 'CORE' && !isLotteryBuilding
 
-        // Use live Aave amount if applicable.
-        // For borrow buildings, use borrow positions; for supply buildings, use supply positions
-        // For lottery buildings, use the recorded amount (tickets are non-recoverable)
         let amount: number
-
         if (isLotteryBuilding) {
           amount = Number(ethers.formatUnits(b.amount, ASSET_DECIMALS[assetSymbol] || 6))
+        } else if (isLPBuilding) {
+          amount = Number(ethers.formatUnits(b.amount, 18))
         } else if (isAaveAsset) {
           const liveAmountBigInt = isBorrowBuilding
             ? aaveBorrowPositions[assetSymbol]
@@ -162,8 +165,7 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
         const displayX = isTownHall ? centerCoord : Number(b.coordinateX)
         const displayY = isTownHall ? centerCoord : Number(b.coordinateY)
 
-        // Use borrow APY for borrow buildings, supply APY for others, 0 for lottery
-        const buildingAPY = isLotteryBuilding
+        const buildingAPY = isLotteryBuilding || isLPBuilding
           ? 0
           : isBorrowBuilding
             ? aaveBorrowAPYs[assetSymbol] || 0
@@ -187,14 +189,17 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
           y: displayY,
           active: b.active,
           isBorrow: isBorrowBuilding,
+          metadata: b.metadata,
         }
       })
 
       // Filter: must be active AND (if it's an Aave building, amount must be > 0)
       // Lottery buildings always show (tickets are non-recoverable)
+      // Filter: must be active AND (if Aave building, amount > 0; LP always show)
       let activeBuildings = mappedBuildings.filter((b: any) => {
         if (!b.active) return false
         if (b.type === 'lottery') return true
+        if (b.type?.toLowerCase() === 'lp') return true
         if (b.asset !== 'CORE' && b.amount <= 0) return false
         return true
       })
@@ -207,6 +212,8 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
 
       activeBuildings.forEach((b: any) => {
         if (b.asset === 'CORE' || b.type === 'lottery') return
+        if (b.asset === 'CORE') return // Keep Town Hall
+        if (b.type?.toLowerCase() === 'lp') return // Keep each LP (unique by id)
         const key = `${b.asset}-${b.isBorrow ? 'borrow' : 'supply'}`
         if (!latestByAssetAndType[key] || b.id > latestByAssetAndType[key].id) {
           latestByAssetAndType[key] = b
@@ -215,6 +222,8 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
 
       const deduplicatedBuildings = activeBuildings.filter((b: any) => {
         if (b.asset === 'CORE' || b.type === 'lottery') return true
+        if (b.asset === 'CORE') return true
+        if (b.type?.toLowerCase() === 'lp') return true
         const key = `${b.asset}-${b.isBorrow ? 'borrow' : 'supply'}`
         return latestByAssetAndType[key] && b.id === latestByAssetAndType[key].id
       })
