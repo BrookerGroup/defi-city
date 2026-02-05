@@ -14,6 +14,7 @@ interface BottomBarProps {
   onDragBuildStart: (type: 'supply' | 'borrow' | 'lottery') => void
   isMoving?: boolean
   isLoading?: boolean
+  hasLotteryBuilding?: boolean
 }
 
 const pixelFont = { fontFamily: '"Press Start 2P", monospace' } as const
@@ -27,6 +28,7 @@ export function BottomBar({
   onDragBuildStart,
   isMoving,
   isLoading,
+  hasLotteryBuilding,
 }: BottomBarProps) {
   return (
     <div
@@ -78,13 +80,19 @@ export function BottomBar({
           <span className="text-[8px]">+</span> LIQUIDITY
         </button>
         <button
+          disabled={hasLotteryBuilding}
           onPointerDown={(e) => {
+            if (hasLotteryBuilding) return
             e.preventDefault()
             onDragBuildStart('lottery')
           }}
-          className="px-3 py-1 bg-amber-700 border-2 border-amber-400 text-amber-200 flex items-center gap-1.5 hover:bg-amber-600 transition-colors cursor-grab active:cursor-grabbing select-none"
+          className={hasLotteryBuilding
+            ? "px-3 py-1 bg-slate-700 border-2 border-slate-500 text-slate-400 flex items-center gap-1.5 opacity-50 cursor-not-allowed select-none"
+            : "px-3 py-1 bg-amber-700 border-2 border-amber-400 text-amber-200 flex items-center gap-1.5 hover:bg-amber-600 transition-colors cursor-grab active:cursor-grabbing select-none"
+          }
+          title={hasLotteryBuilding ? 'Already built' : undefined}
         >
-          <span className="text-[8px]">+</span> MEGAPOT
+          <span className="text-[8px]">{hasLotteryBuilding ? '✓' : '+'}</span> MEGAPOT
         </button>
         <span className="text-slate-600 mx-1">|</span>
         <span className="text-slate-500">

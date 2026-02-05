@@ -1,7 +1,8 @@
 /**
  * useLotteryBuyTickets Hook
  * Buy Megapot lottery tickets via SmartWallet.executeBatch
- * Batch: [MPUSDC.approve → Megapot.purchaseTickets → Core.recordBuildingPlacement]
+ * Batch: [MPUSDC.approve → Megapot.purchaseTickets]
+ * Building placement is recorded separately (best-effort, non-blocking)
  */
 
 import { useState, useCallback } from 'react'
@@ -44,10 +45,9 @@ export function useLotteryBuyTickets() {
           MPUSDC_DECIMALS
         )
 
-        // Build batch calls
+        // Build batch calls for ticket purchase (approve + buy only)
         const mpusdcInterface = new ethers.Interface(ABIS.MPUSDC)
         const megapotInterface = new ethers.Interface(ABIS.MEGAPOT)
-        const coreInterface = new ethers.Interface(ABIS.DEFICITY_CORE)
 
         const targets: string[] = []
         const values: bigint[] = []
@@ -68,24 +68,6 @@ export function useLotteryBuyTickets() {
             smartWalletAddress,
           ])
         )
-
-        // 3. Record building placement (only for new buildings)
-        if (!isUpgrade) {
-          targets.push(addresses.DEFICITY_CORE)
-          values.push(0n)
-          datas.push(
-            coreInterface.encodeFunctionData('recordBuildingPlacement', [
-              userAddress,
-              'lottery',
-              addresses.MPUSDC,
-              totalCost,
-              x,
-              y,
-              '0x',
-            ])
-          )
-          console.log(`[Lottery] Adding building placement at (${x}, ${y})`)
-        }
 
         const smartWallet = new ethers.Contract(smartWalletAddress, ABIS.SMART_WALLET, signer)
 
@@ -123,6 +105,33 @@ export function useLotteryBuyTickets() {
         console.log('[Lottery] Tx sent:', tx.hash)
         const receipt = await tx.wait()
         console.log('[Lottery] Confirmed:', receipt?.hash)
+
+        // Record building placement separately (non-blocking, best-effort)
+        // Use USDC address instead of MPUSDC because DefiCity Core only supports whitelisted assets.
+        // The building type 'lottery' ensures correct display in the UI.
+        if (!isUpgrade) {
+          try {
+            console.log(`[Lottery] Recording building placement at (${x}, ${y})`)
+            const coreInterface = new ethers.Interface(ABIS.DEFICITY_CORE)
+            const placeTx = await smartWallet.execute(
+              addresses.DEFICITY_CORE,
+              0n,
+              coreInterface.encodeFunctionData('recordBuildingPlacement', [
+                userAddress,
+                'lottery',
+                addresses.USDC,
+                totalCost,
+                x,
+                y,
+                '0x',
+              ])
+            )
+            await placeTx.wait()
+            console.log('[Lottery] Building placement recorded')
+          } catch (placeErr) {
+            console.warn('[Lottery] Building placement failed (non-critical):', placeErr)
+          }
+        }
 
         setLoading(false)
         return { success: true, txHash: receipt?.hash }

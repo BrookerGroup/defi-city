@@ -274,15 +274,25 @@ export default function AppPage() {
           const occupied = buildings.find(
             (b) => b.x === gridCoords.x && b.y === gridCoords.y,
           );
-          if (!occupied) {
+
+          // Lottery: only 1 building allowed — if one exists anywhere, open it
+          if (currentType === 'lottery') {
+            const existingLottery = buildings.find((b) => b.type === 'lottery' && b.active);
+            if (existingLottery) {
+              setSelectedCoords({ x: existingLottery.x, y: existingLottery.y });
+              setShowBuildPanel(true);
+              setShowTownHallPanel(false);
+            } else if (!occupied) {
+              setDialogBuildType(currentType);
+              setSelectedCoords(gridCoords);
+              setShowTownHallPanel(false);
+              setShowLotteryDialog(true);
+            }
+          } else if (!occupied) {
             setDialogBuildType(currentType);
             setSelectedCoords(gridCoords);
             setShowTownHallPanel(false);
-            if (currentType === 'lottery') {
-              setShowLotteryDialog(true);
-            } else {
-              setShowBuildDialog(true);
-            }
+            setShowBuildDialog(true);
           }
         }
 
@@ -510,6 +520,7 @@ export default function AppPage() {
           onDragBuildStart={handleDragBuildStart}
           isMoving={isMovingBuilding}
           isLoading={buildingsLoading}
+          hasLotteryBuilding={buildings.some((b) => b.type === 'lottery' && b.active)}
         />
       </div>
 

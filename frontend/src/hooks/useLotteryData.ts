@@ -25,6 +25,7 @@ export function useLotteryData() {
   const [data, setData] = useState<LotteryData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const endedTickRef = useRef(0)
 
   const fetchData = useCallback(async () => {
     if (!wallets || wallets.length === 0) return
@@ -83,9 +84,14 @@ export function useLotteryData() {
         if (!prev) return prev
         const now = Math.floor(Date.now() / 1000)
         const timeRemaining = Math.max(0, prev.roundEndTime - now)
-        if (timeRemaining === 0 && prev.timeRemaining > 0) {
-          // Round ended, refetch
-          fetchData()
+        if (timeRemaining === 0) {
+          endedTickRef.current += 1
+          // Re-fetch every 10 seconds while round is ended to detect new rounds
+          if (prev.timeRemaining > 0 || endedTickRef.current % 10 === 0) {
+            fetchData()
+          }
+        } else {
+          endedTickRef.current = 0
         }
         return { ...prev, timeRemaining }
       })

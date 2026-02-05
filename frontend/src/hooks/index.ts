@@ -17,4 +17,6 @@ export * from './useLotteryData'
 export * from './useLotteryPosition'
 export * from './useLotteryBuyTickets'
 export * from './useLotteryClaimWinnings'
+export * from './useLotteryRunJackpot'
+export * from './useLotteryHistory'
 
