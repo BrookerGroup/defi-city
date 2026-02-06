@@ -1,13 +1,14 @@
 'use client'
 
 /**
- * LotteryDialog - Modal dialog that appears when dropping a MEGAPOT on the map
- * Contains the LotteryPanel and LotteryLPPanel with tab navigation.
+ * LotteryDialog - Modal dialog for MEGAPOT Lottery or Megapot LP Provider.
+ * Lottery and LP are separate flows, determined by `initialTab`.
  */
 
-import { useState } from 'react'
 import { LotteryPanel, LotteryLPPanel } from '@/components/lottery'
 import type { Building } from '@/hooks/useCityBuildings'
+
+type DialogMode = 'lottery' | 'lp'
 
 interface LotteryDialogProps {
   visible: boolean
@@ -16,13 +17,13 @@ interface LotteryDialogProps {
   hasSmartWallet: boolean
   userAddress?: string
   selectedBuilding?: Building | null
+  initialTab?: DialogMode
+  mpusdcBalance?: string
   onSuccess: () => void
   onClose: () => void
 }
 
 const pixelFont = { fontFamily: '"Press Start 2P", monospace' } as const
-
-type DialogTab = 'lottery' | 'lp'
 
 export function LotteryDialog({
   visible,
@@ -31,12 +32,14 @@ export function LotteryDialog({
   hasSmartWallet,
   userAddress,
   selectedBuilding,
+  initialTab = 'lottery',
+  mpusdcBalance,
   onSuccess,
   onClose,
 }: LotteryDialogProps) {
-  const [activeTab, setActiveTab] = useState<DialogTab>('lottery')
-
   if (!visible || !selectedCoords) return null
+
+  const isLP = initialTab === 'lp'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -47,12 +50,16 @@ export function LotteryDialog({
       />
 
       {/* Dialog */}
-      <div className="relative w-[450px] max-w-[95vw] max-h-[90vh] overflow-y-auto bg-slate-900 border-4 border-amber-600 shadow-2xl">
+      <div className={`relative w-[450px] max-w-[95vw] max-h-[90vh] overflow-y-auto bg-slate-900 border-4 shadow-2xl ${
+        isLP ? 'border-purple-600' : 'border-amber-600'
+      }`}>
         {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b-2 border-amber-700 bg-slate-800">
+        <div className={`sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b-2 bg-slate-800 ${
+          isLP ? 'border-purple-700' : 'border-amber-700'
+        }`}>
           <div>
-            <p className="text-amber-400 text-[10px]" style={pixelFont}>
-              {selectedBuilding ? 'MEGAPOT LOTTERY' : 'NEW MEGAPOT'}
+            <p className={`text-[10px] ${isLP ? 'text-purple-400' : 'text-amber-400'}`} style={pixelFont}>
+              {isLP ? 'MEGAPOT LP PROVIDER' : selectedBuilding ? 'MEGAPOT LOTTERY' : 'NEW MEGAPOT'}
             </p>
             <p className="text-slate-500 text-[7px] mt-0.5" style={pixelFont}>
               TILE ({selectedCoords.x}, {selectedCoords.y})
@@ -67,35 +74,21 @@ export function LotteryDialog({
           </button>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b-2 border-slate-700 bg-slate-800">
-          <button
-            onClick={() => setActiveTab('lottery')}
-            className={`flex-1 px-4 py-2 text-[8px] transition-colors ${
-              activeTab === 'lottery'
-                ? 'bg-amber-600 text-white border-b-2 border-amber-400'
-                : 'text-slate-400 hover:text-white hover:bg-slate-700'
-            }`}
-            style={pixelFont}
-          >
-            PLAY LOTTERY
-          </button>
-          <button
-            onClick={() => setActiveTab('lp')}
-            className={`flex-1 px-4 py-2 text-[8px] transition-colors ${
-              activeTab === 'lp'
-                ? 'bg-purple-600 text-white border-b-2 border-purple-400'
-                : 'text-slate-400 hover:text-white hover:bg-slate-700'
-            }`}
-            style={pixelFont}
-          >
-            LP PROVIDER
-          </button>
-        </div>
-
         {/* Content */}
         <div className="p-4">
-          {activeTab === 'lottery' ? (
+          {isLP ? (
+            <LotteryLPPanel
+              smartWallet={smartWallet}
+              hasSmartWallet={hasSmartWallet}
+              mpusdcBalance={mpusdcBalance}
+              userAddress={userAddress}
+              selectedCoords={selectedCoords}
+              onSuccess={() => {
+                onSuccess()
+                onClose()
+              }}
+            />
+          ) : (
             <LotteryPanel
               smartWallet={smartWallet}
               hasSmartWallet={hasSmartWallet}
@@ -107,11 +100,6 @@ export function LotteryDialog({
               selectedCoords={selectedCoords}
               buildingId={selectedBuilding?.id}
               isExisting={!!selectedBuilding}
-            />
-          ) : (
-            <LotteryLPPanel
-              smartWallet={smartWallet}
-              hasSmartWallet={hasSmartWallet}
             />
           )}
         </div>

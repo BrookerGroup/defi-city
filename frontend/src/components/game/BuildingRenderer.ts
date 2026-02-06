@@ -98,10 +98,13 @@ export class BuildingRenderer {
     // Get color based on building type
     let color: number
     const isLottery = building.type === 'lottery'
+    const isMegapotLP = building.type === 'megapot-lp'
     if (building.type === 'townhall') {
       color = 0xfbbf24  // amber/gold
     } else if (isLottery) {
       color = 0xfbbf24  // amber for lottery
+    } else if (isMegapotLP) {
+      color = 0xa855f7  // purple for megapot LP
     } else if (building.type === 'lp') {
       color = 0x06b6d4  // cyan for LP
     } else if (building.isBorrow) {
@@ -136,6 +139,15 @@ export class BuildingRenderer {
       const label = new Text({
         text: 'TOWN HALL',
         style: { ...labelStyle, fill: 0xfbbf24, fontSize: 7 },
+      })
+      label.anchor.set(0.5, 1)
+      label.x = 0
+      label.y = -4
+      bContainer.addChild(label)
+    } else if (isMegapotLP) {
+      const label = new Text({
+        text: 'MEGAPOT LP',
+        style: { ...labelStyle, fill: 0xa855f7, fontSize: 6 },
       })
       label.anchor.set(0.5, 1)
       label.x = 0

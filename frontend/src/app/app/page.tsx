@@ -149,13 +149,15 @@ export default function AppPage() {
   const [showTownHallPanel, setShowTownHallPanel] = useState(false);
 
   // Drag-to-build state
-  const [dragBuildType, setDragBuildType] = useState<'supply' | 'borrow' | 'lp' | 'lottery' | null>(null);
+  type DragType = 'supply' | 'borrow' | 'lp' | 'lottery' | 'megapot-lp';
+  const [dragBuildType, setDragBuildType] = useState<DragType | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
-  const dragBuildTypeRef = useRef<'supply' | 'borrow' | 'lp' | 'lottery' | null>(null);
+  const dragBuildTypeRef = useRef<DragType | null>(null);
   // Dialog state (set on drop, cleared on dialog close)
   const [showBuildDialog, setShowBuildDialog] = useState(false);
   const [showLotteryDialog, setShowLotteryDialog] = useState(false);
-  const [dialogBuildType, setDialogBuildType] = useState<'supply' | 'borrow' | 'lp' | 'lottery' | null>(null);
+  const [lotteryDialogInitialTab, setLotteryDialogInitialTab] = useState<'lottery' | 'lp'>('lottery');
+  const [dialogBuildType, setDialogBuildType] = useState<DragType | null>(null);
 
   // Compute used assets
   const usedAssets = useMemo(
@@ -190,6 +192,14 @@ export default function AppPage() {
         setShowTownHallPanel(true);
         setShowBuildPanel(false);
         setSelectedCoords(null);
+        return;
+      }
+      // Megapot LP building → open LP dialog
+      if (clickedBuilding?.type === "megapot-lp") {
+        setSelectedCoords({ x, y });
+        setLotteryDialogInitialTab('lp');
+        setShowTownHallPanel(false);
+        setShowLotteryDialog(true);
         return;
       }
       // Existing building → open manage panel
@@ -282,7 +292,7 @@ export default function AppPage() {
 
   // Drag-to-build: start drag from BottomBar button
   const handleDragBuildStart = useCallback(
-    (type: 'supply' | 'borrow' | 'lp' | 'lottery') => {
+    (type: DragType) => {
       setDragBuildType(type);
       dragBuildTypeRef.current = type;
 
@@ -303,8 +313,17 @@ export default function AppPage() {
             (b) => b.x === gridCoords.x && b.y === gridCoords.y,
           );
 
+          // Megapot LP: place LP building at drop coords
+          if (currentType === 'megapot-lp') {
+            if (!occupied) {
+              setDialogBuildType(currentType);
+              setSelectedCoords(gridCoords);
+              setLotteryDialogInitialTab('lp');
+              setShowTownHallPanel(false);
+              setShowLotteryDialog(true);
+            }
           // Lottery: only 1 building allowed — if one exists anywhere, open it
-          if (currentType === 'lottery') {
+          } else if (currentType === 'lottery') {
             const existingLottery = buildings.find((b) => b.type === 'lottery' && b.active);
             if (existingLottery) {
               setSelectedCoords({ x: existingLottery.x, y: existingLottery.y });
@@ -577,10 +596,12 @@ export default function AppPage() {
                 ? 'bg-orange-700/90 border-orange-400 text-orange-200'
                 : dragBuildType === 'lp'
                 ? 'bg-cyan-700/90 border-cyan-400 text-cyan-200'
+                : dragBuildType === 'megapot-lp'
+                ? 'bg-purple-700/90 border-purple-400 text-purple-200'
                 : 'bg-amber-700/90 border-amber-400 text-amber-200'
             }`}
           >
-            {dragBuildType === 'supply' ? 'SUPPLY' : dragBuildType === 'borrow' ? 'BORROW' : dragBuildType === 'lp' ? 'LP' : 'MEGAPOT'}
+            {dragBuildType === 'supply' ? 'SUPPLY' : dragBuildType === 'borrow' ? 'BORROW' : dragBuildType === 'lp' ? 'LP' : dragBuildType === 'megapot-lp' ? 'MEGAPOT LP' : 'MEGAPOT'}
           </div>
         </div>
       )}
@@ -619,16 +640,20 @@ export default function AppPage() {
         smartWallet={smartWallet ?? null}
         hasSmartWallet={hasSmartWallet}
         userAddress={address}
+        initialTab={lotteryDialogInitialTab}
+        mpusdcBalance={smartWalletMpusdcBalance}
         onSuccess={() => {
           handleBuildSuccess();
           setShowLotteryDialog(false);
           setDialogBuildType(null);
           setSelectedCoords(null);
+          setLotteryDialogInitialTab('lottery');
         }}
         onClose={() => {
           setShowLotteryDialog(false);
           setDialogBuildType(null);
           setSelectedCoords(null);
+          setLotteryDialogInitialTab('lottery');
         }}
       />
 

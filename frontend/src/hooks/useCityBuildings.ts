@@ -15,7 +15,7 @@ export interface Building {
   id: number
   owner: string
   smartWallet: string
-  type: string  // 'townhall' | 'bank' | 'borrow' | 'lp'
+  type: string  // 'townhall' | 'bank' | 'borrow' | 'lp' | 'lottery' | 'megapot-lp'
   asset: string
   amount: number
   amountUSD: number
@@ -141,12 +141,13 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
         )?.[0] || 'CORE'
 
         const isLotteryBuilding = b.buildingType.toLowerCase() === 'lottery'
+        const isMegapotLPBuilding = b.buildingType.toLowerCase() === 'megapot-lp'
         const isLPBuilding = b.buildingType.toLowerCase() === 'lp'
         const isBorrowBuilding = b.buildingType.toLowerCase() === 'borrow'
-        const isAaveAsset = assetSymbol !== 'CORE' && !isLotteryBuilding
+        const isAaveAsset = assetSymbol !== 'CORE' && !isLotteryBuilding && !isMegapotLPBuilding
 
         let amount: number
-        if (isLotteryBuilding) {
+        if (isLotteryBuilding || isMegapotLPBuilding) {
           amount = Number(ethers.formatUnits(b.amount, ASSET_DECIMALS[assetSymbol] || 6))
         } else if (isLPBuilding) {
           amount = Number(ethers.formatUnits(b.amount, 18))
@@ -165,7 +166,7 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
         const displayX = isTownHall ? centerCoord : Number(b.coordinateX)
         const displayY = isTownHall ? centerCoord : Number(b.coordinateY)
 
-        const buildingAPY = isLotteryBuilding || isLPBuilding
+        const buildingAPY = isLotteryBuilding || isMegapotLPBuilding || isLPBuilding
           ? 0
           : isBorrowBuilding
             ? aaveBorrowAPYs[assetSymbol] || 0
@@ -199,6 +200,7 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
       let activeBuildings = mappedBuildings.filter((b: any) => {
         if (!b.active) return false
         if (b.type === 'lottery') return true
+        if (b.type === 'megapot-lp') return true
         if (b.type?.toLowerCase() === 'lp') return true
         if (b.asset !== 'CORE' && b.amount <= 0) return false
         return true
@@ -211,7 +213,7 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
       const latestByAssetAndType: Record<string, any> = {}
 
       activeBuildings.forEach((b: any) => {
-        if (b.asset === 'CORE' || b.type === 'lottery') return
+        if (b.asset === 'CORE' || b.type === 'lottery' || b.type === 'megapot-lp') return
         if (b.asset === 'CORE') return // Keep Town Hall
         if (b.type?.toLowerCase() === 'lp') return // Keep each LP (unique by id)
         const key = `${b.asset}-${b.isBorrow ? 'borrow' : 'supply'}`
@@ -221,7 +223,7 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
       })
 
       const deduplicatedBuildings = activeBuildings.filter((b: any) => {
-        if (b.asset === 'CORE' || b.type === 'lottery') return true
+        if (b.asset === 'CORE' || b.type === 'lottery' || b.type === 'megapot-lp') return true
         if (b.asset === 'CORE') return true
         if (b.type?.toLowerCase() === 'lp') return true
         const key = `${b.asset}-${b.isBorrow ? 'borrow' : 'supply'}`

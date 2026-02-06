@@ -5,16 +5,47 @@
  * Shows: Selected coordinates | SUPPLY/BORROW buttons | Camera controls
  */
 
+export type DragBuildType = "supply" | "borrow" | "lp" | "lottery" | "megapot-lp";
+
 interface BottomBarProps {
   selectedCoords: { x: number; y: number } | null;
   buildingCount: number;
   onResetCamera: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
-  onDragBuildStart: (type: "supply" | "borrow" | "lp" | "lottery") => void;
+  onDragBuildStart: (type: DragBuildType) => void;
   isMoving?: boolean;
   isLoading?: boolean;
   hasLotteryBuilding?: boolean;
+}
+
+function MegapotLPIcon({ size = 12 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 12 12"
+      style={{ imageRendering: "pixelated" as const }}
+    >
+      {/* Droplet (liquidity) */}
+      <rect x="5" y="0" width="2" height="1" fill="#C084FC" />
+      <rect x="4" y="1" width="4" height="2" fill="#A855F7" />
+      <rect x="5" y="3" width="2" height="1" fill="#A855F7" />
+      {/* Down arrow */}
+      <rect x="5" y="4" width="2" height="1" fill="#7C3AED" />
+      {/* Pool surface (waves) */}
+      <rect x="1" y="6" width="2" height="1" fill="#7C3AED" />
+      <rect x="5" y="6" width="2" height="1" fill="#7C3AED" />
+      <rect x="9" y="6" width="2" height="1" fill="#7C3AED" />
+      {/* Pool body */}
+      <rect x="0" y="7" width="12" height="3" fill="#6D28D9" />
+      {/* Coins in pool */}
+      <rect x="2" y="8" width="2" height="1" fill="#FCD34D" />
+      <rect x="8" y="8" width="2" height="1" fill="#FCD34D" />
+      {/* Pool base */}
+      <rect x="1" y="10" width="10" height="2" fill="#5B21B6" />
+    </svg>
+  );
 }
 
 const pixelFont = { fontFamily: '"Press Start 2P", monospace' } as const;
@@ -99,6 +130,15 @@ export function BottomBar({
         >
           <span className="text-[8px]">{hasLotteryBuilding ? "✓" : "+"}</span>{" "}
           LOTTERY
+        </button>
+        <button
+          onPointerDown={(e) => {
+            e.preventDefault();
+            onDragBuildStart("megapot-lp");
+          }}
+          className="px-3 py-1 bg-purple-700 border-2 border-purple-400 text-purple-200 flex items-center gap-1.5 hover:bg-purple-600 transition-colors cursor-grab active:cursor-grabbing select-none"
+        >
+          <MegapotLPIcon size={10} /> MEGAPOT LP
         </button>
         <span className="text-slate-600 mx-1">|</span>
         <span className="text-slate-500">

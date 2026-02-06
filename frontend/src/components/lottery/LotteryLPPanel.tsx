@@ -9,13 +9,17 @@ import { ErrorPopup } from '@/components/ui/ErrorPopup'
 interface LotteryLPPanelProps {
   smartWallet: string | null
   hasSmartWallet: boolean
+  mpusdcBalance?: string
+  userAddress?: string
+  selectedCoords?: { x: number; y: number } | null
+  onSuccess?: () => void
 }
 
 const pixelFont = { fontFamily: '"Press Start 2P", monospace' } as const
 
 type TabType = 'position' | 'deposit' | 'withdraw'
 
-export function LotteryLPPanel({ smartWallet, hasSmartWallet }: LotteryLPPanelProps) {
+export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, userAddress, selectedCoords, onSuccess }: LotteryLPPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('position')
   const [depositAmount, setDepositAmount] = useState('')
   const [riskPercentage, setRiskPercentage] = useState(50)
@@ -44,18 +48,26 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet }: LotteryLPPanelPr
     setError(null)
     setSuccess(null)
 
-    const result = await deposit(smartWallet, amount, riskPercentage)
+    const result = await deposit(
+      smartWallet,
+      amount,
+      riskPercentage,
+      userAddress,
+      selectedCoords ? selectedCoords.x : undefined,
+      selectedCoords ? selectedCoords.y : undefined,
+    )
     if (result.success) {
       setSuccess('Deposit successful!')
       setDepositAmount('')
       setTimeout(() => {
         refresh()
         setSuccess(null)
+        onSuccess?.()
       }, 3000)
     } else {
       setError(result.error || 'Deposit failed')
     }
-  }, [smartWallet, depositAmount, riskPercentage, deposit, refresh, MIN_DEPOSIT_USDC])
+  }, [smartWallet, depositAmount, riskPercentage, deposit, refresh, MIN_DEPOSIT_USDC, userAddress, selectedCoords, onSuccess])
 
   const handleInitiateWithdraw = useCallback(async () => {
     if (!smartWallet) return
@@ -143,6 +155,45 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet }: LotteryLPPanelPr
           )}
         </div>
 
+        {/* Position Summary - always visible when active */}
+        {position && position.principal > 0 && (
+          <div className="bg-slate-900 border-2 border-purple-700 p-3 mb-4">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-slate-500 text-[5px]" style={pixelFont}>DEPOSITED</p>
+                <p className="text-purple-400 text-[10px]" style={pixelFont}>
+                  {loadingPosition ? '...' : `$${position.principal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                </p>
+              </div>
+              <div>
+                <p className="text-slate-500 text-[5px]" style={pixelFont}>AT RISK</p>
+                <p className="text-cyan-400 text-[10px]" style={pixelFont}>
+                  {loadingPosition ? '...' : `$${position.stake.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                </p>
+              </div>
+              <div>
+                <p className="text-slate-500 text-[5px]" style={pixelFont}>POOL SHARE</p>
+                <p className="text-amber-400 text-[10px]" style={pixelFont}>
+                  {loadingPosition ? '...' : `${(poolStats?.userShare ?? 0).toFixed(2)}%`}
+                </p>
+              </div>
+            </div>
+            <div className="mt-2 flex items-center justify-center gap-2">
+              <span className="text-slate-500 text-[5px]" style={pixelFont}>RISK: {position.riskPercentage}%</span>
+              <span className="text-slate-600">|</span>
+              <span className="text-slate-500 text-[5px]" style={pixelFont}>
+                EARNING 20-30% FEES
+              </span>
+              {position.active && (
+                <>
+                  <span className="text-slate-600">|</span>
+                  <span className="text-green-400 text-[5px]" style={pixelFont}>ACTIVE</span>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="flex bg-slate-900 p-0.5 border border-slate-700 mb-4">
           {(['position', 'deposit', 'withdraw'] as TabType[]).map((tab) => (
@@ -169,6 +220,14 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet }: LotteryLPPanelPr
         {/* Position Tab */}
         {activeTab === 'position' && (
           <>
+            {/* MUSDC Wallet Balance */}
+            <div className="bg-slate-900/50 border border-slate-700 p-2 mb-4 flex justify-between items-center">
+              <span className="text-slate-500 text-[6px]" style={pixelFont}>MUSDC WALLET</span>
+              <span className="text-purple-400 text-[10px]" style={pixelFont}>
+                {mpusdcBalance ? parseFloat(mpusdcBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'} MUSDC
+              </span>
+            </div>
+
             {/* Your Position */}
             <div className="grid grid-cols-2 gap-2 mb-4">
               <div className="bg-slate-900 border-2 border-purple-700 p-3 text-center">
@@ -242,6 +301,15 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet }: LotteryLPPanelPr
         {/* Deposit Tab */}
         {activeTab === 'deposit' && (
           <>
+            {/* MPUSDC Balance */}
+            <div className="bg-slate-900 border-2 border-purple-700 p-3 mb-4 text-center">
+              <p className="text-slate-500 text-[6px] mb-1" style={pixelFont}>MUSDC BALANCE</p>
+              <p className="text-purple-400 text-[14px]" style={pixelFont}>
+                {mpusdcBalance ? parseFloat(mpusdcBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+              </p>
+              <p className="text-slate-500 text-[5px] mt-1" style={pixelFont}>SMART WALLET</p>
+            </div>
+
             <div className="mb-4">
               <p className="text-slate-500 text-[8px] mb-2" style={pixelFont}>DEPOSIT AMOUNT</p>
               <div className="relative">
@@ -255,12 +323,23 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet }: LotteryLPPanelPr
                   style={pixelFont}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-[8px]" style={pixelFont}>
-                  USDC
+                  MUSDC
                 </span>
               </div>
-              <p className="text-slate-500 text-[6px] mt-1" style={pixelFont}>
-                MIN: {MIN_DEPOSIT_USDC} USDC
-              </p>
+              <div className="flex justify-between mt-1">
+                <p className="text-slate-500 text-[6px]" style={pixelFont}>
+                  MIN: {MIN_DEPOSIT_USDC} MUSDC
+                </p>
+                {mpusdcBalance && parseFloat(mpusdcBalance) > 0 && (
+                  <button
+                    onClick={() => setDepositAmount(mpusdcBalance)}
+                    className="text-purple-400 text-[6px] hover:text-purple-300"
+                    style={pixelFont}
+                  >
+                    MAX
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="mb-4">

@@ -37,7 +37,10 @@ export function useMegapotLPDeposit() {
     async (
       smartWalletAddress: string,
       amountUsdc: number,
-      riskPercentage: number
+      riskPercentage: number,
+      userAddress?: string,
+      x?: number,
+      y?: number,
     ): Promise<{ success: boolean; txHash?: string; error?: string }> => {
       setLoading(true)
       setError(null)
@@ -106,6 +109,31 @@ export function useMegapotLPDeposit() {
 
         const receipt = await tx.wait()
         console.log('[LP Deposit] Confirmed:', receipt?.hash)
+
+        // Record building placement (best-effort, non-blocking)
+        if (userAddress && x !== undefined && y !== undefined) {
+          try {
+            console.log(`[LP Deposit] Recording building placement at (${x}, ${y})`)
+            const coreInterface = new ethers.Interface(ABIS.DEFICITY_CORE)
+            const placeTx = await smartWallet.execute(
+              addresses.DEFICITY_CORE,
+              0n,
+              coreInterface.encodeFunctionData('recordBuildingPlacement', [
+                userAddress,
+                'megapot-lp',
+                addresses.USDC,
+                valueInSzabo,
+                x,
+                y,
+                '0x',
+              ])
+            )
+            await placeTx.wait()
+            console.log('[LP Deposit] Building placement recorded')
+          } catch (placeErr) {
+            console.warn('[LP Deposit] Building placement failed (non-critical):', placeErr)
+          }
+        }
 
         setLoading(false)
         return { success: true, txHash: receipt?.hash }
