@@ -2,10 +2,11 @@
 
 /**
  * LotteryDialog - Modal dialog that appears when dropping a MEGAPOT on the map
- * Contains the LotteryPanel inside a centered modal overlay.
+ * Contains the LotteryPanel and LotteryLPPanel with tab navigation.
  */
 
-import { LotteryPanel } from '@/components/lottery'
+import { useState } from 'react'
+import { LotteryPanel, LotteryLPPanel } from '@/components/lottery'
 import type { Building } from '@/hooks/useCityBuildings'
 
 interface LotteryDialogProps {
@@ -21,6 +22,8 @@ interface LotteryDialogProps {
 
 const pixelFont = { fontFamily: '"Press Start 2P", monospace' } as const
 
+type DialogTab = 'lottery' | 'lp'
+
 export function LotteryDialog({
   visible,
   selectedCoords,
@@ -31,6 +34,8 @@ export function LotteryDialog({
   onSuccess,
   onClose,
 }: LotteryDialogProps) {
+  const [activeTab, setActiveTab] = useState<DialogTab>('lottery')
+
   if (!visible || !selectedCoords) return null
 
   return (
@@ -62,20 +67,53 @@ export function LotteryDialog({
           </button>
         </div>
 
+        {/* Tab Navigation */}
+        <div className="flex border-b-2 border-slate-700 bg-slate-800">
+          <button
+            onClick={() => setActiveTab('lottery')}
+            className={`flex-1 px-4 py-2 text-[8px] transition-colors ${
+              activeTab === 'lottery'
+                ? 'bg-amber-600 text-white border-b-2 border-amber-400'
+                : 'text-slate-400 hover:text-white hover:bg-slate-700'
+            }`}
+            style={pixelFont}
+          >
+            PLAY LOTTERY
+          </button>
+          <button
+            onClick={() => setActiveTab('lp')}
+            className={`flex-1 px-4 py-2 text-[8px] transition-colors ${
+              activeTab === 'lp'
+                ? 'bg-purple-600 text-white border-b-2 border-purple-400'
+                : 'text-slate-400 hover:text-white hover:bg-slate-700'
+            }`}
+            style={pixelFont}
+          >
+            LP PROVIDER
+          </button>
+        </div>
+
         {/* Content */}
         <div className="p-4">
-          <LotteryPanel
-            smartWallet={smartWallet}
-            hasSmartWallet={hasSmartWallet}
-            userAddress={userAddress}
-            onSuccess={() => {
-              onSuccess()
-              onClose()
-            }}
-            selectedCoords={selectedCoords}
-            buildingId={selectedBuilding?.id}
-            isExisting={!!selectedBuilding}
-          />
+          {activeTab === 'lottery' ? (
+            <LotteryPanel
+              smartWallet={smartWallet}
+              hasSmartWallet={hasSmartWallet}
+              userAddress={userAddress}
+              onSuccess={() => {
+                onSuccess()
+                onClose()
+              }}
+              selectedCoords={selectedCoords}
+              buildingId={selectedBuilding?.id}
+              isExisting={!!selectedBuilding}
+            />
+          ) : (
+            <LotteryLPPanel
+              smartWallet={smartWallet}
+              hasSmartWallet={hasSmartWallet}
+            />
+          )}
         </div>
       </div>
     </div>

@@ -22,3 +22,6 @@ export * from "./useLotteryHistory";
 export * from "./useUniswapSwap";
 export * from "./useUniswapLP";
 export * from "./useUniswapLPBuild";
+export * from "./useMegapotLPPosition";
+export * from "./useMegapotLPDeposit";
+export * from "./useMegapotLPWithdraw";

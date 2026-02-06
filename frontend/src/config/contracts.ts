@@ -210,17 +210,25 @@ export const ABIS = {
   ],
 
   MEGAPOT: [
+    // Ticket functions
     'function purchaseTickets(address referrer, uint256 amount, address recipient) external',
     'function withdrawWinnings() external',
     'function runJackpot(bytes32 userRandomNumber) external payable',
     'function ticketPrice() external view returns (uint256)',
-    'function lpPoolTotal() external view returns (uint256)',
     'function lastJackpotEndTime() external view returns (uint256)',
     'function roundDurationInSeconds() external view returns (uint256)',
     'function feeBps() external view returns (uint256)',
     'function allowPurchasing() external view returns (bool)',
     'function getJackpotFee() external view returns (uint256)',
     'function usersInfo(address user) external view returns (uint256 ticketsPurchased, uint256 winningsClaimable)',
+    // LP functions - Write
+    'function lpDeposit(uint256 riskPercentage, uint256 value) external returns (bool)',
+    'function lpAdjustRiskPercentage(uint256 riskPercentage) external returns (bool)',
+    'function withdrawAllLp() external returns (bool)',
+    // LP functions - Read
+    'function lpsInfo(address lp) external view returns (uint256 principal, uint256 stake, uint256 riskPercentage, bool active)',
+    'function lpPoolTotal() external view returns (uint256)',
+    'function lpPoolCap() external view returns (uint256)',
     // Events
     'event UserTicketPurchase(address indexed recipient, uint256 ticketsPurchasedTotalBps, address indexed referrer, address indexed buyer)',
     'event JackpotRun(uint256 time, address winner, uint256 winningTicket, uint256 winAmount, uint256 ticketsPurchasedTotalBps)',
