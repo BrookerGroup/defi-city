@@ -3,6 +3,15 @@
  * Contains contract addresses and ABIs for DefiCity
  */
 
+/** Network environment: 'testnet' or 'mainnet' */
+export const NETWORK_ENV: 'testnet' | 'mainnet' =
+  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_NETWORK === 'mainnet')
+    ? 'mainnet'
+    : 'testnet';
+
+/** Flag to check if running on testnet (useful for showing testnet-only features like manual jackpot) */
+export const IS_TESTNET = NETWORK_ENV === 'testnet';
+
 /** Use localhost when NEXT_PUBLIC_USE_LOCALHOST=true (after full migration) */
 export const ACTIVE_NETWORK: 'localhost' | 'baseSepolia' =
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_USE_LOCALHOST === 'true')

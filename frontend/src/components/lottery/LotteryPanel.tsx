@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useLotteryData, useLotteryPosition, useLotteryBuyTickets, useLotteryClaimWinnings, useLotteryRunJackpot, useLotteryHistory } from '@/hooks'
 import { ErrorPopup } from '@/components/ui/ErrorPopup'
 import type { LotteryHistoryEntry } from '@/hooks/useLotteryHistory'
+import { IS_TESTNET } from '@/config/contracts'
 
 interface LotteryPanelProps {
   smartWallet: string | null
@@ -446,46 +447,66 @@ export function LotteryPanel({
 
             {/* Buy/Run Button */}
             {isRoundEnded || drawingCooldown ? (
-              <button
-                onClick={handleRunJackpot}
-                disabled={loading}
-                className="relative group w-full disabled:opacity-50 disabled:cursor-not-allowed mb-4"
-              >
-                <div className="bg-cyan-900 absolute inset-0 translate-x-2 translate-y-2" />
-                <div
-                  className={`relative px-6 py-4 border-4 bg-cyan-700 border-cyan-400 text-white flex items-center justify-center gap-3 transition-transform ${!loading ? 'group-hover:-translate-y-1 group-active:translate-y-0' : ''}`}
+              // Testnet: Show "Run Drawing" button (manual trigger)
+              // Mainnet: Show "Waiting for drawing" (automated via Chainlink)
+              IS_TESTNET ? (
+                <button
+                  onClick={handleRunJackpot}
+                  disabled={loading}
+                  className="relative group w-full disabled:opacity-50 disabled:cursor-not-allowed mb-4"
                 >
-                  {loadingRun ? (
-                    <>
-                      <div className="flex gap-1">
-                        {[0, 1, 2].map((i) => (
-                          <div
-                            key={i}
-                            className="w-2 h-2 bg-white"
-                            style={{ animation: 'pixelBounce 0.6s ease-in-out infinite', animationDelay: `${i * 0.15}s` }}
-                          />
-                        ))}
-                      </div>
-                      <span className="text-xs" style={pixelFont}>STARTING...</span>
-                    </>
-                  ) : drawingCooldown ? (
-                    <>
-                      <div className="flex gap-1">
-                        {[0, 1, 2].map((i) => (
-                          <div
-                            key={i}
-                            className="w-2 h-2 bg-white"
-                            style={{ animation: 'pixelBounce 0.6s ease-in-out infinite', animationDelay: `${i * 0.15}s` }}
-                          />
-                        ))}
-                      </div>
-                      <span className="text-xs" style={pixelFont}>LOADING RESULTS...</span>
-                    </>
-                  ) : (
-                    <span className="text-xs" style={pixelFont}>RUN DRAWING</span>
-                  )}
+                  <div className="bg-cyan-900 absolute inset-0 translate-x-2 translate-y-2" />
+                  <div
+                    className={`relative px-6 py-4 border-4 bg-cyan-700 border-cyan-400 text-white flex items-center justify-center gap-3 transition-transform ${!loading ? 'group-hover:-translate-y-1 group-active:translate-y-0' : ''}`}
+                  >
+                    {loadingRun ? (
+                      <>
+                        <div className="flex gap-1">
+                          {[0, 1, 2].map((i) => (
+                            <div
+                              key={i}
+                              className="w-2 h-2 bg-white"
+                              style={{ animation: 'pixelBounce 0.6s ease-in-out infinite', animationDelay: `${i * 0.15}s` }}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-xs" style={pixelFont}>STARTING...</span>
+                      </>
+                    ) : drawingCooldown ? (
+                      <>
+                        <div className="flex gap-1">
+                          {[0, 1, 2].map((i) => (
+                            <div
+                              key={i}
+                              className="w-2 h-2 bg-white"
+                              style={{ animation: 'pixelBounce 0.6s ease-in-out infinite', animationDelay: `${i * 0.15}s` }}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-xs" style={pixelFont}>LOADING RESULTS...</span>
+                      </>
+                    ) : (
+                      <span className="text-xs" style={pixelFont}>RUN DRAWING</span>
+                    )}
+                  </div>
+                </button>
+              ) : (
+                <div className="relative w-full mb-4">
+                  <div className="bg-slate-900 absolute inset-0 translate-x-2 translate-y-2" />
+                  <div className="relative px-6 py-4 border-4 bg-slate-700 border-slate-500 text-white flex items-center justify-center gap-3">
+                    <div className="flex gap-1">
+                      {[0, 1, 2].map((i) => (
+                        <div
+                          key={i}
+                          className="w-2 h-2 bg-slate-400"
+                          style={{ animation: 'pixelBounce 0.6s ease-in-out infinite', animationDelay: `${i * 0.15}s` }}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-xs text-slate-400" style={pixelFont}>WAITING FOR DRAWING...</span>
+                  </div>
                 </div>
-              </button>
+              )
             ) : (
               <button
                 onClick={handleBuyTickets}
