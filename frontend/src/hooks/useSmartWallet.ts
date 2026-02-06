@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createPublicClient, http } from 'viem'
 import { baseSepolia } from 'viem/chains'
-import { CORE_ADDRESS, DefiCityCoreABI } from '@/lib/contracts'
+import { DefiCityCoreABI } from '@/lib/contracts'
+import { ADDRESSES } from '@/config/contracts'
 
 // Base Sepolia RPC - using publicnode as primary
 const BASE_SEPOLIA_RPC = 'https://base-sepolia-rpc.publicnode.com'
@@ -32,12 +33,12 @@ export function useSmartWallet(ownerAddress?: string) {
     setError(null)
 
     try {
+      const coreAddress = ADDRESSES.DEFICITY_CORE as `0x${string}`
       console.log('[useSmartWallet] Fetching wallet for:', ownerAddress)
-      console.log('[useSmartWallet] Using CORE_ADDRESS:', CORE_ADDRESS)
 
       // Use DefiCityCore.getWallet() to get user's SmartWallet
       const result = await publicClient.readContract({
-        address: CORE_ADDRESS,
+        address: coreAddress,
         abi: DefiCityCoreABI,
         functionName: 'getWallet',
         args: [ownerAddress as `0x${string}`],
