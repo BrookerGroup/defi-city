@@ -65,7 +65,7 @@ export function useCityBuildings(userAddress?: string, smartWalletAddress?: stri
   const [error, setError] = useState<string | null>(null)
 
   const fetchBuildings = useCallback(async () => {
-    if (!smartWalletAddress || !wallets || wallets.length === 0) {
+    if (!userAddress || !smartWalletAddress || !wallets || wallets.length === 0) {
       setBuildings([])
       return
     }

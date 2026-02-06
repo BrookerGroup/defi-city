@@ -1,5 +1,6 @@
 import { useWriteContract } from 'wagmi'
-import { CORE_ADDRESS, DefiCityCoreABI } from '@/lib/contracts'
+import { DefiCityCoreABI } from '@/lib/contracts'
+import { ADDRESSES } from '@/config/contracts'
 import { useState } from 'react'
 import { createPublicClient, http } from 'viem'
 import { baseSepolia } from 'viem/chains'
@@ -16,14 +17,15 @@ export function useCreateSmartAccount() {
   const createSmartAccount = async () => {
     setIsDeploying(true)
     try {
+      const coreAddress = ADDRESSES.DEFICITY_CORE as `0x${string}`
       console.log('[Create Smart Account] Starting deployment...', {
-        contract: CORE_ADDRESS,
+        contract: coreAddress,
       })
 
       // Call DefiCityCore.createTownHall(x, y) - uses msg.sender as owner
       // Town Hall is placed at grid origin (0, 0)
       const hash = await writeContractAsync({
-        address: CORE_ADDRESS,
+        address: coreAddress,
         abi: DefiCityCoreABI,
         functionName: 'createTownHall',
         args: [BigInt(0), BigInt(0)],

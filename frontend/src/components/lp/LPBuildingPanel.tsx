@@ -2,16 +2,17 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { ethers } from 'ethers'
-import { ADDRESSES } from '@/config/contracts'
-import { useUniswapLP, nearestUsableTick, sortTokens } from '@/hooks/useUniswapLP'
+import { toast } from 'react-hot-toast'
+import { ADDRESSES, BLOCK_EXPLORER_URL } from '@/config/contracts'
+import { useUniswapLP, floorTick, ceilTick, sortTokens, formatTickAsPrice, tickToPriceToken1PerToken0, tickToDisplayPrice, formatPriceForInput, priceToTick, MIN_TICK, MAX_TICK } from '@/hooks/useUniswapLP'
 import { useUniswapLPBuild } from '@/hooks/useUniswapLPBuild'
 import { useUniswapLPManage } from '@/hooks/useUniswapLPManage'
 import type { Building } from '@/hooks/useCityBuildings'
 
 const TOKENS = [
-  { symbol: 'USDC', address: ADDRESSES.USDC, decimals: 6 },
-  { symbol: 'WETH', address: ADDRESSES.ETH, decimals: 18 },
-  { symbol: 'USDT', address: ADDRESSES.USDT, decimals: 6 },
+  { symbol: 'USDC', address: ADDRESSES.USDC, decimals: 6, icon: '$' },
+  { symbol: 'WETH', address: ADDRESSES.ETH, decimals: 18, icon: 'Ξ' },
+  { symbol: 'USDT', address: ADDRESSES.USDT, decimals: 6, icon: '$' },
 ] as const
 
 const pixelFont = { fontFamily: '"Press Start 2P", monospace' } as const
@@ -35,7 +36,7 @@ export function LPBuildingPanel({
   onRefetchBalances,
   onSuccess,
 }: LPBuildingPanelProps) {
-  const { getPoolInfo, FEE_TIERS, TICK_SPACING } = useUniswapLP(smartWallet)
+  const { getPoolInfo, createPoolAndInitialize, FEE_TIERS, TICK_SPACING } = useUniswapLP(smartWallet)
   const { placeLPBuilding, loading, error, setError } = useUniswapLPBuild()
   const {
     getPositionByBuildingId,
@@ -52,11 +53,15 @@ export function LPBuildingPanel({
   const [tokenA, setTokenA] = useState<string>(TOKENS[0].address)
   const [tokenB, setTokenB] = useState<string>(TOKENS[1].address)
   const [fee, setFee] = useState(3000)
-  const [rangePercent, setRangePercent] = useState(5)
+  type RangeStrategy = 'full' | 'stable' | 'wide' | 'oneSidedLower' | 'oneSidedUpper' | 'custom'
+  const [rangeStrategy, setRangeStrategy] = useState<RangeStrategy>('wide')
+  const [minPriceInput, setMinPriceInput] = useState('')
+  const [maxPriceInput, setMaxPriceInput] = useState('')
   const [amountA, setAmountA] = useState('')
   const [amountB, setAmountB] = useState('')
   const [poolInfo, setPoolInfo] = useState<any>(null)
   const [position, setPosition] = useState<Awaited<ReturnType<typeof getPositionByBuildingId>>>(null)
+  const [positionLoading, setPositionLoading] = useState(false)
   const [incAmount0, setIncAmount0] = useState('')
   const [incAmount1, setIncAmount1] = useState('')
   const [decLiquidity, setDecLiquidity] = useState('')
@@ -73,29 +78,91 @@ export function LPBuildingPanel({
   }, [tokenA, tokenB, fee, fetchPoolInfo])
 
   useEffect(() => {
-    if (!selectedBuilding || selectedBuilding.type !== 'lp') return
+    if (!selectedBuilding || selectedBuilding.type !== 'lp') {
+      setPosition(null)
+      setPositionLoading(false)
+      return
+    }
     let cancelled = false
+    setPositionLoading(true)
+    setPosition(null)
     getPositionByBuildingId(selectedBuilding.id).then((p) => {
-      if (!cancelled) setPosition(p)
+      if (!cancelled) {
+        setPosition(p)
+        setPositionLoading(false)
+      }
     })
     return () => { cancelled = true }
   }, [selectedBuilding?.id, selectedBuilding?.type, getPositionByBuildingId])
 
-  const tickLower = poolInfo
-    ? nearestUsableTick(
-        poolInfo.currentTick - Math.floor((rangePercent / 100) / 0.0001),
-        TICK_SPACING[fee] ?? 60
-      )
-    : 0
-  const tickUpper = poolInfo
-    ? nearestUsableTick(
-        poolInfo.currentTick + Math.floor((rangePercent / 100) / 0.0001),
-        TICK_SPACING[fee] ?? 60
-      )
-    : 0
+  const tickSpacing = poolInfo?.tickSpacing ?? TICK_SPACING[fee] ?? 60
+  const tok0 = poolInfo ? TOKENS.find((t) => t.address.toLowerCase() === poolInfo.token0?.toLowerCase()) : null
+  const tok1 = poolInfo ? TOKENS.find((t) => t.address.toLowerCase() === poolInfo.token1?.toLowerCase()) : null
+  const dec0 = tok0?.decimals ?? 18
+  const dec1 = tok1?.decimals ?? 6
+  const sym0 = tok0?.symbol ?? 'T0'
+  const sym1 = tok1?.symbol ?? 'T1'
+  const currentPrice = poolInfo ? tickToPriceToken1PerToken0(poolInfo.currentTick, dec0, dec1) : 0
+  const currentDisplay = poolInfo ? tickToDisplayPrice(poolInfo.currentTick, dec0, dec1) : { value: 0, token1PerToken0: true }
+
+  function displayPriceToTick(displayValue: number, token1PerToken0: boolean): number {
+    const price = token1PerToken0 ? displayValue : 1 / (displayValue || 1e-18)
+    return priceToTick(price, dec0, dec1)
+  }
+
+  let tickLower = 0
+  let tickUpper = 0
+  if (poolInfo) {
+    if (rangeStrategy === 'full') {
+      tickLower = floorTick(MIN_TICK, tickSpacing)
+      tickUpper = ceilTick(MAX_TICK, tickSpacing)
+    } else if (rangeStrategy === 'stable') {
+      const d = 3 * tickSpacing
+      tickLower = floorTick(poolInfo.currentTick - d, tickSpacing)
+      tickUpper = ceilTick(poolInfo.currentTick + d, tickSpacing)
+    } else if (rangeStrategy === 'wide') {
+      tickLower = floorTick(priceToTick(currentPrice * 0.5, dec0, dec1), tickSpacing)
+      tickUpper = ceilTick(priceToTick(currentPrice * 2, dec0, dec1), tickSpacing)
+    } else if (rangeStrategy === 'oneSidedLower') {
+      tickLower = floorTick(priceToTick(currentPrice * 0.5, dec0, dec1), tickSpacing)
+      tickUpper = ceilTick(poolInfo.currentTick, tickSpacing)
+    } else if (rangeStrategy === 'oneSidedUpper') {
+      tickLower = floorTick(poolInfo.currentTick, tickSpacing)
+      tickUpper = ceilTick(priceToTick(currentPrice * 2, dec0, dec1), tickSpacing)
+    } else {
+      const minVal = parseFloat(minPriceInput)
+      const maxVal = parseFloat(maxPriceInput)
+      const dir = currentDisplay.token1PerToken0
+      const fallbackMin = tickToDisplayPrice(floorTick(priceToTick(currentPrice * 0.5, dec0, dec1), tickSpacing), dec0, dec1).value
+      const fallbackMax = tickToDisplayPrice(ceilTick(priceToTick(currentPrice * 2, dec0, dec1), tickSpacing), dec0, dec1).value
+      tickLower = floorTick(displayPriceToTick(Number.isFinite(minVal) ? minVal : fallbackMin, dir), tickSpacing)
+      tickUpper = ceilTick(displayPriceToTick(Number.isFinite(maxVal) ? maxVal : fallbackMax, dir), tickSpacing)
+    }
+    if (tickUpper <= tickLower) tickUpper = tickLower + tickSpacing
+  }
+
+  const minDisplay = poolInfo ? tickToDisplayPrice(tickLower, dec0, dec1) : { value: 0, token1PerToken0: true }
+  const maxDisplay = poolInfo ? tickToDisplayPrice(tickUpper, dec0, dec1) : { value: 0, token1PerToken0: true }
+  const priceLabel = currentDisplay.token1PerToken0 ? `${sym0}/${sym1}` : `${sym1}/${sym0}`
+  const minPct = currentDisplay.value > 0 ? (((minDisplay.value - currentDisplay.value) / currentDisplay.value) * 100).toFixed(2) : '0'
+  const maxPct = currentDisplay.value > 0 ? (((maxDisplay.value - currentDisplay.value) / currentDisplay.value) * 100).toFixed(2) : '0'
 
   const symA = TOKENS.find((t) => t.address.toLowerCase() === tokenA.toLowerCase())?.symbol ?? '?'
   const symB = TOKENS.find((t) => t.address.toLowerCase() === tokenB.toLowerCase())?.symbol ?? '?'
+
+  const [creatingPool, setCreatingPool] = useState(false)
+  const handleCreatePool = async () => {
+    if (!poolInfo || creatingPool) return
+    setCreatingPool(true)
+    setError(null)
+    const result = await createPoolAndInitialize(tokenA, tokenB, fee)
+    setCreatingPool(false)
+    if (result.success) {
+      await fetchPoolInfo()
+    } else {
+      setError(result.error ?? 'Create pool failed')
+    }
+  }
 
   const handlePlace = async () => {
     if (!userAddress || !smartWallet) {
@@ -103,7 +170,7 @@ export function LPBuildingPanel({
       return
     }
     if (!poolInfo?.exists) {
-      setError('Pool does not exist')
+      setError('Pool does not exist. Click "Create Pool" first.')
       return
     }
 
@@ -134,10 +201,7 @@ export function LPBuildingPanel({
       return
     }
 
-    // amount0Min/amount1Min: 0 = accept any (thin testnet pools)
-    const amount0Min = 0n
-    const amount1Min = 0n
-
+    // amount0Min/amount1Min computed in hook (90% slippage tolerance)
     const result = await placeLPBuilding(userAddress, smartWallet, {
       tokenA,
       tokenB,
@@ -146,8 +210,8 @@ export function LPBuildingPanel({
       tickUpper,
       amountA: amountAWei,
       amountB: amountBWei,
-      amount0Min,
-      amount1Min,
+      amount0Min: 0n,
+      amount1Min: 0n,
       x: selectedCoords.x,
       y: selectedCoords.y,
     })
@@ -155,6 +219,16 @@ export function LPBuildingPanel({
     if (result.success) {
       setAmountA('')
       setAmountB('')
+      if (result.txHash) {
+        toast.success((t) => (
+          <span>
+            LP placed!{' '}
+            <a href={`${BLOCK_EXPLORER_URL}/tx/${result.txHash}`} target="_blank" rel="noopener noreferrer" className="underline text-cyan-400">
+              View on BaseScan ↗
+            </a>
+          </span>
+        ))
+      }
       onSuccess()
     }
   }
@@ -168,14 +242,38 @@ export function LPBuildingPanel({
     if (!userAddress || !smartWallet || !selectedBuilding) return
     clearDisplayError()
     const result = await harvest(userAddress, smartWallet, selectedBuilding.id)
-    if (result.success) onSuccess()
+    if (result.success) {
+      if (result.txHash) {
+        toast.success((t) => (
+          <span>
+            Harvested!{' '}
+            <a href={`${BLOCK_EXPLORER_URL}/tx/${result.txHash}`} target="_blank" rel="noopener noreferrer" className="underline text-cyan-400">
+              View on BaseScan ↗
+            </a>
+          </span>
+        ))
+      }
+      onSuccess()
+    }
   }
 
   const handleDemolish = async () => {
     if (!userAddress || !smartWallet || !selectedBuilding) return
     clearDisplayError()
     const result = await demolish(userAddress, smartWallet, selectedBuilding.id)
-    if (result.success) onSuccess()
+    if (result.success) {
+      if (result.txHash) {
+        toast.success((t) => (
+          <span>
+            Demolished!{' '}
+            <a href={`${BLOCK_EXPLORER_URL}/tx/${result.txHash}`} target="_blank" rel="noopener noreferrer" className="underline text-cyan-400">
+              View on BaseScan ↗
+            </a>
+          </span>
+        ))
+      }
+      onSuccess()
+    }
   }
 
   const handleIncrease = async () => {
@@ -195,6 +293,16 @@ export function LPBuildingPanel({
     if (result.success) {
       setIncAmount0('')
       setIncAmount1('')
+      if (result.txHash) {
+        toast.success((t) => (
+          <span>
+            Liquidity increased!{' '}
+            <a href={`${BLOCK_EXPLORER_URL}/tx/${result.txHash}`} target="_blank" rel="noopener noreferrer" className="underline text-cyan-400">
+              View on BaseScan ↗
+            </a>
+          </span>
+        ))
+      }
       const p = await getPositionByBuildingId(selectedBuilding.id)
       setPosition(p)
       onSuccess()
@@ -211,6 +319,16 @@ export function LPBuildingPanel({
     const result = await linkPosition(userAddress, smartWallet, selectedBuilding.id, tokenId)
     if (result.success) {
       setLinkTokenId('')
+      if (result.txHash) {
+        toast.success((t) => (
+          <span>
+            Position linked!{' '}
+            <a href={`${BLOCK_EXPLORER_URL}/tx/${result.txHash}`} target="_blank" rel="noopener noreferrer" className="underline text-cyan-400">
+              View on BaseScan ↗
+            </a>
+          </span>
+        ))
+      }
       const p = await getPositionByBuildingId(selectedBuilding.id)
       setPosition(p)
       onSuccess()
@@ -229,6 +347,16 @@ export function LPBuildingPanel({
     })
     if (result.success) {
       setDecLiquidity('')
+      if (result.txHash) {
+        toast.success((t) => (
+          <span>
+            Liquidity decreased!{' '}
+            <a href={`${BLOCK_EXPLORER_URL}/tx/${result.txHash}`} target="_blank" rel="noopener noreferrer" className="underline text-cyan-400">
+              View on BaseScan ↗
+            </a>
+          </span>
+        ))
+      }
       const p = await getPositionByBuildingId(selectedBuilding.id)
       setPosition(p)
       onSuccess()
@@ -236,9 +364,23 @@ export function LPBuildingPanel({
   }
 
   if (selectedBuilding) {
-    const sym0 = TOKENS.find((t) => t.address.toLowerCase() === position?.token0?.toLowerCase())?.symbol ?? 'T0'
-    const sym1 = TOKENS.find((t) => t.address.toLowerCase() === position?.token1?.toLowerCase())?.symbol ?? 'T1'
+    const tok0 = TOKENS.find((t) => t.address.toLowerCase() === position?.token0?.toLowerCase())
+    const tok1 = TOKENS.find((t) => t.address.toLowerCase() === position?.token1?.toLowerCase())
+    const sym0 = tok0?.symbol ?? 'T0'
+    const sym1 = tok1?.symbol ?? 'T1'
+    const icon0 = tok0?.icon ?? ''
+    const icon1 = tok1?.icon ?? ''
+    const dec0 = tok0?.decimals ?? 18
+    const dec1 = tok1?.decimals ?? 6
     const hasTokenId = position != null
+    const formatFee = (n: bigint, decimals: number) =>
+      Number(ethers.formatUnits(n, decimals)).toLocaleString(undefined, { maximumFractionDigits: 6, minimumFractionDigits: 0 })
+    const formatAmount = (n: bigint, decimals: number) => {
+      const v = Number(ethers.formatUnits(n, decimals))
+      if (v === 0) return '0'
+      return v.toLocaleString(undefined, { maximumFractionDigits: Math.min(decimals, 6), minimumFractionDigits: v < 0.01 ? 4 : 0 })
+    }
+    const formatLiq = (n: bigint) => n.toString().length > 12 ? `${n.toString().slice(0, 6)}...` : n.toString()
 
     return (
       <div className="space-y-3">
@@ -250,16 +392,45 @@ export function LPBuildingPanel({
         <p className="text-slate-400 text-[6px]" style={pixelFont}>
           LP POSITION
         </p>
+        {position && (
+          <p className="text-cyan-400 text-[7px] flex items-center gap-1" style={pixelFont}>
+            Pair: <span className="text-amber-400">{icon0}</span> {sym0} / <span className="text-cyan-300">{icon1}</span> {sym1}
+          </p>
+        )}
         <p className="text-cyan-400 text-[7px]" style={pixelFont}>
           Asset: {selectedBuilding.asset} | Amount: {selectedBuilding.amount.toFixed(4)}
         </p>
         <p className="text-slate-500 text-[6px]" style={pixelFont}>
           Building #{selectedBuilding.id} at ({selectedBuilding.x}, {selectedBuilding.y})
         </p>
-        {position && (
-          <p className="text-slate-500 text-[6px]" style={pixelFont}>
-            Liquidity: {position.liquidity.toString()} | Fees: {sym0} {position.tokensOwed0.toString()} / {sym1} {position.tokensOwed1.toString()}
+        {positionLoading && (
+          <p className="text-slate-500 text-[6px] animate-pulse" style={pixelFont}>
+            Loading position...
           </p>
+        )}
+        {position && (
+          <div className="space-y-0.5">
+            {(position.amount0 != null || position.amount1 != null) && (
+              <>
+                <p className="text-cyan-400 text-[7px]" style={pixelFont}>
+                  {sym0}: {position.amount0 != null ? formatAmount(position.amount0, dec0) : '?'} · {sym1}: {position.amount1 != null ? formatAmount(position.amount1, dec1) : '0'}
+                </p>
+                {(position.amount0 === 0n || position.amount1 === 0n) && (
+                  <p className="text-slate-500 text-[5px]" style={pixelFont} title="Concentrated LP: price outside range = liquidity in one token">
+                    (Price out of range: liquidity in one token)
+                  </p>
+                )}
+                {position.currentTick != null && (
+                  <p className="text-slate-600 text-[5px]" style={pixelFont}>
+                    Tick {position.currentTick} (range {position.tickLower}–{position.tickUpper})
+                  </p>
+                )}
+              </>
+            )}
+            <p className="text-slate-500 text-[6px]" style={pixelFont}>
+              Liquidity: {formatLiq(position.liquidity)} | Fees: {sym0} {formatFee(position.tokensOwed0, dec0)} · {sym1} {formatFee(position.tokensOwed1, dec1)}
+            </p>
+          </div>
         )}
         {!hasTokenId && (
           <div className="space-y-2">
@@ -451,17 +622,100 @@ export function LPBuildingPanel({
           <p className="text-slate-500 text-[6px]" style={pixelFont}>
             Pool: {poolInfo.exists ? `Tick ${poolInfo.currentTick}` : 'Not exists'}
           </p>
-          <p className="text-slate-400 text-[6px]" style={pixelFont}>
-            Range ±{rangePercent}% (Lower {tickLower}, Upper {tickUpper})
-          </p>
-          <input
-            type="range"
-            min="1"
-            max="20"
-            value={rangePercent}
-            onChange={(e) => setRangePercent(Number(e.target.value))}
-            className="w-full"
-          />
+          {!poolInfo.exists && (
+            <button
+              type="button"
+              onClick={handleCreatePool}
+              disabled={creatingPool || tokenA === tokenB}
+              className="w-full py-2 mt-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 border border-amber-400 text-white text-[8px]"
+              style={pixelFont}
+            >
+              {creatingPool ? 'CREATING POOL...' : 'CREATE POOL (one-time)'}
+            </button>
+          )}
+          {poolInfo.exists && (
+            <>
+              <p className="text-slate-400 text-[6px] mb-2" style={pixelFont}>
+                Custom range: concentrate liquidity within price bounds to earn more fees (requires active management).
+              </p>
+              <p className="text-cyan-400 text-[8px] mb-2" style={pixelFont}>
+                Current price: {formatPriceForInput(currentDisplay.value)} {priceLabel}
+              </p>
+
+              <p className="text-slate-500 text-[6px] mb-1" style={pixelFont}>
+                Price strategies
+              </p>
+              <div className="grid grid-cols-2 gap-1 mb-2">
+                {[
+                  { id: 'stable' as const, label: 'Stable', sub: '±3 ticks', desc: 'Stablecoins / low vol' },
+                  { id: 'wide' as const, label: 'Wide', sub: '-50% — +100%', desc: 'Volatile pairs' },
+                  { id: 'oneSidedLower' as const, label: 'One-sided ↓', sub: '-50%', desc: 'Price goes down' },
+                  { id: 'oneSidedUpper' as const, label: 'One-sided ↑', sub: '+100%', desc: 'Price goes up' },
+                  { id: 'full' as const, label: 'Full range', sub: 'All', desc: 'Earns always' },
+                  { id: 'custom' as const, label: 'Custom', sub: 'Set min/max', desc: 'Manual price' },
+                ].map(({ id, label, sub, desc }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                      setRangeStrategy(id)
+                      if (id === 'custom') {
+                        setMinPriceInput(formatPriceForInput(minDisplay.value))
+                        setMaxPriceInput(formatPriceForInput(maxDisplay.value))
+                      }
+                    }}
+                    className={`p-2 border text-left ${
+                      rangeStrategy === id ? 'bg-cyan-600/30 border-cyan-400' : 'bg-slate-800 border-slate-600 hover:border-slate-500'
+                    }`}
+                  >
+                    <p className="text-cyan-400 text-[7px]" style={pixelFont}>{label}</p>
+                    <p className="text-slate-500 text-[5px]" style={pixelFont}>{sub}</p>
+                    <p className="text-slate-600 text-[5px]" style={pixelFont}>{desc}</p>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-2 mb-2">
+                <div className="flex-1">
+                  <p className="text-slate-500 text-[6px] mb-1" style={pixelFont}>Min price</p>
+                  <input
+                    key={`min-${rangeStrategy}-${formatPriceForInput(minDisplay.value)}`}
+                    type="number"
+                    step="any"
+                    value={rangeStrategy === 'custom' ? minPriceInput : formatPriceForInput(minDisplay.value)}
+                    onChange={(e) => {
+                      setRangeStrategy('custom')
+                      setMinPriceInput(e.target.value)
+                    }}
+                    readOnly={rangeStrategy !== 'custom'}
+                    className="w-full bg-slate-800 border border-slate-600 p-2 text-white text-[10px]"
+                    style={pixelFont}
+                  />
+                  <p className="text-slate-500 text-[5px]" style={pixelFont}>{Number(minPct) >= 0 ? '+' : ''}{minPct}%</p>
+                </div>
+                <div className="flex-1">
+                  <p className="text-slate-500 text-[6px] mb-1" style={pixelFont}>Max price</p>
+                  <input
+                    key={`max-${rangeStrategy}-${formatPriceForInput(maxDisplay.value)}`}
+                    type="number"
+                    step="any"
+                    value={rangeStrategy === 'custom' ? maxPriceInput : formatPriceForInput(maxDisplay.value)}
+                    onChange={(e) => {
+                      setRangeStrategy('custom')
+                      setMaxPriceInput(e.target.value)
+                    }}
+                    readOnly={rangeStrategy !== 'custom'}
+                    className="w-full bg-slate-800 border border-slate-600 p-2 text-white text-[10px]"
+                    style={pixelFont}
+                  />
+                  <p className="text-slate-500 text-[5px]" style={pixelFont}>{Number(maxPct) >= 0 ? '+' : ''}{maxPct}%</p>
+                </div>
+              </div>
+              <p className="text-slate-500 text-[5px]" style={pixelFont}>
+                Narrower range = higher fees when price stays in range; stops earning if price moves out.
+              </p>
+            </>
+          )}
         </div>
       )}
 
@@ -490,11 +744,11 @@ export function LPBuildingPanel({
 
       <button
         onClick={handlePlace}
-        disabled={loading}
+        disabled={loading || !poolInfo?.exists}
         className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 border-2 border-cyan-400 text-white text-[10px]"
         style={pixelFont}
       >
-        {loading ? 'PLACING...' : 'PLACE LP BUILDING'}
+        {loading ? 'PLACING...' : !poolInfo?.exists ? 'CREATE POOL FIRST' : 'PLACE LP BUILDING'}
       </button>
     </div>
   )

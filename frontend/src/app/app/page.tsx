@@ -30,9 +30,9 @@ export default function AppPage() {
   const { ready, authenticated, login, logout } = usePrivy();
   const { wallets } = useWallets();
 
-  // Get external wallet address
+  // Get wallet: prefer external, fallback to embedded (Privy) so buildings show for all users
   const wallet = useMemo(() => {
-    return wallets.find((w) => w.walletClientType !== "privy");
+    return wallets?.find((w) => w.walletClientType !== "privy") ?? wallets?.[0];
   }, [wallets]);
 
   const address = wallet?.address as `0x${string}` | undefined;
@@ -497,6 +497,7 @@ export default function AppPage() {
             allBuildings={allBuildings}
             vaultBalances={vaultBalances}
             isBorrowDrag={false}
+            onRefetchBalances={refetchBalances}
             onSuccess={() => {
               handleBuildSuccess();
             }}
