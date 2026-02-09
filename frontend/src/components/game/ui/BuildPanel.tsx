@@ -22,6 +22,7 @@ interface BuildPanelProps {
   allBuildings: Building[]
   vaultBalances: Record<string, string>
   isBorrowDrag?: boolean
+  onRefetchBalances?: () => void
   onSuccess: () => void
   onClose: () => void
 }
@@ -39,6 +40,7 @@ export function BuildPanel({
   allBuildings,
   vaultBalances,
   isBorrowDrag,
+  onRefetchBalances,
   onSuccess,
   onClose,
 }: BuildPanelProps) {
@@ -146,6 +148,7 @@ export function BuildPanel({
             selectedCoords={selectedCoords}
             selectedBuilding={selectedBuilding?.type === 'lp' ? selectedBuilding : null}
             vaultBalances={vaultBalances}
+            onRefetchBalances={onRefetchBalances}
             onSuccess={() => {
               onSuccess()
               onClose()

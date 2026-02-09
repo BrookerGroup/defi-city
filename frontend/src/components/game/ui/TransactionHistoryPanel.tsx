@@ -7,7 +7,7 @@
 
 import { useMemo } from 'react'
 import { useTransactionHistory, TxType, TxFilters } from '@/hooks/useTransactionHistory'
-import { CONTRACTS } from '@/config/contracts'
+import { CONTRACTS, BLOCK_EXPLORER_URL } from '@/config/contracts'
 
 interface TransactionHistoryPanelProps {
   visible: boolean
@@ -66,12 +66,6 @@ function formatRelativeTime(timestamp: number): string {
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
   if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`
   return new Date(timestamp * 1000).toLocaleDateString()
-}
-
-// Truncate tx hash
-function truncateHash(hash: string): string {
-  if (!hash) return ''
-  return `${hash.slice(0, 6)}...${hash.slice(-4)}`
 }
 
 export function TransactionHistoryPanel({
@@ -243,16 +237,19 @@ export function TransactionHistoryPanel({
                   )}
                 </div>
                 
-                {/* Bottom row: Tx hash link */}
-                <div>
+                {/* Bottom row: Tx hash (full) + link to BaseScan */}
+                <div className="space-y-0.5">
+                  <p className="text-slate-500 text-[5px] break-all select-all" style={pixelFont} title="Click to select, copy with Ctrl+C">
+                    {tx.hash}
+                  </p>
                   <a
-                    href={`https://sepolia.basescan.org/tx/${tx.hash}`}
+                    href={`${BLOCK_EXPLORER_URL}/tx/${tx.hash}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-cyan-400 text-[6px] hover:text-cyan-300 hover:underline"
+                    className="text-cyan-400 text-[6px] hover:text-cyan-300 hover:underline inline-block"
                     style={pixelFont}
                   >
-                    {truncateHash(tx.hash)} ↗
+                    View on BaseScan ↗
                   </a>
                 </div>
               </div>

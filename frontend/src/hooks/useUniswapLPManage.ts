@@ -8,6 +8,7 @@ import { ethers } from 'ethers'
 import { useWallets } from '@privy-io/react-auth'
 import { ADDRESSES, ABIS } from '@/config/contracts'
 import type { PositionInfo } from '@/hooks/useUniswapLP'
+import { getSqrtRatioAtTick, getAmountsForLiquidity } from '@/hooks/useUniswapLP'
 
 const MAX_U128 = 2n ** 128n - 1n
 
@@ -58,7 +59,7 @@ export function useUniswapLPManage() {
       ABIS.NONFUNGIBLE_POSITION_MANAGER,
       provider
     )
-    return { signer, addrs, registry, lpAdapter, core, npm }
+    return { signer, provider, addrs, registry, lpAdapter, core, npm }
   }, [wallets])
 
   const getLPTokenId = useCallback(
@@ -73,12 +74,11 @@ export function useUniswapLPManage() {
   const getPositionByBuildingId = useCallback(
     async (buildingId: number): Promise<PositionInfo | null> => {
       try {
-        const { core, npm } = await getContracts()
-        // core.lpTokenIdByBuilding may revert if contract not upgraded
+        const { core, npm, addrs, provider } = await getContracts()
         const tokenId = await core.lpTokenIdByBuilding(buildingId)
         if (tokenId === 0n) return null
         const pos = await npm.positions(tokenId)
-        return {
+        const base: PositionInfo = {
           tokenId,
           token0: pos.token0,
           token1: pos.token1,
@@ -88,6 +88,26 @@ export function useUniswapLPManage() {
           liquidity: pos.liquidity,
           tokensOwed0: pos.tokensOwed0,
           tokensOwed1: pos.tokensOwed1,
+        }
+        try {
+          const factory = new ethers.Contract(addrs.UNISWAP_V3_FACTORY, ABIS.UNISWAP_V3_FACTORY, provider)
+          const poolAddr = await factory.getPool(pos.token0, pos.token1, pos.fee)
+          if (!poolAddr || poolAddr === ethers.ZeroAddress) return base
+          const pool = new ethers.Contract(poolAddr, ABIS.UNISWAP_V3_POOL, provider)
+          const slot0 = await pool.slot0()
+          const sqrtPriceX96 = slot0.sqrtPriceX96
+          const sqrtRatioAX96 = getSqrtRatioAtTick(Number(pos.tickLower))
+          const sqrtRatioBX96 = getSqrtRatioAtTick(Number(pos.tickUpper))
+          const { amount0, amount1 } = getAmountsForLiquidity(
+            sqrtPriceX96,
+            sqrtRatioAX96,
+            sqrtRatioBX96,
+            pos.liquidity
+          )
+          const currentTick = Number(slot0.tick)
+          return { ...base, amount0, amount1, currentTick }
+        } catch {
+          return base
         }
       } catch {
         return null

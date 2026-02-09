@@ -21,11 +21,11 @@ export const ACTIVE_NETWORK: 'localhost' | 'baseSepolia' =
 // Contract addresses - Base Sepolia Testnet
 export const CONTRACTS = {
   baseSepolia: {
-    WALLET_FACTORY: '0x764f2D0F274d23B4cf51e5ae0c27e4020eD8ee2A',
-    DEFICITY_CORE: '0x641adC5d1e2AB02f772E86Dc3694d3e763fC549B',
-    ENTRY_POINT: '0x5864A489a25e8cE84b22903dc8f3038F6b0484f3',
-    BUILDING_REGISTRY: '0x4c85d20BEF9D52ae6f4dAA05DE758932A3042486',
-    BANK_ADAPTER: '0x16306E942AE4140ff4114C4548Bcb89500DaE5af',
+    WALLET_FACTORY: '0x7693D97D6d7e03A3E224E9124d0A547Fd58543Df',
+    DEFICITY_CORE: '0xF0f613927953c93646550B9F990BF9894Af9A5Ef',
+    ENTRY_POINT: '0x7D626d4be9158853D7568C9e3935F49f24522826',
+    BUILDING_REGISTRY: '0xEc580BCB26D49eb9e1403559F47dB7Ed8c5a5c8f',
+    BANK_ADAPTER: '0xf616fc3AcDa7d33533FF17ba73745a6cF3f8b7ad',
     AAVE_POOL_ADDRESSES_PROVIDER: '0xE4C23309117Aa30342BFaae6c95c6478e0A4Ad00',
     AAVE_POOL: '0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27',
     AAVE_DATA_PROVIDER: '0xBc9f5b7E248451CdD7cA54e717a2BFe1F32b566b',
@@ -103,6 +103,8 @@ export const ABIS = {
     'function userGridBuildings(address user, uint256 x, uint256 y) external view returns (uint256)',
     'function recordDemolition(address user, uint256 buildingId, uint256 returnedAmount) external',
     'function recordBuildingPlacement(address user, string calldata buildingType, address asset, uint256 amount, uint256 x, uint256 y, bytes calldata metadata) external returns (uint256)',
+    'function setLPTokenId(address user, uint256 buildingId, uint256 tokenId) external',
+    'function lpTokenIdByBuilding(uint256 buildingId) external view returns (uint256)',
     // Events
     'event BuildingPlaced(uint256 indexed buildingId, address indexed user, address indexed smartWallet, string buildingType, address asset, uint256 amount, uint256 x, uint256 y)',
     'event BuildingDemolished(uint256 indexed buildingId, address indexed user, uint256 returnedAmount)',
@@ -188,8 +190,10 @@ export const ABIS = {
   ],
   UNISWAP_V3_FACTORY: [
     'function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)',
+    'function createPool(address tokenA, address tokenB, uint24 fee) external returns (address pool)',
   ],
   UNISWAP_V3_POOL: [
+    'function initialize(uint160 sqrtPriceX96) external',
     'function token0() external view returns (address)',
     'function token1() external view returns (address)',
     'function fee() external view returns (uint24)',
@@ -243,6 +247,9 @@ export const ABIS = {
     'function decimals() external view returns (uint8)',
   ],
 } as const;
+
+/** BaseScan URL for viewing transactions (Base Sepolia) */
+export const BLOCK_EXPLORER_URL = 'https://sepolia.basescan.org'
 
 // Chain configuration
 export const SUPPORTED_CHAINS = {

@@ -26,7 +26,7 @@ function extractRevertMessage(err: unknown): string {
         const decoded = tryDecodeRevertData(data)
         if (decoded) return decoded
       }
-      return 'LP failed (revert). Check vault balance of both tokens, pool exists, and try smaller amount.'
+      return 'LP failed. Try: 1) REFRESH BALANCES 2) 0.3% fee tier 3) smaller amounts (10 USDC, 0.001 WETH) 4) wider range (±10%)'
     }
     if (reason.includes('execution reverted')) return reason
   }
@@ -70,6 +70,9 @@ function tryDecodeRevertData(data: string): string | null {
       if (code === 1) return 'Assertion failed'
       if (code === 17) return 'Overflow'
       if (code === 18) return 'Division by zero'
+    }
+    if (sig === '0x324b3e7f') {
+      return 'Invalid tick range: tickLower/tickUpper must be multiples of tickSpacing (0.3%=60, 1%=200). Try different range % or refresh pool.'
     }
   } catch { /* ignore */ }
   return null
@@ -164,6 +167,25 @@ export function useUniswapLPBuild() {
           }
           params = { ...params, x: px, y: py }
         }
+
+        // Snap ticks to valid multiples of tickSpacing (avoids 0x324b3e7f)
+        // Use canonical Uniswap V3 mapping: 500->10, 3000->60, 10000->200
+        const TICK_SPACING: Record<number, number> = { 500: 10, 3000: 60, 10000: 200 }
+        const tickSpacing = TICK_SPACING[params.fee] ?? 60
+        const snapFloor = (t: number) => {
+          const s = Math.floor(t / tickSpacing) * tickSpacing
+          return s < -887272 ? -887272 + tickSpacing : s
+        }
+        const snapCeil = (t: number) => {
+          const s = Math.ceil(t / tickSpacing) * tickSpacing
+          return s > 887272 ? 887272 - tickSpacing : s
+        }
+        let tl = snapFloor(params.tickLower)
+        let tu = snapCeil(params.tickUpper)
+        if (tu <= tl) tu = tl + tickSpacing
+        params = { ...params, tickLower: tl, tickUpper: tu }
+
+        // amount0Min/amount1Min: 0 = accept any (thin pools may use partial amounts)
         const encodedParams = ethers.AbiCoder.defaultAbiCoder().encode(PARAMS_ABI, [params])
 
         const [targets, values, datas] = await buildingRegistry.preparePlace(
@@ -183,7 +205,7 @@ export function useUniswapLPBuild() {
         try {
           await sw.executeBatch.staticCall(targetsArr, valuesArr, datasArr, { gasLimit })
         } catch ( simErr: unknown ) {
-          console.warn('[LP Build] Simulation failed:', simErr)
+          console.error('[LP Build] Simulation failed:', simErr)
           const simMsg = extractRevertMessage(simErr)
           setError(simMsg)
           setLoading(false)
@@ -221,6 +243,7 @@ export function useUniswapLPBuild() {
         setLoading(false)
         return { success: true, txHash: tx.hash }
       } catch (err: unknown) {
+        console.error('[LP Build] Error:', err)
         const msg = extractRevertMessage(err)
         setError(msg)
         setLoading(false)
