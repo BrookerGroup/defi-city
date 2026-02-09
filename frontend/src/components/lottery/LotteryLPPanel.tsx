@@ -17,7 +17,34 @@ interface LotteryLPPanelProps {
 
 const pixelFont = { fontFamily: '"Press Start 2P", monospace' } as const
 
+function PixelSpinner({ color = 'text-white' }: { color?: string }) {
+  return (
+    <span className={`inline-flex gap-0.5 ${color}`}>
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="inline-block w-1.5 h-1.5 bg-current"
+          style={{ animation: 'pixelBounce 0.6s ease-in-out infinite', animationDelay: `${i * 0.15}s` }}
+        />
+      ))}
+    </span>
+  )
+}
+
+function SkeletonBlock({ className = '' }: { className?: string }) {
+  return <div className={`bg-slate-700 animate-pulse ${className}`} />
+}
+
 type TabType = 'position' | 'deposit' | 'withdraw'
+
+const EXPLORER_URL = 'https://sepolia.basescan.org'
+
+interface TxRecord {
+  action: 'deposit' | 'withdraw_init' | 'withdraw_complete' | 'adjust_risk'
+  amount?: string
+  txHash: string
+  timestamp: number
+}
 
 export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, userAddress, selectedCoords, onSuccess }: LotteryLPPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('position')
@@ -25,6 +52,11 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
   const [riskPercentage, setRiskPercentage] = useState(50)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [txHistory, setTxHistory] = useState<TxRecord[]>([])
+
+  const addTx = useCallback((record: TxRecord) => {
+    setTxHistory(prev => [record, ...prev].slice(0, 10))
+  }, [])
 
   const { position, poolStats, loading: loadingPosition, refresh } = useMegapotLPPosition(smartWallet)
   const { deposit, loading: loadingDeposit, MIN_DEPOSIT_USDC } = useMegapotLPDeposit()
@@ -45,6 +77,18 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
       return
     }
 
+    // Client-side balance check
+    if (mpusdcBalance && amount > parseFloat(mpusdcBalance)) {
+      setError(`Insufficient MUSDC balance. Have ${parseFloat(mpusdcBalance).toFixed(2)}, need ${amount}`)
+      return
+    }
+
+    // Client-side pool cap check
+    if (poolStats && poolStats.lpPoolCap > 0 && poolStats.lpPoolTotal + amount > poolStats.lpPoolCap) {
+      setError(`LP pool cap reached. Available capacity: $${(poolStats.lpPoolCap - poolStats.lpPoolTotal).toFixed(2)}`)
+      return
+    }
+
     setError(null)
     setSuccess(null)
 
@@ -57,6 +101,7 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
       selectedCoords ? selectedCoords.y : undefined,
     )
     if (result.success) {
+      if (result.txHash) addTx({ action: 'deposit', amount: `${amount} MUSDC`, txHash: result.txHash, timestamp: Date.now() })
       setSuccess('Deposit successful!')
       setDepositAmount('')
       setTimeout(() => {
@@ -67,7 +112,7 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
     } else {
       setError(result.error || 'Deposit failed')
     }
-  }, [smartWallet, depositAmount, riskPercentage, deposit, refresh, MIN_DEPOSIT_USDC, userAddress, selectedCoords, onSuccess])
+  }, [smartWallet, depositAmount, riskPercentage, deposit, refresh, MIN_DEPOSIT_USDC, userAddress, selectedCoords, onSuccess, mpusdcBalance, poolStats, addTx])
 
   const handleInitiateWithdraw = useCallback(async () => {
     if (!smartWallet) return
@@ -76,6 +121,7 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
 
     const result = await initiateWithdraw(smartWallet)
     if (result.success) {
+      if (result.txHash) addTx({ action: 'withdraw_init', txHash: result.txHash, timestamp: Date.now() })
       setSuccess('Withdrawal initiated. Wait for next jackpot to complete.')
       setTimeout(() => {
         refresh()
@@ -84,7 +130,7 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
     } else {
       setError(result.error || 'Failed to initiate withdrawal')
     }
-  }, [smartWallet, initiateWithdraw, refresh])
+  }, [smartWallet, initiateWithdraw, refresh, addTx])
 
   const handleCompleteWithdraw = useCallback(async () => {
     if (!smartWallet) return
@@ -93,6 +139,7 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
 
     const result = await completeWithdraw(smartWallet)
     if (result.success) {
+      if (result.txHash) addTx({ action: 'withdraw_complete', amount: `$${position?.principal.toFixed(2)}`, txHash: result.txHash, timestamp: Date.now() })
       setSuccess('Withdrawal complete!')
       setTimeout(() => {
         refresh()
@@ -101,7 +148,7 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
     } else {
       setError(result.error || 'Failed to complete withdrawal')
     }
-  }, [smartWallet, completeWithdraw, refresh])
+  }, [smartWallet, completeWithdraw, refresh, addTx, position])
 
   const handleAdjustRisk = useCallback(async (newRisk: number) => {
     if (!smartWallet) return
@@ -110,6 +157,7 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
 
     const result = await adjustRisk(smartWallet, newRisk)
     if (result.success) {
+      if (result.txHash) addTx({ action: 'adjust_risk', amount: `${newRisk}%`, txHash: result.txHash, timestamp: Date.now() })
       setSuccess(`Risk adjusted to ${newRisk}%`)
       setTimeout(() => {
         refresh()
@@ -118,7 +166,7 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
     } else {
       setError(result.error || 'Failed to adjust risk')
     }
-  }, [smartWallet, adjustRisk, refresh])
+  }, [smartWallet, adjustRisk, refresh, addTx])
 
   // Refresh position periodically
   useEffect(() => {
@@ -161,32 +209,44 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
             <div className="grid grid-cols-3 gap-2 text-center">
               <div>
                 <p className="text-slate-500 text-[5px]" style={pixelFont}>DEPOSITED</p>
-                <p className="text-purple-400 text-[10px]" style={pixelFont}>
-                  {loadingPosition ? '...' : `$${position.principal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                </p>
+                {loadingPosition ? (
+                  <SkeletonBlock className="h-3 w-16 mx-auto mt-1 rounded-sm" />
+                ) : (
+                  <p className="text-purple-400 text-[10px]" style={pixelFont}>
+                    ${position.principal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                )}
               </div>
               <div>
                 <p className="text-slate-500 text-[5px]" style={pixelFont}>AT RISK</p>
-                <p className="text-cyan-400 text-[10px]" style={pixelFont}>
-                  {loadingPosition ? '...' : `$${position.stake.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                </p>
+                {loadingPosition ? (
+                  <SkeletonBlock className="h-3 w-16 mx-auto mt-1 rounded-sm" />
+                ) : (
+                  <p className="text-cyan-400 text-[10px]" style={pixelFont}>
+                    ${position.stake.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                )}
               </div>
               <div>
                 <p className="text-slate-500 text-[5px]" style={pixelFont}>POOL SHARE</p>
-                <p className="text-amber-400 text-[10px]" style={pixelFont}>
-                  {loadingPosition ? '...' : `${(poolStats?.userShare ?? 0).toFixed(2)}%`}
-                </p>
+                {loadingPosition ? (
+                  <SkeletonBlock className="h-3 w-12 mx-auto mt-1 rounded-sm" />
+                ) : (
+                  <p className="text-amber-400 text-[10px]" style={pixelFont}>
+                    {(poolStats?.userShare ?? 0).toFixed(2)}%
+                  </p>
+                )}
               </div>
             </div>
-            <div className="mt-2 flex items-center justify-center gap-2">
+            <div className="mt-2 flex items-center justify-center gap-2 flex-wrap">
               <span className="text-slate-500 text-[5px]" style={pixelFont}>RISK: {position.riskPercentage}%</span>
-              <span className="text-slate-600">|</span>
+              <span className="text-slate-600 hidden sm:inline">|</span>
               <span className="text-slate-500 text-[5px]" style={pixelFont}>
                 EARNING 20-30% FEES
               </span>
               {position.active && (
                 <>
-                  <span className="text-slate-600">|</span>
+                  <span className="text-slate-600 hidden sm:inline">|</span>
                   <span className="text-green-400 text-[5px]" style={pixelFont}>ACTIVE</span>
                 </>
               )}
@@ -200,7 +260,7 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 px-2 py-1 text-[7px] ${
+              className={`flex-1 px-2 py-2 min-h-[36px] text-[7px] ${
                 activeTab === tab ? 'bg-purple-600 text-white' : 'text-slate-500'
               }`}
               style={pixelFont}
@@ -232,58 +292,84 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
             <div className="grid grid-cols-2 gap-2 mb-4">
               <div className="bg-slate-900 border-2 border-purple-700 p-3 text-center">
                 <p className="text-slate-500 text-[6px] mb-1" style={pixelFont}>PRINCIPAL</p>
-                <p className="text-purple-400 text-[12px]" style={pixelFont}>
-                  {loadingPosition ? '...' : `$${(position?.principal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                </p>
+                {loadingPosition ? (
+                  <SkeletonBlock className="h-4 w-20 mx-auto mt-1 rounded-sm" />
+                ) : (
+                  <p className="text-purple-400 text-[12px]" style={pixelFont}>
+                    ${(position?.principal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                )}
               </div>
               <div className="bg-slate-900 border-2 border-purple-700 p-3 text-center">
                 <p className="text-slate-500 text-[6px] mb-1" style={pixelFont}>AT RISK</p>
-                <p className="text-cyan-400 text-[12px]" style={pixelFont}>
-                  {loadingPosition ? '...' : `$${(position?.stake ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                </p>
+                {loadingPosition ? (
+                  <SkeletonBlock className="h-4 w-20 mx-auto mt-1 rounded-sm" />
+                ) : (
+                  <p className="text-cyan-400 text-[12px]" style={pixelFont}>
+                    ${(position?.stake ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 mb-4">
               <div className="bg-slate-900/50 border border-slate-700 p-2 text-center">
                 <p className="text-slate-500 text-[5px]" style={pixelFont}>RISK %</p>
-                <p className="text-white text-[10px]" style={pixelFont}>
-                  {position?.riskPercentage ?? 0}%
-                </p>
+                {loadingPosition ? (
+                  <SkeletonBlock className="h-3 w-10 mx-auto mt-1 rounded-sm" />
+                ) : (
+                  <p className="text-white text-[10px]" style={pixelFont}>
+                    {position?.riskPercentage ?? 0}%
+                  </p>
+                )}
               </div>
               <div className="bg-slate-900/50 border border-slate-700 p-2 text-center">
                 <p className="text-slate-500 text-[5px]" style={pixelFont}>YOUR SHARE</p>
-                <p className="text-white text-[10px]" style={pixelFont}>
-                  {(poolStats?.userShare ?? 0).toFixed(2)}%
-                </p>
+                {loadingPosition ? (
+                  <SkeletonBlock className="h-3 w-10 mx-auto mt-1 rounded-sm" />
+                ) : (
+                  <p className="text-white text-[10px]" style={pixelFont}>
+                    {(poolStats?.userShare ?? 0).toFixed(2)}%
+                  </p>
+                )}
               </div>
             </div>
 
             {/* Pool Stats */}
             <div className="bg-slate-900/50 border border-slate-700 p-3 mb-4">
               <p className="text-slate-500 text-[7px] mb-2" style={pixelFont}>POOL STATS</p>
-              <div className="flex justify-between text-[8px]">
-                <span className="text-slate-400" style={pixelFont}>Total Pool:</span>
-                <span className="text-white" style={pixelFont}>
-                  ${(poolStats?.lpPoolTotal ?? 0).toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between text-[8px]">
-                <span className="text-slate-400" style={pixelFont}>Pool Cap:</span>
-                <span className="text-white" style={pixelFont}>
-                  ${(poolStats?.lpPoolCap ?? 0).toLocaleString()}
-                </span>
-              </div>
-              <div className="mt-2">
-                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-purple-500"
-                    style={{
-                      width: `${poolStats?.lpPoolCap ? Math.min((poolStats.lpPoolTotal / poolStats.lpPoolCap) * 100, 100) : 0}%`,
-                    }}
-                  />
+              {loadingPosition ? (
+                <div className="space-y-2">
+                  <div className="flex justify-between"><SkeletonBlock className="h-2.5 w-16 rounded-sm" /><SkeletonBlock className="h-2.5 w-20 rounded-sm" /></div>
+                  <div className="flex justify-between"><SkeletonBlock className="h-2.5 w-14 rounded-sm" /><SkeletonBlock className="h-2.5 w-20 rounded-sm" /></div>
+                  <SkeletonBlock className="h-2 w-full mt-2 rounded-full" />
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div className="flex justify-between text-[8px]">
+                    <span className="text-slate-400" style={pixelFont}>Total Pool:</span>
+                    <span className="text-white" style={pixelFont}>
+                      ${(poolStats?.lpPoolTotal ?? 0).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-[8px]">
+                    <span className="text-slate-400" style={pixelFont}>Pool Cap:</span>
+                    <span className="text-white" style={pixelFont}>
+                      ${(poolStats?.lpPoolCap ?? 0).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="mt-2">
+                    <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-purple-500 transition-all duration-500"
+                        style={{
+                          width: `${poolStats?.lpPoolCap ? Math.min((poolStats.lpPoolTotal / poolStats.lpPoolCap) * 100, 100) : 0}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Fee Info */}
@@ -295,6 +381,47 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
                 ~107% TARGET APY
               </p>
             </div>
+
+            {/* Transaction History */}
+            {txHistory.length > 0 && (
+              <div className="mt-4">
+                <p className="text-slate-500 text-[7px] mb-2" style={pixelFont}>RECENT TRANSACTIONS</p>
+                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                  {txHistory.map((tx, i) => {
+                    const actionLabels: Record<string, { label: string; color: string }> = {
+                      deposit: { label: 'DEPOSIT', color: 'text-purple-400' },
+                      withdraw_init: { label: 'WITHDRAW INIT', color: 'text-yellow-400' },
+                      withdraw_complete: { label: 'WITHDRAW', color: 'text-green-400' },
+                      adjust_risk: { label: 'RISK ADJ', color: 'text-cyan-400' },
+                    }
+                    const { label, color } = actionLabels[tx.action] || { label: tx.action, color: 'text-slate-400' }
+                    const time = new Date(tx.timestamp)
+                    const timeStr = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`
+
+                    return (
+                      <div key={i} className="bg-slate-900/50 border border-slate-700 px-2 py-1.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[6px] ${color}`} style={pixelFont}>{label}</span>
+                          {tx.amount && <span className="text-slate-400 text-[6px]" style={pixelFont}>{tx.amount}</span>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-600 text-[5px]" style={pixelFont}>{timeStr}</span>
+                          <a
+                            href={`${EXPLORER_URL}/tx/${tx.txHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-400 text-[5px] hover:text-blue-300"
+                            style={pixelFont}
+                          >
+                            {tx.txHash.slice(0, 6)}...{tx.txHash.slice(-4)}
+                          </a>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </>
         )}
 
@@ -340,6 +467,26 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
                   </button>
                 )}
               </div>
+              {/* Inline validation warnings */}
+              {depositAmount && parseFloat(depositAmount) > 0 && (
+                <>
+                  {parseFloat(depositAmount) < MIN_DEPOSIT_USDC && (
+                    <p className="text-yellow-400 text-[6px] mt-1" style={pixelFont}>
+                      BELOW MINIMUM ({MIN_DEPOSIT_USDC} MUSDC)
+                    </p>
+                  )}
+                  {mpusdcBalance && parseFloat(depositAmount) > parseFloat(mpusdcBalance) && (
+                    <p className="text-red-400 text-[6px] mt-1" style={pixelFont}>
+                      EXCEEDS BALANCE ({parseFloat(mpusdcBalance).toFixed(2)} MUSDC)
+                    </p>
+                  )}
+                  {poolStats && poolStats.lpPoolCap > 0 && poolStats.lpPoolTotal + parseFloat(depositAmount) > poolStats.lpPoolCap && (
+                    <p className="text-red-400 text-[6px] mt-1" style={pixelFont}>
+                      EXCEEDS POOL CAP (AVAIL: ${(poolStats.lpPoolCap - poolStats.lpPoolTotal).toFixed(2)})
+                    </p>
+                  )}
+                </>
+              )}
             </div>
 
             <div className="mb-4">
@@ -371,6 +518,15 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
               </p>
             </div>
 
+            {/* Pool near-full warning */}
+            {poolStats && poolStats.lpPoolCap > 0 && (poolStats.lpPoolTotal / poolStats.lpPoolCap) >= 0.9 && (
+              <div className="bg-yellow-900/20 border border-yellow-700 p-2 mb-4">
+                <p className="text-yellow-400 text-[6px]" style={pixelFont}>
+                  POOL {Math.round((poolStats.lpPoolTotal / poolStats.lpPoolCap) * 100)}% FULL — REMAINING: ${(poolStats.lpPoolCap - poolStats.lpPoolTotal).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                </p>
+              </div>
+            )}
+
             <button
               onClick={handleDeposit}
               disabled={loading || !depositAmount || parseFloat(depositAmount) < MIN_DEPOSIT_USDC}
@@ -379,7 +535,9 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
               <div className="bg-purple-900 absolute inset-0 translate-x-2 translate-y-2" />
               <div className="relative px-6 py-4 bg-purple-600 border-4 border-purple-400 text-white flex items-center justify-center gap-3 transition-transform group-hover:-translate-y-1 group-active:translate-y-0">
                 {loadingDeposit ? (
-                  <span className="text-xs" style={pixelFont}>DEPOSITING...</span>
+                  <span className="text-xs flex items-center gap-2" style={pixelFont}>
+                    DEPOSITING <PixelSpinner color="text-purple-200" />
+                  </span>
                 ) : (
                   <span className="text-xs" style={pixelFont}>DEPOSIT</span>
                 )}
@@ -421,9 +579,13 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
                     >
                       <div className="bg-yellow-900 absolute inset-0 translate-x-2 translate-y-2" />
                       <div className="relative px-6 py-4 bg-yellow-600 border-4 border-yellow-400 text-white flex items-center justify-center">
-                        <span className="text-xs" style={pixelFont}>
-                          {loadingWithdraw ? 'PROCESSING...' : 'INITIATE WITHDRAWAL'}
-                        </span>
+                        {loadingWithdraw ? (
+                          <span className="text-xs flex items-center gap-2" style={pixelFont}>
+                            PROCESSING <PixelSpinner color="text-yellow-200" />
+                          </span>
+                        ) : (
+                          <span className="text-xs" style={pixelFont}>INITIATE WITHDRAWAL</span>
+                        )}
                       </div>
                     </button>
                   </>
@@ -468,9 +630,13 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
                     >
                       <div className="bg-green-900 absolute inset-0 translate-x-2 translate-y-2" />
                       <div className="relative px-6 py-4 bg-green-600 border-4 border-green-400 text-white flex items-center justify-center">
-                        <span className="text-xs" style={pixelFont}>
-                          {loadingWithdraw ? 'WITHDRAWING...' : 'COMPLETE WITHDRAWAL'}
-                        </span>
+                        {loadingWithdraw ? (
+                          <span className="text-xs flex items-center gap-2" style={pixelFont}>
+                            WITHDRAWING <PixelSpinner color="text-green-200" />
+                          </span>
+                        ) : (
+                          <span className="text-xs" style={pixelFont}>COMPLETE WITHDRAWAL</span>
+                        )}
                       </div>
                     </button>
                   </>
@@ -479,14 +645,17 @@ export function LotteryLPPanel({ smartWallet, hasSmartWallet, mpusdcBalance, use
                 {/* Adjust Risk Section */}
                 {canInitiateWithdraw && (
                   <div className="mt-6 pt-4 border-t border-slate-700">
-                    <p className="text-slate-500 text-[8px] mb-2" style={pixelFont}>ADJUST RISK</p>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="text-slate-500 text-[8px]" style={pixelFont}>ADJUST RISK</p>
+                      {loadingWithdraw && <PixelSpinner color="text-purple-400" />}
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
                       {[25, 50, 75, 100].map((risk) => (
                         <button
                           key={risk}
                           onClick={() => handleAdjustRisk(risk)}
                           disabled={loading || position.riskPercentage === risk}
-                          className={`flex-1 py-2 text-[8px] border-2 ${
+                          className={`py-2 min-h-[36px] text-[8px] border-2 ${
                             position.riskPercentage === risk
                               ? 'bg-purple-600 border-purple-400 text-white'
                               : 'bg-slate-800 border-slate-600 text-slate-400 hover:border-purple-400'

@@ -54,11 +54,11 @@ export function LotteryDialog({
         isLP ? 'border-purple-600' : 'border-amber-600'
       }`}>
         {/* Header */}
-        <div className={`sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b-2 bg-slate-800 ${
+        <div className={`sticky top-0 z-10 flex items-center justify-between px-3 sm:px-4 py-3 border-b-2 bg-slate-800 ${
           isLP ? 'border-purple-700' : 'border-amber-700'
         }`}>
           <div>
-            <p className={`text-[10px] ${isLP ? 'text-purple-400' : 'text-amber-400'}`} style={pixelFont}>
+            <p className={`text-[9px] sm:text-[10px] ${isLP ? 'text-purple-400' : 'text-amber-400'}`} style={pixelFont}>
               {isLP ? 'MEGAPOT LP PROVIDER' : selectedBuilding ? 'MEGAPOT LOTTERY' : 'NEW MEGAPOT'}
             </p>
             <p className="text-slate-500 text-[7px] mt-0.5" style={pixelFont}>
@@ -67,7 +67,7 @@ export function LotteryDialog({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 bg-red-600 border-2 border-red-400 text-white flex items-center justify-center hover:bg-red-500 text-[10px] transition-colors"
+            className="w-9 h-9 sm:w-8 sm:h-8 bg-red-600 border-2 border-red-400 text-white flex items-center justify-center hover:bg-red-500 text-[10px] transition-colors shrink-0"
             style={pixelFont}
           >
             X
@@ -75,7 +75,7 @@ export function LotteryDialog({
         </div>
 
         {/* Content */}
-        <div className="p-4">
+        <div className="p-3 sm:p-4">
           {isLP ? (
             <LotteryLPPanel
               smartWallet={smartWallet}

@@ -67,6 +67,54 @@ const ERROR_MAP: { pattern: RegExp; info: ErrorInfo }[] = [
       suggestion: 'The timer will reset when a new round begins.',
     },
   },
+  {
+    pattern: /pool cap|reached maximum capacity/i,
+    info: {
+      title: 'POOL FULL',
+      message: 'The LP pool has reached its maximum capacity.',
+      suggestion: 'Wait for other LPs to withdraw or for the cap to increase.',
+    },
+  },
+  {
+    pattern: /Insufficient MPUSDC|Insufficient MUSDC/i,
+    info: {
+      title: 'LOW MUSDC BALANCE',
+      message: 'Not enough MUSDC in your Smart Wallet.',
+      suggestion: 'Deposit more USDC to the Megapot vault first.',
+    },
+  },
+  {
+    pattern: /Minimum deposit/i,
+    info: {
+      title: 'BELOW MINIMUM',
+      message: 'Your deposit amount is below the minimum required.',
+      suggestion: 'The minimum deposit is 250 USDC.',
+    },
+  },
+  {
+    pattern: /not ready|wait for.*jackpot/i,
+    info: {
+      title: 'NOT READY YET',
+      message: 'Withdrawal is not ready yet.',
+      suggestion: 'Wait for the next jackpot drawing to complete your withdrawal.',
+    },
+  },
+  {
+    pattern: /No LP position|no position/i,
+    info: {
+      title: 'NO POSITION',
+      message: 'No LP position found for this wallet.',
+      suggestion: 'Deposit MUSDC first to create an LP position.',
+    },
+  },
+  {
+    pattern: /already pending/i,
+    info: {
+      title: 'ALREADY PENDING',
+      message: 'A withdrawal is already pending for this position.',
+      suggestion: 'Wait for the next jackpot, then complete your withdrawal.',
+    },
+  },
 ]
 
 const DEFAULT_ERROR: ErrorInfo = {
