@@ -1,10 +1,22 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { ethers } from 'ethers'
 import { toast } from 'react-hot-toast'
 import { ADDRESSES, BLOCK_EXPLORER_URL } from '@/config/contracts'
-import { useUniswapLP, floorTick, ceilTick, sortTokens, formatTickAsPrice, tickToPriceToken1PerToken0, tickToDisplayPrice, formatPriceForInput, priceToTick, MIN_TICK, MAX_TICK } from '@/hooks/useUniswapLP'
+import {
+  useUniswapLP,
+  floorTick,
+  ceilTick,
+  sortTokens,
+  tickToPriceToken1PerToken0,
+  tickToPriceToken0PerToken1,
+  tickToDisplayPrice,
+  formatPriceForInput,
+  priceToTick,
+  MIN_TICK,
+  MAX_TICK,
+} from '@/hooks/useUniswapLP'
 import { useUniswapLPBuild } from '@/hooks/useUniswapLPBuild'
 import { useUniswapLPManage } from '@/hooks/useUniswapLPManage'
 import type { Building } from '@/hooks/useCityBuildings'
@@ -53,10 +65,21 @@ export function LPBuildingPanel({
   const [tokenA, setTokenA] = useState<string>(TOKENS[0].address)
   const [tokenB, setTokenB] = useState<string>(TOKENS[1].address)
   const [fee, setFee] = useState(3000)
-  type RangeStrategy = 'full' | 'stable' | 'wide' | 'oneSidedLower' | 'oneSidedUpper' | 'custom'
-  const [rangeStrategy, setRangeStrategy] = useState<RangeStrategy>('wide')
-  const [minPriceInput, setMinPriceInput] = useState('')
-  const [maxPriceInput, setMaxPriceInput] = useState('')
+  const [tickLower, setTickLower] = useState<number | null>(null)
+  const [tickUpper, setTickUpper] = useState<number | null>(null)
+  const [minPriceInput, setMinPriceInput] = useState<string>('')
+  const [maxPriceInput, setMaxPriceInput] = useState<string>('')
+  const [zoomPct, setZoomPct] = useState<number>(20)
+  const [quoteToken1PerToken0, setQuoteToken1PerToken0] = useState<boolean>(true)
+  const [draggingHandle, setDraggingHandle] = useState<'min' | 'max' | null>(null)
+  const rangeTrackRef = useRef<HTMLDivElement>(null)
+  const rangeParamsRef = useRef<{
+    lo: number
+    hi: number
+    span: number
+    applyTicks: (tl: number, tu: number) => void
+    otherTick: number
+  } | null>(null)
   const [amountA, setAmountA] = useState('')
   const [amountB, setAmountB] = useState('')
   const [poolInfo, setPoolInfo] = useState<any>(null)
@@ -102,50 +125,112 @@ export function LPBuildingPanel({
   const dec1 = tok1?.decimals ?? 6
   const sym0 = tok0?.symbol ?? 'T0'
   const sym1 = tok1?.symbol ?? 'T1'
-  const currentPrice = poolInfo ? tickToPriceToken1PerToken0(poolInfo.currentTick, dec0, dec1) : 0
   const currentDisplay = poolInfo ? tickToDisplayPrice(poolInfo.currentTick, dec0, dec1) : { value: 0, token1PerToken0: true }
+
+  // Keep quote direction stable (avoid "flipping" between token0/token1 when values cross readability thresholds)
+  useEffect(() => {
+    if (!poolInfo?.exists) return
+    setQuoteToken1PerToken0(currentDisplay.token1PerToken0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poolInfo?.poolAddress])
+
+  // When switching pools, reset range to a sensible default
+  useEffect(() => {
+    if (!poolInfo?.poolAddress) return
+    setTickLower(null)
+    setTickUpper(null)
+    setMinPriceInput('')
+    setMaxPriceInput('')
+  }, [poolInfo?.poolAddress])
+
+  const priceLabel = quoteToken1PerToken0 ? `${sym0}/${sym1}` : `${sym1}/${sym0}`
+
+  function tickToQuotePrice(tick: number): number {
+    return quoteToken1PerToken0
+      ? tickToPriceToken1PerToken0(tick, dec0, dec1)
+      : tickToPriceToken0PerToken1(tick, dec0, dec1)
+  }
 
   function displayPriceToTick(displayValue: number, token1PerToken0: boolean): number {
     const price = token1PerToken0 ? displayValue : 1 / (displayValue || 1e-18)
     return priceToTick(price, dec0, dec1)
   }
 
-  let tickLower = 0
-  let tickUpper = 0
-  if (poolInfo) {
-    if (rangeStrategy === 'full') {
-      tickLower = floorTick(MIN_TICK, tickSpacing)
-      tickUpper = ceilTick(MAX_TICK, tickSpacing)
-    } else if (rangeStrategy === 'stable') {
-      const d = 3 * tickSpacing
-      tickLower = floorTick(poolInfo.currentTick - d, tickSpacing)
-      tickUpper = ceilTick(poolInfo.currentTick + d, tickSpacing)
-    } else if (rangeStrategy === 'wide') {
-      tickLower = floorTick(priceToTick(currentPrice * 0.5, dec0, dec1), tickSpacing)
-      tickUpper = ceilTick(priceToTick(currentPrice * 2, dec0, dec1), tickSpacing)
-    } else if (rangeStrategy === 'oneSidedLower') {
-      tickLower = floorTick(priceToTick(currentPrice * 0.5, dec0, dec1), tickSpacing)
-      tickUpper = ceilTick(poolInfo.currentTick, tickSpacing)
-    } else if (rangeStrategy === 'oneSidedUpper') {
-      tickLower = floorTick(poolInfo.currentTick, tickSpacing)
-      tickUpper = ceilTick(priceToTick(currentPrice * 2, dec0, dec1), tickSpacing)
-    } else {
-      const minVal = parseFloat(minPriceInput)
-      const maxVal = parseFloat(maxPriceInput)
-      const dir = currentDisplay.token1PerToken0
-      const fallbackMin = tickToDisplayPrice(floorTick(priceToTick(currentPrice * 0.5, dec0, dec1), tickSpacing), dec0, dec1).value
-      const fallbackMax = tickToDisplayPrice(ceilTick(priceToTick(currentPrice * 2, dec0, dec1), tickSpacing), dec0, dec1).value
-      tickLower = floorTick(displayPriceToTick(Number.isFinite(minVal) ? minVal : fallbackMin, dir), tickSpacing)
-      tickUpper = ceilTick(displayPriceToTick(Number.isFinite(maxVal) ? maxVal : fallbackMax, dir), tickSpacing)
-    }
-    if (tickUpper <= tickLower) tickUpper = tickLower + tickSpacing
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+
+  const formatPlain = (value: number): string => {
+    if (!Number.isFinite(value) || value <= 0) return ''
+    if (value >= 1) return value.toFixed(value >= 1000 ? 2 : 4).replace(/\.?0+$/, '')
+    if (value >= 0.0001) return value.toFixed(6).replace(/0+$/, '').replace(/\.$/, '')
+    return value.toExponential(6)
   }
 
-  const minDisplay = poolInfo ? tickToDisplayPrice(tickLower, dec0, dec1) : { value: 0, token1PerToken0: true }
-  const maxDisplay = poolInfo ? tickToDisplayPrice(tickUpper, dec0, dec1) : { value: 0, token1PerToken0: true }
-  const priceLabel = currentDisplay.token1PerToken0 ? `${sym0}/${sym1}` : `${sym1}/${sym0}`
-  const minPct = currentDisplay.value > 0 ? (((minDisplay.value - currentDisplay.value) / currentDisplay.value) * 100).toFixed(2) : '0'
-  const maxPct = currentDisplay.value > 0 ? (((maxDisplay.value - currentDisplay.value) / currentDisplay.value) * 100).toFixed(2) : '0'
+  const parsePlain = (s: string): number => {
+    const cleaned = (s ?? '').toString().replace(/,/g, '').trim()
+    const v = parseFloat(cleaned)
+    return Number.isFinite(v) ? v : NaN
+  }
+
+  const applyTicks = useCallback((tlRaw: number, tuRaw: number) => {
+    if (!poolInfo?.exists) return
+    const tl = floorTick(tlRaw, tickSpacing)
+    let tu = ceilTick(tuRaw, tickSpacing)
+    if (tu <= tl) tu = tl + tickSpacing
+    const tl2 = clamp(tl, MIN_TICK + tickSpacing, MAX_TICK - tickSpacing)
+    const tu2 = clamp(tu, MIN_TICK + tickSpacing, MAX_TICK - tickSpacing)
+    setTickLower(tl2)
+    setTickUpper(tu2)
+    setMinPriceInput(formatPlain(tickToQuotePrice(tl2)))
+    setMaxPriceInput(formatPlain(tickToQuotePrice(tu2)))
+  }, [poolInfo?.exists, tickSpacing, tickToQuotePrice])
+
+  // Initialize range once per pool (defaults to wide range)
+  useEffect(() => {
+    if (!poolInfo?.exists) return
+    if (tickLower != null && tickUpper != null) return
+    const cur = Number(poolInfo.currentTick ?? 0)
+    // default: ~wide in ticks (±600 * spacing) but bounded
+    const d = 600 * tickSpacing
+    applyTicks(cur - d, cur + d)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poolInfo?.poolAddress, poolInfo?.exists, tickSpacing])
+
+  const effectiveTickLower = tickLower ?? (poolInfo ? floorTick(poolInfo.currentTick - 600 * tickSpacing, tickSpacing) : 0)
+  const effectiveTickUpper = tickUpper ?? (poolInfo ? ceilTick(poolInfo.currentTick + 600 * tickSpacing, tickSpacing) : 0)
+
+  const currentQuotePrice = poolInfo?.exists ? tickToQuotePrice(poolInfo.currentTick) : 0
+  const minQuotePrice = poolInfo?.exists ? tickToQuotePrice(effectiveTickLower) : 0
+  const maxQuotePrice = poolInfo?.exists ? tickToQuotePrice(effectiveTickUpper) : 0
+
+  const minPct = currentQuotePrice > 0 ? (((minQuotePrice - currentQuotePrice) / currentQuotePrice) * 100).toFixed(2) : '0'
+  const maxPct = currentQuotePrice > 0 ? (((maxQuotePrice - currentQuotePrice) / currentQuotePrice) * 100).toFixed(2) : '0'
+
+  const inRange = poolInfo?.exists
+    ? poolInfo.currentTick >= effectiveTickLower && poolInfo.currentTick <= effectiveTickUpper
+    : false
+
+  const zoomWindow = useMemo(() => {
+    if (!poolInfo?.exists) return null
+    const cur = Number(poolInfo.currentTick ?? 0)
+    const z = clamp(zoomPct, 1, 200)
+    const dTicks = Math.max(
+      tickSpacing * 4,
+      Math.round(Math.log(1 + z / 100) / Math.log(1.0001))
+    )
+    const lo = floorTick(cur - dTicks, tickSpacing)
+    const hi = ceilTick(cur + dTicks, tickSpacing)
+    return { lo, hi }
+  }, [poolInfo?.exists, poolInfo?.currentTick, zoomPct, tickSpacing])
+
+  // When quote direction flips, update displayed min/max inputs (ticks remain unchanged)
+  useEffect(() => {
+    if (!poolInfo?.exists) return
+    if (tickLower == null || tickUpper == null) return
+    setMinPriceInput(formatPlain(tickToQuotePrice(tickLower)))
+    setMaxPriceInput(formatPlain(tickToQuotePrice(tickUpper)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteToken1PerToken0, poolInfo?.exists, tickLower, tickUpper])
+
 
   const symA = TOKENS.find((t) => t.address.toLowerCase() === tokenA.toLowerCase())?.symbol ?? '?'
   const symB = TOKENS.find((t) => t.address.toLowerCase() === tokenB.toLowerCase())?.symbol ?? '?'
@@ -206,8 +291,8 @@ export function LPBuildingPanel({
       tokenA,
       tokenB,
       fee,
-      tickLower,
-      tickUpper,
+      tickLower: effectiveTickLower,
+      tickUpper: effectiveTickUpper,
       amountA: amountAWei,
       amountB: amountBWei,
       amount0Min: 0n,
@@ -638,82 +723,357 @@ export function LPBuildingPanel({
               <p className="text-slate-400 text-[6px] mb-2" style={pixelFont}>
                 Custom range: concentrate liquidity within price bounds to earn more fees (requires active management).
               </p>
-              <p className="text-cyan-400 text-[8px] mb-2" style={pixelFont}>
-                Current price: {formatPriceForInput(currentDisplay.value)} {priceLabel}
-              </p>
 
-              <p className="text-slate-500 text-[6px] mb-1" style={pixelFont}>
-                Price strategies
-              </p>
-              <div className="grid grid-cols-2 gap-1 mb-2">
-                {[
-                  { id: 'stable' as const, label: 'Stable', sub: '±3 ticks', desc: 'Stablecoins / low vol' },
-                  { id: 'wide' as const, label: 'Wide', sub: '-50% — +100%', desc: 'Volatile pairs' },
-                  { id: 'oneSidedLower' as const, label: 'One-sided ↓', sub: '-50%', desc: 'Price goes down' },
-                  { id: 'oneSidedUpper' as const, label: 'One-sided ↑', sub: '+100%', desc: 'Price goes up' },
-                  { id: 'full' as const, label: 'Full range', sub: 'All', desc: 'Earns always' },
-                  { id: 'custom' as const, label: 'Custom', sub: 'Set min/max', desc: 'Manual price' },
-                ].map(({ id, label, sub, desc }) => (
+              {/* Current price + range picker */}
+              <div className="mb-3 p-3 bg-slate-800/80 border border-slate-600 rounded">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <p className="text-slate-500 text-[5px]" style={pixelFont}>Current price</p>
                   <button
-                    key={id}
                     type="button"
-                    onClick={() => {
-                      setRangeStrategy(id)
-                      if (id === 'custom') {
-                        setMinPriceInput(formatPriceForInput(minDisplay.value))
-                        setMaxPriceInput(formatPriceForInput(maxDisplay.value))
-                      }
-                    }}
-                    className={`p-2 border text-left ${
-                      rangeStrategy === id ? 'bg-cyan-600/30 border-cyan-400' : 'bg-slate-800 border-slate-600 hover:border-slate-500'
-                    }`}
+                    onClick={() => setQuoteToken1PerToken0((v) => !v)}
+                    className="text-[6px] px-2 py-1 bg-slate-900 border border-slate-600 hover:border-slate-500 text-slate-300"
+                    style={pixelFont}
+                    title="Invert quote (swap price direction)"
                   >
-                    <p className="text-cyan-400 text-[7px]" style={pixelFont}>{label}</p>
-                    <p className="text-slate-500 text-[5px]" style={pixelFont}>{sub}</p>
-                    <p className="text-slate-600 text-[5px]" style={pixelFont}>{desc}</p>
+                    INVERT
                   </button>
-                ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-8 h-8 rounded-full bg-amber-500/30 border-2 border-amber-400 flex items-center justify-center text-amber-400 text-[10px]" style={pixelFont} title={sym0}>
+                      {tok0?.icon ?? sym0.slice(0,1)}
+                    </span>
+                    <span className="w-8 h-8 rounded-full bg-cyan-500/30 border-2 border-cyan-400 flex items-center justify-center text-cyan-400 text-[10px]" style={pixelFont} title={sym1}>
+                      {tok1?.icon ?? sym1.slice(0,1)}
+                    </span>
+                  </div>
+                  <span className="text-cyan-400 text-[10px]" style={pixelFont}>
+                    {formatPriceForInput(currentQuotePrice)} {priceLabel}
+                  </span>
+                  <span
+                    className={`text-[6px] px-2 py-1 border ${
+                      inRange ? 'text-green-300 border-green-600/60 bg-green-900/20' : 'text-amber-300 border-amber-600/60 bg-amber-900/20'
+                    }`}
+                    style={pixelFont}
+                    title={inRange ? 'Price is inside your range' : 'Price is outside your range'}
+                  >
+                    {inRange ? 'IN RANGE' : 'OUT'}
+                  </span>
+                </div>
+                {/* Range bar: min ----●---- max */}
+                {poolInfo?.exists && minQuotePrice > 0 && maxQuotePrice > minQuotePrice && (
+                  <div className="mt-2">
+                    <div className="relative h-2 bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className="absolute top-0 bottom-0 bg-cyan-500/40 rounded-full"
+                        style={{
+                          left: '0%',
+                          width: `${Math.min(100, Math.max(0, ((currentQuotePrice - minQuotePrice) / (maxQuotePrice - minQuotePrice)) * 100))}%`,
+                        }}
+                      />
+                      {/* Right side (from current price -> max). This is important for One-sided upper (+100%). */}
+                      <div
+                        className="absolute top-0 bottom-0 bg-fuchsia-500/35"
+                        style={{
+                          left: `${Math.min(100, Math.max(0, ((currentQuotePrice - minQuotePrice) / (maxQuotePrice - minQuotePrice)) * 100))}%`,
+                          width: `${Math.min(100, Math.max(0, (1 - (currentQuotePrice - minQuotePrice) / (maxQuotePrice - minQuotePrice)) * 100))}%`,
+                        }}
+                      />
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-cyan-400 border-2 border-white shadow"
+                        style={{
+                          left: `calc(${Math.min(100, Math.max(0, ((currentQuotePrice - minQuotePrice) / (maxQuotePrice - minQuotePrice)) * 100))}% - 4px)`,
+                        }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-slate-500 text-[5px] mt-0.5" style={pixelFont}>
+                      <span>Min {formatPriceForInput(minQuotePrice)}</span>
+                      <span>Max {formatPriceForInput(maxQuotePrice)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="flex gap-2 mb-2">
-                <div className="flex-1">
-                  <p className="text-slate-500 text-[6px] mb-1" style={pixelFont}>Min price</p>
-                  <input
-                    key={`min-${rangeStrategy}-${formatPriceForInput(minDisplay.value)}`}
-                    type="number"
-                    step="any"
-                    value={rangeStrategy === 'custom' ? minPriceInput : formatPriceForInput(minDisplay.value)}
-                    onChange={(e) => {
-                      setRangeStrategy('custom')
-                      setMinPriceInput(e.target.value)
+              <div className="space-y-2 mb-1">
+                <p className="text-slate-500 text-[6px]" style={pixelFont}>Price strategies</p>
+
+                {/* Uniswap-style strategy cards */}
+                <div className="grid grid-cols-2 gap-1">
+                  <button
+                    type="button"
+                    disabled={!poolInfo?.exists}
+                    onClick={() => {
+                      if (!poolInfo?.exists) return
+                      const d = 3 * tickSpacing
+                      applyTicks(poolInfo.currentTick - d, poolInfo.currentTick + d)
                     }}
-                    readOnly={rangeStrategy !== 'custom'}
-                    className="w-full bg-slate-800 border border-slate-600 p-2 text-white text-[10px]"
-                    style={pixelFont}
-                  />
-                  <p className="text-slate-500 text-[5px]" style={pixelFont}>{Number(minPct) >= 0 ? '+' : ''}{minPct}%</p>
-                </div>
-                <div className="flex-1">
-                  <p className="text-slate-500 text-[6px] mb-1" style={pixelFont}>Max price</p>
-                  <input
-                    key={`max-${rangeStrategy}-${formatPriceForInput(maxDisplay.value)}`}
-                    type="number"
-                    step="any"
-                    value={rangeStrategy === 'custom' ? maxPriceInput : formatPriceForInput(maxDisplay.value)}
-                    onChange={(e) => {
-                      setRangeStrategy('custom')
-                      setMaxPriceInput(e.target.value)
+                    className="p-2 bg-slate-900/60 border border-slate-600 rounded text-left hover:border-cyan-400 disabled:opacity-50"
+                  >
+                    <p className="text-[7px] text-white mb-0.5" style={pixelFont}>Stable</p>
+                    <p className="text-[7px] text-cyan-300 mb-0.5" style={pixelFont}>± 3 ticks</p>
+                    <p className="text-[5px] text-slate-400" style={pixelFont}>
+                      Good for stablecoins or low volatility pairs
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={!poolInfo?.exists || currentQuotePrice <= 0}
+                    onClick={() => {
+                      if (!poolInfo?.exists || currentQuotePrice <= 0) return
+                      // Wide: Low 50%, High 100% around current price
+                      // Use tick math directly so it is symmetric regardless of quote direction.
+                      const curTick = Number(poolInfo.currentTick ?? 0)
+                      const d = Math.round(Math.log(2) / Math.log(1.0001)) // factor 2x in price
+                      applyTicks(curTick - d, curTick + d)
                     }}
-                    readOnly={rangeStrategy !== 'custom'}
-                    className="w-full bg-slate-800 border border-slate-600 p-2 text-white text-[10px]"
-                    style={pixelFont}
-                  />
-                  <p className="text-slate-500 text-[5px]" style={pixelFont}>{Number(maxPct) >= 0 ? '+' : ''}{maxPct}%</p>
+                    className="p-2 bg-slate-900/60 border border-slate-600 rounded text-left hover:border-cyan-400 disabled:opacity-50"
+                  >
+                    <p className="text-[7px] text-white mb-0.5" style={pixelFont}>Wide</p>
+                    <p className="text-[7px] text-cyan-300 mb-0.5" style={pixelFont}>–50% — +100%</p>
+                    <p className="text-[5px] text-slate-400" style={pixelFont}>
+                      Good for volatile pairs
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={!poolInfo?.exists || currentQuotePrice <= 0}
+                    onClick={() => {
+                      if (!poolInfo?.exists || currentQuotePrice <= 0) return
+                      applyTicks(
+                        displayPriceToTick(currentQuotePrice * 0.5, quoteToken1PerToken0),
+                        poolInfo.currentTick
+                      )
+                    }}
+                    className="p-2 bg-slate-900/60 border border-slate-600 rounded text-left hover:border-cyan-400 disabled:opacity-50"
+                  >
+                    <p className="text-[7px] text-white mb-0.5" style={pixelFont}>One-sided lower</p>
+                    <p className="text-[7px] text-cyan-300 mb-0.5" style={pixelFont}>–50%</p>
+                    <p className="text-[5px] text-slate-400" style={pixelFont}>
+                      Supply liquidity if price goes down
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={!poolInfo?.exists || currentQuotePrice <= 0}
+                    onClick={() => {
+                      if (!poolInfo?.exists || currentQuotePrice <= 0) return
+                      // One-sided upper: min = price now, max ≈ +100%
+                      const curTick = Number(poolInfo.currentTick ?? 0)
+                      const d = Math.round(Math.log(2) / Math.log(1.0001)) // ~+100% in price
+                      applyTicks(curTick, curTick + d)
+                    }}
+                    className="p-2 bg-slate-900/60 border border-slate-600 rounded text-left hover:border-cyan-400 disabled:opacity-50"
+                  >
+                    <p className="text-[7px] text-white mb-0.5" style={pixelFont}>One-sided upper</p>
+                    <p className="text-[7px] text-cyan-300 mb-0.5" style={pixelFont}>+100%</p>
+                    <p className="text-[5px] text-slate-400" style={pixelFont}>
+                      Supply liquidity if price goes up
+                    </p>
+                  </button>
                 </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-slate-500 text-[6px]" style={pixelFont}>Zoom: {zoomPct}%</p>
+                  <input
+                    type="range"
+                    min={5}
+                    max={200}
+                    step={5}
+                    value={zoomPct}
+                    onChange={(e) => setZoomPct(Number(e.target.value))}
+                    className="flex-1"
+                  />
+                </div>
+
+                {zoomWindow && (() => {
+                  const lo = zoomWindow.lo
+                  const hi = zoomWindow.hi
+                  const span = Math.max(1, hi - lo)
+                  const sliderMax = 1000
+                  const toSlider = (t: number) => clamp(Math.round(((t - lo) / span) * sliderMax), 0, sliderMax)
+                  const lowerV = toSlider(effectiveTickLower)
+                  const upperV = toSlider(effectiveTickUpper)
+                  const curV = toSlider(Number(poolInfo.currentTick ?? 0))
+                  const leftPct = (Math.min(lowerV, upperV) / sliderMax) * 100
+                  const rightPct = (Math.max(lowerV, upperV) / sliderMax) * 100
+                  return (
+                    <div className="relative h-14 bg-slate-900/60 border border-slate-700 rounded overflow-visible px-4 py-2">
+                      <div ref={rangeTrackRef} className="relative w-full h-full select-none">
+                        {/* หลอด: คลิกที่หลอดไม่ทำให้จุดขยับ (ไม่มี input range) */}
+                        <div className="absolute inset-0 pointer-events-none">
+                          <div
+                            className="absolute inset-0 opacity-30"
+                            style={{
+                              backgroundImage:
+                                'repeating-linear-gradient(to right, rgba(148,163,184,0.25), rgba(148,163,184,0.25) 1px, transparent 1px, transparent 24px)',
+                            }}
+                          />
+                          <div
+                            className="absolute top-0 bottom-0 bg-cyan-500/20"
+                            style={{ left: `${leftPct}%`, width: `${Math.max(0, rightPct - leftPct)}%` }}
+                          />
+                          <div
+                            className="absolute top-0 bottom-0 w-[2px] bg-amber-400/80"
+                            style={{ left: `calc(${(curV / sliderMax) * 100}% - 1px)` }}
+                            title="Current price"
+                          />
+                        </div>
+
+                        {/* ปุ่ม Min – ลากจากปุ่มเท่านั้น (คลิกที่หลอดไม่ขยับ) */}
+                        <div
+                          role="slider"
+                          aria-label="Min price"
+                          aria-valuenow={effectiveTickLower}
+                          tabIndex={0}
+                          onPointerDown={(e) => {
+                            e.preventDefault()
+                            if (draggingHandle) return
+                            const el = e.currentTarget as HTMLElement
+                            const params = { lo, hi, span, applyTicks, otherTick: effectiveTickUpper }
+                            rangeParamsRef.current = params
+                            setDraggingHandle('min')
+                            el.setPointerCapture(e.pointerId)
+                            const onMove = (e2: PointerEvent) => {
+                              const track = rangeTrackRef.current
+                              if (!track || !rangeParamsRef.current) return
+                              const rect = track.getBoundingClientRect()
+                              let fraction = (e2.clientX - rect.left) / rect.width
+                              fraction = clamp(fraction, 0, 1)
+                              const rawTick = Math.round(lo + fraction * span)
+                              rangeParamsRef.current.applyTicks(rawTick, rangeParamsRef.current.otherTick)
+                            }
+                            const onUp = () => {
+                              el.releasePointerCapture(e.pointerId)
+                              el.removeEventListener('pointermove', onMove)
+                              el.removeEventListener('pointerup', onUp)
+                              el.removeEventListener('pointercancel', onUp)
+                              setDraggingHandle(null)
+                            }
+                            el.addEventListener('pointermove', onMove)
+                            el.addEventListener('pointerup', onUp)
+                            el.addEventListener('pointercancel', onUp)
+                          }}
+                          className={`absolute top-1/2 -translate-y-1/2 w-6 h-9 bg-cyan-400 border-2 border-cyan-300 rounded-md shadow-lg cursor-grab active:cursor-grabbing z-20 touch-none ${
+                            draggingHandle === 'min' ? 'ring-2 ring-white' : ''
+                          }`}
+                          style={{ left: `calc(${(lowerV / sliderMax) * 100}% - 12px)` }}
+                          title="Min (ลากปุ่มเท่านั้น)"
+                        />
+                        {/* ปุ่ม Max – ลากจากปุ่มเท่านั้น (คลิกที่หลอดไม่ขยับ) */}
+                        <div
+                          role="slider"
+                          aria-label="Max price"
+                          aria-valuenow={effectiveTickUpper}
+                          tabIndex={0}
+                          onPointerDown={(e) => {
+                            e.preventDefault()
+                            if (draggingHandle) return
+                            const el = e.currentTarget as HTMLElement
+                            const params = { lo, hi, span, applyTicks, otherTick: effectiveTickLower }
+                            rangeParamsRef.current = params
+                            setDraggingHandle('max')
+                            el.setPointerCapture(e.pointerId)
+                            const onMove = (e2: PointerEvent) => {
+                              const track = rangeTrackRef.current
+                              if (!track || !rangeParamsRef.current) return
+                              const rect = track.getBoundingClientRect()
+                              let fraction = (e2.clientX - rect.left) / rect.width
+                              fraction = clamp(fraction, 0, 1)
+                              const rawTick = Math.round(lo + fraction * span)
+                              rangeParamsRef.current.applyTicks(rangeParamsRef.current.otherTick, rawTick)
+                            }
+                            const onUp = () => {
+                              el.releasePointerCapture(e.pointerId)
+                              el.removeEventListener('pointermove', onMove)
+                              el.removeEventListener('pointerup', onUp)
+                              el.removeEventListener('pointercancel', onUp)
+                              setDraggingHandle(null)
+                            }
+                            el.addEventListener('pointermove', onMove)
+                            el.addEventListener('pointerup', onUp)
+                            el.addEventListener('pointercancel', onUp)
+                          }}
+                          className={`absolute top-1/2 -translate-y-1/2 w-6 h-9 bg-cyan-400 border-2 border-cyan-300 rounded-md shadow-lg cursor-grab active:cursor-grabbing z-20 touch-none ${
+                            draggingHandle === 'max' ? 'ring-2 ring-white' : ''
+                          }`}
+                          style={{ left: `calc(${(upperV / sliderMax) * 100}% - 12px)` }}
+                          title="Max (ลากปุ่มเท่านั้น)"
+                        />
+
+                        <div className="absolute left-0 top-1 text-[5px] text-slate-500 pointer-events-none" style={pixelFont}>
+                          {lo}
+                        </div>
+                        <div className="absolute right-0 top-1 text-[5px] text-slate-500 pointer-events-none" style={pixelFont}>
+                          {hi}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                <div className="grid grid-cols-2 gap-1 mt-2">
+                  {/* Min price card */}
+                  <div className="bg-slate-900/60 border border-slate-700 rounded p-2">
+                    <p className="text-slate-500 text-[6px] mb-1" style={pixelFont}>
+                      Min price ({priceLabel})
+                    </p>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={minPriceInput}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        setMinPriceInput(v)
+                        const n = parsePlain(v)
+                        if (Number.isFinite(n) && n > 0) {
+                          const tl = displayPriceToTick(n, quoteToken1PerToken0)
+                          applyTicks(tl, effectiveTickUpper)
+                        }
+                      }}
+                      className="w-full bg-transparent border-none outline-none text-white text-[10px]"
+                      style={pixelFont}
+                    />
+                    <p className="text-slate-400 text-[5px] mt-0.5" style={pixelFont}>
+                      {Number(minPct) >= 0 ? '+' : ''}
+                      {minPct}% from current
+                    </p>
+                  </div>
+
+                  {/* Max price card */}
+                  <div className="bg-slate-900/60 border border-slate-700 rounded p-2">
+                    <p className="text-slate-500 text-[6px] mb-1" style={pixelFont}>
+                      Max price ({priceLabel})
+                    </p>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={maxPriceInput}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        setMaxPriceInput(v)
+                        const n = parsePlain(v)
+                        if (Number.isFinite(n) && n > 0) {
+                          const tu = displayPriceToTick(n, quoteToken1PerToken0)
+                          applyTicks(effectiveTickLower, tu)
+                        }
+                      }}
+                      className="w-full bg-transparent border-none outline-none text-white text-[10px]"
+                      style={pixelFont}
+                    />
+                    <p className="text-slate-400 text-[5px] mt-0.5" style={pixelFont}>
+                      {Number(maxPct) >= 0 ? '+' : ''}
+                      {maxPct}% from current
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-slate-500 text-[5px] mt-1" style={pixelFont}>
+                  Tips: pick a strategy, then fine-tune Min/Max or drag handles. Prices shown as {priceLabel}.
+                </p>
               </div>
-              <p className="text-slate-500 text-[5px]" style={pixelFont}>
-                Narrower range = higher fees when price stays in range; stops earning if price moves out.
-              </p>
             </>
           )}
         </div>
