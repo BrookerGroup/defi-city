@@ -7,7 +7,7 @@ import CoreContractsModule from "./CoreContracts";
  * Deploys integration adapters and mock DeFi protocols:
  * - Mock tokens (USDC, WETH)
  * - Mock DeFi protocols (Aave, Megapot, Aerodrome)
- * - Building adapters (Bank, Lottery, Shop)
+ * - Building adapters (Bank, Lottery, Shop, Vault, Staking)
  *
  * Depends on CoreContractsModule
  */
@@ -71,6 +71,31 @@ const IntegrationContractsModule = buildModule("IntegrationContracts", (m) => {
     mockAerodromeRouter,
   ]);
 
+  // Deploy Morpho Vault (Mock ERC4626)
+  const mockMorphoVault = m.contract("MockMorphoVault", [mockUSDC]);
+
+  const vaultAdapter = m.contract("VaultAdapter", [
+    defiCityCore,
+    mockMorphoVault,
+    mockUSDC,
+    treasuryAddress,
+  ]);
+
+  // Deploy Pendle (Mock Router + PT + Market)
+  // Maturity: 6 months from now (in seconds)
+  const sixMonthsFromNow = BigInt(Math.floor(Date.now() / 1000) + 180 * 24 * 60 * 60);
+  const mockPendleRouter = m.contract("MockPendleRouter", [
+    mockUSDC,
+    sixMonthsFromNow,
+  ]);
+
+  const stakingAdapter = m.contract("StakingAdapter", [
+    defiCityCore,
+    mockPendleRouter,
+    mockUSDC,
+    treasuryAddress,
+  ]);
+
   // Register adapters in BuildingRegistry
   m.call(buildingRegistry, "registerAdapter", [
     "bank",
@@ -87,6 +112,16 @@ const IntegrationContractsModule = buildModule("IntegrationContracts", (m) => {
     shopAdapter,
   ], { id: "RegisterShopAdapter" });
 
+  m.call(buildingRegistry, "registerAdapter", [
+    "vault",
+    vaultAdapter,
+  ], { id: "RegisterVaultAdapter" });
+
+  m.call(buildingRegistry, "registerAdapter", [
+    "staking",
+    stakingAdapter,
+  ], { id: "RegisterStakingAdapter" });
+
   return {
     // Tokens
     mockUSDC,
@@ -100,6 +135,12 @@ const IntegrationContractsModule = buildModule("IntegrationContracts", (m) => {
     bankAdapter,
     lotteryAdapter,
     shopAdapter,
+    // Morpho Vault
+    mockMorphoVault,
+    vaultAdapter,
+    // Pendle Staking
+    mockPendleRouter,
+    stakingAdapter,
   };
 });
 
