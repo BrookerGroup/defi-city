@@ -55,78 +55,58 @@ export function GameHUD({
 
   return (
     <div
-      className="pointer-events-auto flex items-center gap-2 px-3 py-2 bg-slate-900/85 backdrop-blur-sm border-b-2 border-slate-700/80"
+      className="pointer-events-auto flex items-center justify-between gap-4 px-4 py-2.5 bg-slate-900/90 backdrop-blur-sm border-b-2 border-slate-700"
       style={pixelFont}
     >
-      {/* Logo */}
+      {/* Left: Logo */}
       <h1
-        className="text-amber-400 text-xs mr-3 flex-shrink-0"
-        style={{ textShadow: '2px 2px 0px #92400E' }}
+        className="text-white text-sm flex-shrink-0"
+        style={{ textShadow: '2px 2px 0px #1e293b' }}
       >
         DEFICITY
       </h1>
 
-      {/* Wallet Address */}
-      <div className="bg-slate-800/60 border border-slate-700 px-2 py-1 flex-shrink-0">
-        <span className="text-cyan-400 text-[7px]">{shortAddress}</span>
-      </div>
+      {/* Right: DEPOSIT (primary) + Wallet + VAULT + HISTORY + EXIT */}
+      <div className="flex items-center gap-3">
+        {/* DEPOSIT - primary blue button (opens Vault) */}
+        {hasSmartWallet && (
+          <button
+            onClick={onToggleVault}
+            className={`px-4 py-1.5 text-[8px] font-bold border-2 flex-shrink-0 transition-colors ${
+              showVault
+                ? 'bg-blue-600 border-blue-400 text-white'
+                : 'bg-blue-600 border-blue-400 text-white hover:bg-blue-500 hover:border-blue-300'
+            }`}
+          >
+            DEPOSIT
+          </button>
+        )}
 
-      {/* Wallet Balances */}
-      <div className="flex gap-1.5 text-[6px] flex-wrap flex-1 min-w-0">
-        <span className="text-green-400">ETH:{parseFloat(ethBalance).toFixed(3)}</span>
-        <span className="text-green-400">USDC:{parseFloat(usdcBalance).toFixed(0)}</span>
-        <span className="text-green-400">USDT:{parseFloat(usdtBalance).toFixed(0)}</span>
-        <span className="text-green-400">WBTC:{parseFloat(wbtcBalance).toFixed(4)}</span>
-        <span className="text-green-400">LINK:{parseFloat(linkBalance).toFixed(0)}</span>
-      </div>
-
-      {/* Vault Balances (if has smart wallet) */}
-      {hasSmartWallet && (
-        <div className="flex gap-1.5 text-[6px] flex-wrap min-w-0 border-l border-slate-700 pl-2">
-          <span className="text-amber-400 text-[5px] mr-1">VAULT:</span>
-          <span className="text-amber-400">E:{parseFloat(smartWalletEthBalance).toFixed(3)}</span>
-          <span className="text-amber-400">U:{parseFloat(smartWalletUsdcBalance).toFixed(0)}</span>
-          <span className="text-amber-400">T:{parseFloat(smartWalletUsdtBalance).toFixed(0)}</span>
-          <span className="text-amber-400">W:{parseFloat(smartWalletWbtcBalance).toFixed(4)}</span>
-          <span className="text-amber-400">L:{parseFloat(smartWalletLinkBalance).toFixed(0)}</span>
+        {/* Wallet Address - white box */}
+        <div className="bg-white/95 border border-slate-300 px-3 py-1.5 flex-shrink-0">
+          <span className="text-slate-800 text-[7px] font-mono">{shortAddress || '—'}</span>
         </div>
-      )}
 
-      {/* Vault Toggle */}
-      {hasSmartWallet && (
+        {/* HISTORY */}
+        {hasSmartWallet && (
+          <button
+            onClick={onToggleHistory}
+            className={`px-2 py-1 text-[6px] border border-slate-600 flex-shrink-0 transition-colors ${
+              showHistory ? 'bg-slate-700 text-green-300' : 'bg-slate-800 text-slate-400 hover:text-white'
+            }`}
+          >
+            HISTORY
+          </button>
+        )}
+
+        {/* EXIT */}
         <button
-          onClick={onToggleVault}
-          className={`px-2 py-1 text-[7px] border-2 flex-shrink-0 transition-colors ${
-            showVault
-              ? 'bg-purple-600 border-purple-400 text-white'
-              : 'bg-slate-800 border-slate-600 text-slate-400 hover:border-purple-400'
-          }`}
+          onClick={onLogout}
+          className="px-2 py-1 bg-red-600 border-2 border-red-500 text-white text-[6px] hover:bg-red-500 flex-shrink-0"
         >
-          VAULT
+          EXIT
         </button>
-      )}
-
-      {/* History Toggle */}
-      {hasSmartWallet && (
-        <button
-          onClick={onToggleHistory}
-          className={`px-2 py-1 text-[7px] border-2 flex-shrink-0 transition-colors ${
-            showHistory
-              ? 'bg-green-600 border-green-400 text-white'
-              : 'bg-slate-800 border-slate-600 text-slate-400 hover:border-green-400'
-          }`}
-        >
-          HISTORY
-        </button>
-      )}
-
-      {/* Exit */}
-      <button
-        onClick={onLogout}
-        className="px-2 py-1 bg-red-600 border-2 border-red-400 text-white text-[7px] hover:bg-red-500 flex-shrink-0 transition-colors"
-      >
-        EXIT
-      </button>
+      </div>
     </div>
   )
 }

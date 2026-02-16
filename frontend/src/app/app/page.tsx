@@ -11,10 +11,12 @@ import {
   useCityBuildings,
   useMoveBuilding,
   useUniswapSwap,
+  useAavePosition,
   TokenType,
 } from "@/hooks";
 import type { Building } from "@/hooks/useCityBuildings";
 import { GameCanvas } from "@/components/game/GameCanvas";
+import { PixelBackground } from "@/components/landing/pixel";
 import { useGameState } from "@/components/game/useGameState";
 import { GameHUD } from "@/components/game/ui/GameHUD";
 import { BuildPanel } from "@/components/game/ui/BuildPanel";
@@ -138,6 +140,9 @@ export default function AppPage() {
     refresh: refreshBuildings,
     optimisticMove,
   } = useCityBuildings(address, smartWallet);
+
+  // Aave position (supplied, borrowed, health) for BottomBar stats
+  const { position: aavePosition } = useAavePosition(smartWallet ?? null);
 
   const [selectedCoords, setSelectedCoords] = useState<{
     x: number;
@@ -429,8 +434,12 @@ export default function AppPage() {
 
   return (
     <div className="fixed inset-0 overflow-hidden">
-      {/* PixiJS Canvas - Full screen */}
-      <GameCanvas onReady={initWorld} />
+      {/* Pixel art forest background - behind canvas */}
+      <PixelBackground />
+      {/* PixiJS Canvas - transparent bg so PixelBackground shows through */}
+      <div className="absolute inset-0 z-[1]">
+        <GameCanvas onReady={initWorld} />
+      </div>
 
       {/* Game loading overlay */}
       {gameLoading && (
@@ -564,10 +573,14 @@ export default function AppPage() {
           />
         </div>
 
-        {/* Bottom: Status bar */}
+        {/* Bottom: Status bar (design: BUY BUILDING, LOTTERY, stats, LP) */}
         <BottomBar
           selectedCoords={selectedCoords}
+          selectedBuilding={selectedBuilding}
           buildingCount={buildings.filter((b) => b.type !== "townhall").length}
+          suppliedUSD={aavePosition?.totalSuppliedUSD ?? 0}
+          borrowedUSD={aavePosition?.totalBorrowedUSD ?? 0}
+          healthFactor={aavePosition?.healthFactor ?? Infinity}
           onResetCamera={resetCamera}
           onZoomIn={zoomIn}
           onZoomOut={zoomOut}
