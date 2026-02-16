@@ -36,7 +36,8 @@ export const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
       const app = new Application()
 
       await app.init({
-        background: 0x0f172a, // slate-900
+        background: 0x2d5a3d,
+        backgroundAlpha: 0, // transparent - PixelBackground shows through
         resizeTo: containerRef.current,
         antialias: false, // pixel art
         resolution: window.devicePixelRatio || 1,

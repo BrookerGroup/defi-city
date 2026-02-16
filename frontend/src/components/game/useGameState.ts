@@ -6,8 +6,8 @@
  */
 
 import { useRef, useCallback, useEffect, useState } from 'react'
-import { Application } from 'pixi.js'
-import { screenToIso } from '@/lib/isometric'
+import { Application, Assets, Sprite } from 'pixi.js'
+import { screenToIso, isoToScreen, TILE_WIDTH, TILE_HEIGHT } from '@/lib/isometric'
 import { GRID_SIZE } from '@/lib/constants'
 import { GameWorld } from './GameWorld'
 import { IsometricGrid } from './IsometricGrid'
@@ -42,6 +42,8 @@ export function useGameState({
   onSelectTileRef.current = onSelectTile
   const onMoveBuildingRef = useRef(onMoveBuilding)
   onMoveBuildingRef.current = onMoveBuilding
+  const buildingsRef = useRef(buildings)
+  buildingsRef.current = buildings
 
   /** Initialize PixiJS world when Application is ready */
   const initWorld = useCallback(async (app: Application) => {
@@ -53,17 +55,34 @@ export function useGameState({
       const world = new GameWorld(app)
       worldRef.current = world
 
-      // Set green background
-      app.renderer.background.color = 0x4a7c2e
+      // Load and add background image (fantasy landscape)
+      try {
+        const texture = await Assets.load('/assets/game-background.png')
+        const bgSprite = new Sprite(texture)
+        const center = isoToScreen(GRID_SIZE / 2 - 0.5, GRID_SIZE / 2 - 0.5)
+        bgSprite.anchor.set(0.5, 0.5)
+        bgSprite.x = center.x
+        bgSprite.y = center.y + TILE_HEIGHT / 2
+        const gridWidth = GRID_SIZE * TILE_WIDTH
+        const gridHeight = GRID_SIZE * TILE_HEIGHT
+        const scale = Math.max(gridWidth / texture.width, gridHeight / texture.height) * 1.5
+        bgSprite.scale.set(scale)
+        bgSprite.zIndex = -1000
+        world.container.addChildAt(bgSprite, 0)
+      } catch (e) {
+        console.warn('[GameState] Could not load background image:', e)
+      }
 
       // Create isometric grid
       const grid = new IsometricGrid()
       grid.build()
+      grid.container.zIndex = 0
       world.container.addChild(grid.container)
       gridRef.current = grid
 
-      // Create building renderer
+      // Create building renderer (above grid)
       const buildingRenderer = new BuildingRenderer()
+      buildingRenderer.container.zIndex = 100
       world.container.addChild(buildingRenderer.container)
       buildingRendererRef.current = buildingRenderer
 
@@ -74,8 +93,13 @@ export function useGameState({
         onHoverTile: (col, row) => setHoveredTile({ col, row }),
         onClearHover: () => setHoveredTile(null),
       })
+      interaction.overlayContainer.zIndex = 1000
       world.container.addChild(interaction.overlayContainer)
       interactionRef.current = interaction
+
+      // Sync buildings immediately (in case useEffect ran before refs were ready)
+      buildingRendererRef.current.syncBuildings(buildingsRef.current)
+      interactionRef.current.setBuildings(buildingsRef.current)
 
       // Wire up world pointer events to interaction
       world.onPointerDownOnWorld = (wx, wy, e) => interaction.onPointerDown(wx, wy, e)
