@@ -54,8 +54,8 @@ const IntegrationContractsModule = buildModule("IntegrationContracts", (m) => {
   // Deploy Building Adapters with correct parameters
   const bankAdapter = m.contract("BankAdapter", [
     defiCityCore,
-    buildingRegistry,
     mockAavePool,
+    treasuryAddress,
   ]);
 
   const lotteryAdapter = m.contract("LotteryAdapter", [
@@ -67,8 +67,8 @@ const IntegrationContractsModule = buildModule("IntegrationContracts", (m) => {
 
   const shopAdapter = m.contract("ShopAdapter", [
     defiCityCore,
-    buildingRegistry,
     mockAerodromeRouter,
+    treasuryAddress,
   ]);
 
   // Deploy Morpho Vault (Mock ERC4626)

@@ -105,7 +105,7 @@ contract VaultAdapter is IBuildingAdapter, Ownable {
 
     function preparePlace(
         address user,
-        address /* userSmartWallet */,
+        address userSmartWallet,
         bytes calldata params
     ) external view override returns (
         address[] memory targets,
@@ -128,13 +128,13 @@ contract VaultAdapter is IBuildingAdapter, Ownable {
             p.amount
         );
 
-        // 2. Deposit into ERC4626 vault (shares go to msg.sender = SmartWallet)
+        // 2. Deposit into ERC4626 vault (shares go to SmartWallet)
         targets[1] = morphoVault;
         values[1] = 0;
         datas[1] = abi.encodeWithSelector(
             IERC4626.deposit.selector,
             p.amount,
-            user
+            userSmartWallet
         );
 
         // 3. Record in Core
@@ -157,7 +157,7 @@ contract VaultAdapter is IBuildingAdapter, Ownable {
 
     function prepareHarvest(
         address user,
-        address /* userSmartWallet */,
+        address userSmartWallet,
         uint256 buildingId,
         bytes calldata params
     ) external view override returns (
@@ -179,8 +179,8 @@ contract VaultAdapter is IBuildingAdapter, Ownable {
         datas[0] = abi.encodeWithSelector(
             IERC4626.redeem.selector,
             p.sharesToRedeem,
-            user,      // receiver
-            user       // owner of shares
+            userSmartWallet,  // receiver
+            userSmartWallet   // owner of shares
         );
 
         // 2. Record harvest
@@ -198,7 +198,7 @@ contract VaultAdapter is IBuildingAdapter, Ownable {
 
     function prepareDemolish(
         address user,
-        address /* userSmartWallet */,
+        address userSmartWallet,
         uint256 buildingId,
         bytes calldata params
     ) external view override returns (
@@ -222,8 +222,8 @@ contract VaultAdapter is IBuildingAdapter, Ownable {
         datas[0] = abi.encodeWithSelector(
             IERC4626.redeem.selector,
             p.shares,
-            user,      // receiver
-            user       // owner
+            userSmartWallet,  // receiver
+            userSmartWallet   // owner
         );
 
         // 2. Record demolition
